@@ -91,7 +91,6 @@ struct Run {
     let repository = try session(ofProjectAt: path)
     return try repository.lock.holding(repository.folder) { () throws -> Envelope in
       let before = try driver.readState()
-      let change = try changeMadeByHand(before: before, in: repository)
       let done = outcome(of: command)
       let after = try? driver.readState()
       let finished = now()
@@ -102,7 +101,7 @@ struct Run {
       let answer = envelope(
         of: done,
         meta: AnswerMeta.run(
-          version: version, session: repository.session.id, step: nil, externalChange: change,
+          version: version, session: repository.session.id, step: nil, externalChange: nil,
           from: started, to: finished))
       let step = Step(
         seq: repository.nextSequence(),
@@ -116,6 +115,7 @@ struct Run {
         stateBefore: CanonicalJSON.sha256(of: before),
         stateAfter: after.map { CanonicalJSON.sha256(of: $0) })
       let commit = try repository.writeUnderTheLock(step, state: after)
+      let change = try changeMadeByHand(before: before, in: repository)
 
       return envelope(
         of: done,
