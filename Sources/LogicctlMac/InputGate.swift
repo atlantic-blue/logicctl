@@ -81,7 +81,10 @@ public struct InputGate {
     }
 
     switch request {
-    case .click(let point, _):
+    case .click(let point, let target):
+      guard let found = readElementAtPoint(point), CFEqual(found, target) else {
+        throw Refusal.theElementAtThePointIsNotTheTarget
+      }
       sendOne(.mouseDown(point))
       sendOne(.mouseUp(point))
     case .key(let code, let flags, let focus):
