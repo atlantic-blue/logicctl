@@ -7,6 +7,11 @@ public protocol LogicDriver {
   /// The state of the project Logic has open.
   func readState() throws -> State
 
+  /// Where the project that Logic has open sits, or nothing when no project is open or the
+  /// project was never saved. A session is found by this path, so a driver that answers the path
+  /// of another project writes the work of one project into the history of another.
+  func projectPath() throws -> String?
+
   /// The process id of Logic. A command reads it before an action and again after it, because a
   /// Logic that went away between the two lost the work of the command.
   func processID() throws -> Int32

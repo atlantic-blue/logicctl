@@ -210,10 +210,31 @@ extension SessionRepository {
 
   /// Writes one step as one commit, and answers the id of that commit.
   ///
+  /// This writer takes the lock of the session itself, for a writer that holds none of its own.
+  @discardableResult
+  public func write(
+    _ step: Step,
+    state: State?,
+    screenshot: Data? = nil,
+    inputs: [InputFile] = []
+  ) throws -> String {
+    try lock.holding(folder) { () throws -> String in
+      try writeUnderTheLock(step, state: state, screenshot: screenshot, inputs: inputs)
+    }
+  }
+
+  /// Writes one step as one commit while the caller holds the lock of this session, and answers
+  /// the id of that commit.
+  ///
+  /// The run of a command holds the lock from the read of the state to the commit of the step, so
+  /// that the change a person made is written before the command that follows it. This writer
+  /// must not take the lock again: two descriptors of one lock file do not share a lock, so the
+  /// second one would wait for the run itself and then refuse.
+  ///
   /// The record of the picture and of the inputs is taken from the files that are written here, so
   /// `step.json` cannot claim a file the commit does not carry.
   @discardableResult
-  public func write(
+  public func writeUnderTheLock(
     _ step: Step,
     state: State?,
     screenshot: Data? = nil,
@@ -224,32 +245,30 @@ extension SessionRepository {
     recorded.screenshot = screenshot.map { _ in SessionRepository.screenshotName }
     let stepFolder = "steps/" + SessionRepository.stepFolderName(ofSequence: recorded.seq)
 
-    return try lock.holding(folder) { () throws -> String in
-      var staged: [String] = []
-      if let state {
-        try writeText(CanonicalJSON.text(of: state, indent: 2), to: "state.json")
-        staged.append("state.json")
-      }
-      try make(stepFolder)
-      try writeText(CanonicalJSON.text(of: recorded.json, indent: 2), to: stepFolder + "/step.json")
-      staged.append(stepFolder + "/step.json")
-      if let screenshot {
-        let at = stepFolder + "/" + SessionRepository.screenshotName
-        try writeData(screenshot, to: at)
-        staged.append(at)
-      }
-      if !inputs.isEmpty {
-        try make(stepFolder + "/inputs")
-      }
-      for file in inputs {
-        let at = stepFolder + "/inputs/" + file.name
-        try writeData(file.contents, to: at)
-        staged.append(at)
-      }
-      try git.run(["add", "--"] + staged, in: folder)
-      try commit(subject: recorded.subject, trailers: recorded.trailers)
-      return try head()
+    var staged: [String] = []
+    if let state {
+      try writeText(CanonicalJSON.text(of: state, indent: 2), to: "state.json")
+      staged.append("state.json")
     }
+    try make(stepFolder)
+    try writeText(CanonicalJSON.text(of: recorded.json, indent: 2), to: stepFolder + "/step.json")
+    staged.append(stepFolder + "/step.json")
+    if let screenshot {
+      let at = stepFolder + "/" + SessionRepository.screenshotName
+      try writeData(screenshot, to: at)
+      staged.append(at)
+    }
+    if !inputs.isEmpty {
+      try make(stepFolder + "/inputs")
+    }
+    for file in inputs {
+      let at = stepFolder + "/inputs/" + file.name
+      try writeData(file.contents, to: at)
+      staged.append(at)
+    }
+    try git.run(["add", "--"] + staged, in: folder)
+    try commit(subject: recorded.subject, trailers: recorded.trailers)
+    return try head()
   }
 
   /// Makes one folder inside the repository.

@@ -1,3 +1,4 @@
+import Foundation
 import LogicctlCore
 
 /// One behaviour every `LogicDriver` must show, whichever Logic sits behind it.
@@ -43,7 +44,7 @@ public struct ConformanceFailure: Error, CustomStringConvertible, Sendable {
 /// steps add one case each.
 public enum Conformance {
   /// Every case, in the order a live run reads them.
-  public static var cases: [ConformanceCase] { [readsBackItsState] }
+  public static var cases: [ConformanceCase] { [readsBackItsState, namesTheProjectItHasOpen] }
 
   /// A driver answers the project that is open. Every command reads Logic through this one call,
   /// so a driver that answers something else lets a command act on a project nobody has.
@@ -52,6 +53,22 @@ public enum Conformance {
       let read = try driver.readState()
       guard read == state else {
         throw ConformanceFailure("the driver answered a state other than the one it holds")
+      }
+    }
+  }
+
+  /// A driver answers where the project that is open sits, or nothing when the project was never
+  /// saved. Every step is written into the session that carries that path, so a driver that names
+  /// another project writes the work of this one into the history of that one.
+  public static var namesTheProjectItHasOpen: ConformanceCase {
+    ConformanceCase(name: "names the project it has open") { driver, state in
+      guard let path = try driver.projectPath() else {
+        return
+      }
+      let named = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+      guard named == state.project.name else {
+        throw ConformanceFailure(
+          "the driver answered \(path), and the project that is open is \(state.project.name)")
       }
     }
   }
