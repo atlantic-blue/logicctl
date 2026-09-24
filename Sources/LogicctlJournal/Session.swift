@@ -220,6 +220,16 @@ public struct SessionRepository: Sendable {
     root.appendingPathComponent("sessions")
   }
 
+  /// The folder of one session under one root.
+  ///
+  /// The folder is named a folder here, because a path that is built by asking the file system
+  /// what is already on disk answers one way before the folder exists and another way after it,
+  /// and a session found today must be the same address as the session started yesterday.
+  public static func sessionFolder(of session: Session, underRoot root: URL) -> URL {
+    sessionsFolder(underRoot: root)
+      .appendingPathComponent(session.folderName, isDirectory: true)
+  }
+
   /// The name of the folder of one step: the sequence as six digits.
   public static func stepFolderName(ofSequence sequence: Int) -> String {
     String(format: "%06d", sequence)
@@ -237,7 +247,7 @@ public struct SessionRepository: Sendable {
     git: Git = Git(),
     lock: Lock = Lock()
   ) throws -> SessionRepository {
-    let folder = sessionsFolder(underRoot: root).appendingPathComponent(session.folderName)
+    let folder = sessionFolder(of: session, underRoot: root)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let repository = SessionRepository(folder: folder, session: session, git: git, lock: lock)
 
