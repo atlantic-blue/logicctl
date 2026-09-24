@@ -7,31 +7,31 @@ import LogicctlCore
 /// takes a track, and a journal reads the same as the documentation. Flags are long and in kebab
 /// case, and every index counts from 1, the way Logic counts.
 
-extension Velocity: @retroactive ExpressibleByArgument {
+extension Velocity: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(text: argument)
   }
 }
 
-extension AutomationValue: @retroactive ExpressibleByArgument {
+extension AutomationValue: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(text: argument)
   }
 }
 
-extension QuantizeStrength: @retroactive ExpressibleByArgument {
+extension QuantizeStrength: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(text: argument)
   }
 }
 
-extension QuantizeValue: @retroactive ExpressibleByArgument {
+extension QuantizeValue: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(rawValue: argument)
   }
 }
 
-extension DurationValue: @retroactive ExpressibleByArgument {
+extension DurationValue: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(text: argument)
   }
@@ -42,7 +42,7 @@ extension DurationValue: @retroactive ExpressibleByArgument {
   }
 }
 
-extension OneBasedIndex: @retroactive ExpressibleByArgument {
+extension OneBasedIndex: ExpressibleByArgument {
   public init?(argument: String) {
     self.init(text: argument)
   }
