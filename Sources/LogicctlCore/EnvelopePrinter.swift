@@ -1,12 +1,20 @@
 import Foundation
 
 /// How the JSON of an envelope is laid out.
-public enum OutputFormat {
+public enum OutputFormat: Sendable {
   /// One line with no white space, which is what an agent reads.
   case compact
 
   /// Two spaces for each level, which is what `--pretty` asks for.
   case pretty
+
+  /// The indent the canonical writer lays the envelope out by.
+  var indent: Int {
+    switch self {
+    case .compact: return 0
+    case .pretty: return 2
+    }
+  }
 }
 
 /// Prints the envelope of a command.
@@ -35,7 +43,7 @@ public struct EnvelopePrinter {
   /// Prints one envelope and answers with the number the process exits with.
   @discardableResult
   public func write(_ envelope: Envelope) -> Int32 {
-    standardOutput(JSONText.of(envelope.json, format: format) + "\n")
+    standardOutput(CanonicalJSON.text(of: envelope.json, indent: format.indent) + "\n")
     if let failure = envelope.error {
       standardError("logicctl: \(failure.code.rawValue): \(failure.message)\n")
     }
@@ -50,72 +58,5 @@ public struct EnvelopePrinter {
   /// Sends text to the standard error of the process.
   public static func writeToStandardError(_ text: String) {
     FileHandle.standardError.write(Data(text.utf8))
-  }
-}
-
-/// Turns a JSON value into the exact text that goes out.
-///
-/// Keys are sorted, so one envelope always prints the same bytes, whatever order a command built
-/// its answer in.
-enum JSONText {
-  static func of(_ value: JSONValue, format: OutputFormat) -> String {
-    switch format {
-    case .compact: return compact(value)
-    case .pretty: return pretty(value, depth: 0)
-    }
-  }
-
-  private static func compact(_ value: JSONValue) -> String {
-    switch value {
-    case .null: return "null"
-    case .bool(let flag): return flag ? "true" : "false"
-    case .int(let number): return String(number)
-    case .double(let number): return number.isFinite ? String(number) : "null"
-    case .string(let text): return quoted(text)
-    case .array(let items): return "[" + items.map(compact).joined(separator: ",") + "]"
-    case .object(let fields):
-      let pairs = fields.keys.sorted().map { key in
-        quoted(key) + ":" + compact(fields[key] ?? .null)
-      }
-      return "{" + pairs.joined(separator: ",") + "}"
-    }
-  }
-
-  private static func pretty(_ value: JSONValue, depth: Int) -> String {
-    let inside = String(repeating: "  ", count: depth + 1)
-    let outside = String(repeating: "  ", count: depth)
-    switch value {
-    case .array(let items):
-      if items.isEmpty { return "[]" }
-      let lines = items.map { inside + pretty($0, depth: depth + 1) }
-      return "[\n" + lines.joined(separator: ",\n") + "\n" + outside + "]"
-    case .object(let fields):
-      if fields.isEmpty { return "{}" }
-      let lines = fields.keys.sorted().map { key in
-        inside + quoted(key) + ": " + pretty(fields[key] ?? .null, depth: depth + 1)
-      }
-      return "{\n" + lines.joined(separator: ",\n") + "\n" + outside + "}"
-    default: return compact(value)
-    }
-  }
-
-  private static func quoted(_ text: String) -> String {
-    var out = "\""
-    for scalar in text.unicodeScalars {
-      switch scalar {
-      case "\"": out += "\\\""
-      case "\\": out += "\\\\"
-      case "\n": out += "\\n"
-      case "\r": out += "\\r"
-      case "\t": out += "\\t"
-      default:
-        if scalar.value < 0x20 {
-          out += String(format: "\\u%04x", scalar.value)
-        } else {
-          out.unicodeScalars.append(scalar)
-        }
-      }
-    }
-    return out + "\""
   }
 }

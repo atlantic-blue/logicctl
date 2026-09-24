@@ -1,18 +1,6 @@
 import Foundation
 
-/// One value inside the JSON that logicctl prints.
-///
-/// A command builds its answer from these, and the printer decides how they are written. So a
-/// command never writes JSON by hand, and every command prints the same way.
-public enum JSONValue: Equatable {
-  case null
-  case bool(Bool)
-  case int(Int)
-  case double(Double)
-  case string(String)
-  case array([JSONValue])
-  case object([String: JSONValue])
-
+extension JSONValue {
   /// A moment, written the one way the tool writes a time: RFC 3339 in UTC.
   public static func time(_ moment: Date) -> JSONValue {
     .string(moment.formatted(.iso8601))
@@ -20,7 +8,7 @@ public enum JSONValue: Equatable {
 }
 
 /// What went wrong, for the person and for the agent that read it.
-public struct Failure: Equatable {
+public struct Failure: Sendable, Equatable {
   /// The code a caller reads, and the number the process exits with.
   public let code: ErrorCode
 
@@ -50,7 +38,7 @@ public struct Failure: Equatable {
 /// What every command says about itself, beside its answer.
 ///
 /// The fields are here from this step. The run of a command fills them.
-public struct Meta: Equatable {
+public struct Meta: Sendable, Equatable {
   /// The version of logicctl that answered.
   public let version: String
 
@@ -87,7 +75,7 @@ public struct Meta: Equatable {
       "session": session.map(JSONValue.string) ?? .null,
       "step": step.map(JSONValue.string) ?? .null,
       "externalChange": externalChange.map(JSONValue.string) ?? .null,
-      "durationMs": .int(durationMs),
+      "durationMs": .number(Double(durationMs)),
     ])
   }
 }
@@ -96,7 +84,7 @@ public struct Meta: Equatable {
 ///
 /// There is no way to build one that carries both an answer and a failure: a failure has no data,
 /// so a caller that reads `error` knows `data` says nothing.
-public struct Envelope: Equatable {
+public struct Envelope: Sendable, Equatable {
   /// What the command answered, or null when it failed.
   public let data: JSONValue?
 

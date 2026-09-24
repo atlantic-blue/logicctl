@@ -3,7 +3,7 @@
 /// `design-system.json` in the repository root holds the same list, and a test refuses any
 /// difference between the two. A number belongs to one code for good: a code that is retired keeps
 /// its number, so a script that reads an exit code never sees its meaning move.
-public enum ErrorCode: String, CaseIterable {
+public enum ErrorCode: String, CaseIterable, Sendable {
   case invalidArgument = "invalid_argument"
   case permissionMissing = "permission_missing"
   case logicNotRunning = "logic_not_running"

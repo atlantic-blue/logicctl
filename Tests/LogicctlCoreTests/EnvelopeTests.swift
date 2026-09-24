@@ -80,7 +80,7 @@ private final class Recorded {
   let missing = Failure(
     code: .trackNotFound,
     message: "Track 9 is not in this project.",
-    details: .object(["index": .int(9)]))
+    details: .object(["index": .number(9)]))
   let exitCode = failed.printer().write(.failure(missing, meta: Meta(version: "0.1.0")))
 
   #expect(exitCode == 10, "the exit code of a failure is the one its code carries")
