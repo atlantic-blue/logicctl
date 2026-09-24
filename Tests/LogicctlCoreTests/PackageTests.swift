@@ -10,7 +10,9 @@ import Testing
 /// part of itself: the core, the journal, the macOS layer, the test support and the command.
 @Test func thePackageBuilds() {
   #expect(Logicctl.configuration.commandName == "logicctl")
-  #expect(Logicctl.modules == ["LogicctlCore", "LogicctlJournal", "LogicctlMac"])
+  #expect(LogicctlCore.moduleName == "LogicctlCore")
+  #expect(LogicctlJournal.moduleName == "LogicctlJournal")
+  #expect(LogicctlMac.moduleName == "LogicctlMac")
   #expect(LogicctlTesting.moduleName == "LogicctlTesting")
   #expect(LogicctlJournal.coreModuleName == LogicctlCore.moduleName)
   #expect(LogicctlMac.coreModuleName == LogicctlCore.moduleName)
