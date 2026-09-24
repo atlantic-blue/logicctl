@@ -38,7 +38,7 @@ public enum ErrorCode: String, CaseIterable {
     case .timeout: return 6
     case .confirmRequired: return 7
     case .unsavedChanges: return 8
-    case .pathExists: return 9
+    case .pathExists: return 99
     case .trackNotFound: return 10
     case .pluginNotFound: return 12
     case .midiUnavailable: return 13
