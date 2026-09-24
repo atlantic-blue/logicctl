@@ -33,8 +33,15 @@ export function countFromLog(log: string): number | null {
   return count;
 }
 
+/// The run ids a listing carries. An answer that is not a listing carries none, because gh
+/// writes a refusal as plain text on the same channel.
 export function runIdsFrom(listing: string): number[] {
-  const rows: unknown = JSON.parse(listing === "" ? "[]" : listing);
+  let rows: unknown = [];
+  try {
+    rows = JSON.parse(listing.trim() === "" ? "[]" : listing);
+  } catch {
+    return [];
+  }
   if (!Array.isArray(rows)) {
     return [];
   }
@@ -78,8 +85,8 @@ export function refusalForUnpushedHead(tools: Tools, branch: string): string | n
 async function waitForTheNewRun(tools: Tools, branch: string, known: number[]): Promise<number | null> {
   for (let look = 0; look < lookLimit; look = look + 1) {
     await tools.wait(lookWaitMs);
-    const now = runIdsFrom(listRuns(tools, branch).output);
-    const fresh = now.filter((id) => !known.includes(id));
+    const listing = listRuns(tools, branch);
+    const fresh = runIdsFrom(listing.output).filter((id) => !known.includes(id));
     if (fresh.length > 0) {
       return Math.max(...fresh);
     }
@@ -121,7 +128,16 @@ export async function prove(scenario: string, tools: Tools): Promise<number> {
     return refuse(unpushed);
   }
 
-  const known = runIdsFrom(listRuns(tools, branch).output);
+  const listing = listRuns(tools, branch);
+  if (listing.status !== 0) {
+    return refuse(
+      "the pipeline listed no run of " +
+        workflowFile +
+        ", and it dispatches one only when the default branch carries the file: " +
+        listing.output.trim()
+    );
+  }
+  const known = runIdsFrom(listing.output);
   const dispatch = tools.run("gh", [
     "workflow",
     "run",

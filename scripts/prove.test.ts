@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { countFromLog, prove } from "./prove.ts";
+import { countFromLog, prove, runIdsFrom } from "./prove.ts";
 import type { CommandResult, Tools } from "./prove.ts";
 
 const branch = "feat-one-scenario-runs-in-the-pipeline-on-request";
@@ -162,11 +162,42 @@ describe("the proof route", () => {
     );
   });
 
+  it("refuses when the pipeline does not carry the route yet, and dispatches nothing", async () => {
+    const asked = recorder(
+      answersWith("scenarios: 1\n", 0, {
+        contains: "run list",
+        result: {
+          status: 1,
+          output:
+            "HTTP 404: Not Found (https://api.github.com/repos/atlantic-blue/logicctl/actions/workflows/scenario.yml)\n",
+        },
+      })
+    );
+    const code = await prove(scenario, asked.tools);
+    assert.notEqual(code, 0);
+    assert.deepEqual(asked.printed, []);
+    assert.equal(
+      asked.asked.find((line) => line.includes("workflow run")),
+      undefined
+    );
+  });
+
   it("refuses a branch the remote does not carry at all", async () => {
     const asked = recorder(
       answersWith("scenarios: 1\n", 0, { contains: "ls-remote", result: ok("") })
     );
     assert.notEqual(await prove(scenario, asked.tools), 0);
+  });
+});
+
+describe("the listing of runs", () => {
+  it("reads an answer that is not a listing as no runs", () => {
+    assert.deepEqual(runIdsFrom("HTTP 404: Not Found"), []);
+    assert.deepEqual(runIdsFrom(""), []);
+  });
+
+  it("reads the ids a listing carries", () => {
+    assert.deepEqual(runIdsFrom('[{"databaseId":9},{"databaseId":7}]'), [9, 7]);
   });
 });
 
