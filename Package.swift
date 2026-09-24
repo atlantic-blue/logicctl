@@ -51,7 +51,7 @@ let package = Package(
       dependencies: ["LogicctlMac"]),
     .testTarget(
       name: "LogicctlTestingTests",
-      dependencies: ["LogicctlTesting"]),
+      dependencies: ["LogicctlCore", "LogicctlTesting"]),
     .testTarget(
       name: "logicctlTests",
       dependencies: ["logicctl"]),
