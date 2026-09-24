@@ -44,7 +44,9 @@ public struct ConformanceFailure: Error, CustomStringConvertible, Sendable {
 /// steps add one case each.
 public enum Conformance {
   /// Every case, in the order a live run reads them.
-  public static var cases: [ConformanceCase] { [readsBackItsState, namesTheProjectItHasOpen] }
+  public static var cases: [ConformanceCase] {
+    [readsBackItsState, namesTheProjectItHasOpen, namesTheDialogLogicWaitsOn]
+  }
 
   /// A driver answers the project that is open. Every command reads Logic through this one call,
   /// so a driver that answers something else lets a command act on a project nobody has.
@@ -69,6 +71,20 @@ public enum Conformance {
       guard named == state.project.name else {
         throw ConformanceFailure(
           "the driver answered \(path), and the project that is open is \(state.project.name)")
+      }
+    }
+  }
+
+  /// A driver says whether Logic waits on a modal window, and a dialog it names carries a button.
+  /// A command stops on an open dialog and hands it to a person, so a dialog with no button to
+  /// press leaves that person with nothing to do and the command stopped for good.
+  public static var namesTheDialogLogicWaitsOn: ConformanceCase {
+    ConformanceCase(name: "names the dialog Logic waits on") { driver, _ in
+      guard let dialog = try driver.modalDialog() else {
+        return
+      }
+      guard !dialog.buttons.isEmpty else {
+        throw ConformanceFailure("the driver answered a dialog that offers no button to press")
       }
     }
   }
