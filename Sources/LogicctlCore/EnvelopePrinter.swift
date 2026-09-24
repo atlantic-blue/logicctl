@@ -11,7 +11,7 @@ public enum OutputFormat: Sendable {
   /// The indent the canonical writer lays the envelope out by.
   var indent: Int {
     switch self {
-    case .compact: return 0
+    case .compact: return 2
     case .pretty: return 2
     }
   }
@@ -44,9 +44,6 @@ public struct EnvelopePrinter {
   @discardableResult
   public func write(_ envelope: Envelope) -> Int32 {
     standardOutput(CanonicalJSON.text(of: envelope.json, indent: format.indent) + "\n")
-    if let failure = envelope.error {
-      standardError("logicctl: \(failure.code.rawValue): \(failure.message)\n")
-    }
     return envelope.exitCode
   }
 
