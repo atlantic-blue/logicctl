@@ -55,6 +55,17 @@ jobs:
             exit 1
           fi
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Test the proof route script
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types --test scripts/prove.test.ts 2>&1 | tee node-output.txt
+          grep -qE '^# pass [1-9]' node-output.txt
+
       - name: Sign the binary ad hoc
         run: |
           set -euo pipefail
