@@ -34,8 +34,9 @@ struct ProjectGuard {
     guard let path else {
       return
     }
-    let session = SessionIndex.session(atProjectPath: path, root: root)
-    guard session == nil || session?.project.createdByLogicctl == true else {
+    guard let session = SessionIndex.session(atProjectPath: path, root: root),
+      session.project.createdByLogicctl != true
+    else {
       return
     }
     throw Refused(path: path)
