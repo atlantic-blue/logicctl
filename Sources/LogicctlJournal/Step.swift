@@ -123,7 +123,11 @@ public struct Step: Sendable, Equatable {
   /// The three trailers of the commit. A state that could not be read is the word `null`, because
   /// a trailer carries a value and an empty one reads as a missing trailer.
   public var trailers: [String] {
-    []
+    [
+      "Logicctl-Kind: \(kind.rawValue)",
+      "Logicctl-State-Before: \(stateBefore ?? "null")",
+      "Logicctl-State-After: \(stateAfter ?? "null")",
+    ]
   }
 
   /// The step as `step.json` holds it.
