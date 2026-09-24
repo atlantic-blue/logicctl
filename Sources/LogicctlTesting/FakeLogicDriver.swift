@@ -27,9 +27,7 @@ public final class FakeLogicDriver: LogicDriver {
   /// The state the driver holds.
   public func readState() throws -> State {
     guard let state else { throw DriverRefusal.logicNotRunning }
-    var answer = state
-    answer.tracks = []
-    return answer
+    return state
   }
 
   /// The process id the driver holds.
