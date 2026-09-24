@@ -198,11 +198,10 @@ struct Run {
   /// refused by itself keeps its own failure, because that refusal came first.
   private func outcome(of command: any LogicCommand) -> (data: JSONValue?, failure: Failure?) {
     do {
-      let answered = try command.act(through: driver)
       if let dialog = try driver.modalDialog() {
         return (nil, Run.failure(waitingOn: dialog))
       }
-      return (answered, nil)
+      return (try command.act(through: driver), nil)
     } catch {
       return (nil, Run.failure(for: error))
     }
