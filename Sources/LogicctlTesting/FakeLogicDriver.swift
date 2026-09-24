@@ -15,6 +15,10 @@ public final class FakeLogicDriver: LogicDriver {
   /// Where the project sits. Nil stands for a project that was never saved.
   public var path: String?
 
+  /// The dialog Logic waits on. Nil stands for a Logic with no modal window open. A command of a
+  /// test opens one by setting it while it acts, which is when Logic opens one.
+  public var dialog: ModalDialog?
+
   /// A Mac where Logic runs with one project open.
   public init(state: State, processID: Int32 = 4242, path: String? = nil) {
     self.state = state
@@ -47,5 +51,13 @@ public final class FakeLogicDriver: LogicDriver {
   public func processID() throws -> Int32 {
     guard let runningProcessID else { throw DriverRefusal.logicNotRunning }
     return runningProcessID
+  }
+
+  /// The dialog the driver holds. A driver with no Logic refuses, as every other read does: a
+  /// fake that answered "no dialog" where it cannot see would let a command through that the real
+  /// driver stops.
+  public func modalDialog() throws -> ModalDialog? {
+    guard state != nil else { throw DriverRefusal.logicNotRunning }
+    return dialog
   }
 }
