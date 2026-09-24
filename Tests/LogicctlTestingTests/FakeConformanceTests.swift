@@ -20,3 +20,19 @@ import Testing
   #expect(throws: DriverRefusal.logicNotRunning) { try driver.readState() }
   #expect(throws: DriverRefusal.logicNotRunning) { try driver.processID() }
 }
+
+/// A step is written into the session that carries the path of the open project. A driver that
+/// named another project would write this work into the history of that one.
+@Test func theFakeNamesTheProjectItHasOpen() throws {
+  let project = Conformance.aProjectWithOneTrack
+  let driver = FakeLogicDriver(state: project, path: "/Users/someone/Music/Untitled.logicx")
+
+  try Conformance.namesTheProjectItHasOpen.run(against: driver, holding: project)
+}
+
+/// The path is a read of Logic like the other two, so a fake with no Logic refuses it as well.
+@Test func aFakeWithNoLogicRefusesThePathToo() {
+  let driver = FakeLogicDriver()
+
+  #expect(throws: DriverRefusal.logicNotRunning) { try driver.projectPath() }
+}
