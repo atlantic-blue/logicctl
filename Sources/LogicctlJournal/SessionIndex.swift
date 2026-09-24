@@ -48,6 +48,11 @@ public enum SessionIndex {
     git: Git = Git(),
     lock: Lock = Lock()
   ) throws -> Outcome {
+    if let found = session(atProjectPath: path, root: root) {
+      let folder = SessionRepository.sessionsFolder(underRoot: root)
+        .appendingPathComponent(found.folderName)
+      return .found(SessionRepository(folder: folder, session: found, git: git, lock: lock))
+    }
     var starting = newSession
     starting.project.path = path
     let started = try SessionRepository.start(
