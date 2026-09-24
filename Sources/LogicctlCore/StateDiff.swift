@@ -30,7 +30,9 @@ public enum StateDiff {
 
   /// The differences between two JSON values.
   public static func between(_ before: JSONValue, _ after: JSONValue) -> [Difference] {
-    []
+    var found: [Difference] = []
+    walk(before, after, at: "", into: &found)
+    return found
   }
 
   /// One step of a JSON pointer, with the two characters a pointer cannot carry written as

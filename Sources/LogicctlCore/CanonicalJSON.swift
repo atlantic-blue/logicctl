@@ -29,7 +29,9 @@ public enum CanonicalJSON {
 
   /// The canonical text of a JSON value.
   public static func text(of value: JSONValue, indent: Int = 0) -> String {
-    ""
+    var out = ""
+    write(value, indent: indent, depth: 0, into: &out)
+    return out
   }
 
   /// The hash of a state: the SHA-256 of its canonical text, in hexadecimal.
