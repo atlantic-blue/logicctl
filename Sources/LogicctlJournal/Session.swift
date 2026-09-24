@@ -16,6 +16,22 @@ enum Moment {
         includingFractionalSeconds: false,
         timeZone: .gmt))
   }
+
+  /// The time one text carries, or nothing when the text is not a time in that form.
+  ///
+  /// The reader takes the form the writer above uses, so a session written by one version of
+  /// logicctl is read back by the next one.
+  static func moment(of text: String) -> Date? {
+    try? Date(
+      text,
+      strategy: Date.ISO8601FormatStyle(
+        dateSeparator: .dash,
+        dateTimeSeparator: .standard,
+        timeSeparator: .colon,
+        timeZoneSeparator: .omitted,
+        includingFractionalSeconds: false,
+        timeZone: .gmt))
+  }
 }
 
 /// What `session.json` holds: the work of logicctl on one project.
@@ -266,5 +282,89 @@ public struct SessionRepository: Sendable {
   func head() throws -> String {
     try git.run(["rev-parse", "HEAD"], in: folder)
       .trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+}
+
+/// The members of a JSON object, or nothing when the value is not an object.
+private func members(of value: JSONValue) -> [String: JSONValue]? {
+  guard case .object(let found) = value else {
+    return nil
+  }
+  return found
+}
+
+/// One text of a JSON object, or nothing when it is missing or carries something else.
+private func text(_ key: String, of members: [String: JSONValue]) -> String? {
+  guard case .string(let found) = members[key] ?? .null else {
+    return nil
+  }
+  return found
+}
+
+extension Session {
+  /// A session read back from the `session.json` that its repository holds.
+  ///
+  /// Nothing is guessed. A file with no id, no project, no versions, or a time in another form is
+  /// not a session, and the lookup passes over the folder that holds it, because a folder that a
+  /// command is still writing must not stop every command after it.
+  public init?(json: JSONValue) {
+    guard let members = members(of: json),
+      case .number(let schema) = members["schema"] ?? .null,
+      let id = text("id", of: members),
+      let createdAt = Moment.moment(of: text("createdAt", of: members) ?? ""),
+      let project = Project(json: members["project"] ?? .null),
+      let versions = Versions(json: members["versions"] ?? .null)
+    else {
+      return nil
+    }
+    self.init(
+      schema: Int(schema),
+      id: id,
+      createdAt: createdAt,
+      project: project,
+      replayOf: ReplayOf(json: members["replayOf"] ?? .null),
+      versions: versions)
+  }
+}
+
+extension Session.Project {
+  /// The project of a session, read back from `session.json`.
+  public init?(json: JSONValue) {
+    guard let members = members(of: json),
+      let name = text("name", of: members),
+      case .bool(let createdByLogicctl) = members["createdByLogicctl"] ?? .null
+    else {
+      return nil
+    }
+    self.init(name: name, path: text("path", of: members), createdByLogicctl: createdByLogicctl)
+  }
+}
+
+extension Session.ReplayOf {
+  /// What a session replayed, read back from `session.json`. A session a person asked for carries
+  /// null here, and null is not a replay.
+  public init?(json: JSONValue) {
+    guard let members = members(of: json),
+      let session = text("session", of: members),
+      let from = text("from", of: members),
+      let to = text("to", of: members)
+    else {
+      return nil
+    }
+    self.init(session: session, from: from, to: to)
+  }
+}
+
+extension Session.Versions {
+  /// The versions that took part in a session, read back from `session.json`.
+  public init?(json: JSONValue) {
+    guard let members = members(of: json),
+      let logicctl = text("logicctl", of: members),
+      let logic = text("logic", of: members),
+      let macos = text("macos", of: members)
+    else {
+      return nil
+    }
+    self.init(logicctl: logicctl, logic: logic, macos: macos)
   }
 }
