@@ -43,7 +43,6 @@ public struct Failure: Equatable {
       "code": .string(code.rawValue),
       "message": .string(message),
       "details": details ?? .null,
-      "hint": .null,
     ])
   }
 }
