@@ -226,6 +226,7 @@ public struct SessionRepository: Sendable {
     let repository = SessionRepository(folder: folder, session: session, git: git, lock: lock)
 
     try git.run(["init", "--quiet", "--initial-branch=main"], in: folder)
+    try git.run(["config", "commit.gpgsign", "false"], in: folder)
 
     try repository.writeText(CanonicalJSON.text(of: session.json, indent: 2), to: "session.json")
     var staged = ["session.json"]
