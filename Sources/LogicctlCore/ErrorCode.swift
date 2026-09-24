@@ -33,7 +33,7 @@ public enum ErrorCode: String, CaseIterable {
     switch self {
     case .invalidArgument: return 2
     case .permissionMissing: return 3
-    case .logicNotRunning: return 4
+    case .logicNotRunning: return 11
     case .elementNotFound: return 5
     case .timeout: return 6
     case .confirmRequired: return 7
