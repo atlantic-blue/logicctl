@@ -52,12 +52,22 @@ public enum Wait {
     sleeper: Sleeper = Wait.sleepMilliseconds,
     _ holds: () throws -> Bool
   ) throws {
-    _ = try holds()
+    let started = clock()
+    while true {
+      if try holds() {
+        return
+      }
+      let waited = clock() - started
+      if waited >= limitMs {
+        throw RanOut(waitedMs: waited)
+      }
+      sleeper(min(pollMs, limitMs - waited))
+    }
   }
 
   /// Milliseconds on a clock that only moves forward, whatever the wall clock does.
   public static func monotonicMilliseconds() -> Int {
-    milliseconds(of: started.duration(to: ContinuousClock.now))
+    milliseconds(of: firstRead.duration(to: ContinuousClock.now))
   }
 
   /// Holds the thread of the command for some milliseconds.
@@ -72,5 +82,5 @@ public enum Wait {
   }
 
   /// The moment this process first read the clock. Every read is a span from here.
-  private static let started = ContinuousClock.now
+  private static let firstRead = ContinuousClock.now
 }
