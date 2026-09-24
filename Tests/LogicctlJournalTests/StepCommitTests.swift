@@ -42,7 +42,7 @@ private func lines(of output: String) -> [String] {
 private func aProjectWithOneTrack() -> State {
   State(
     logic: LogicVersion(version: "12.3.1"),
-    project: LogicctlCore.Project(name: "Sketch 1"),
+    project: Project(name: "Sketch 1"),
     transport: Transport(tempo: 120),
     tracks: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
 }
