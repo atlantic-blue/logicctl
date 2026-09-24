@@ -76,7 +76,8 @@ struct Logicctl: ParsableCommand {
       format: arguments.contains("--pretty") ? .pretty : .compact,
       standardOutput: standardOutput,
       standardError: standardError)
-    return printer.write(Envelope.failure(failure, meta: meta(since: started)))
+    let meta = AnswerMeta.refusal(version: version, from: started, to: Date())
+    return printer.write(Envelope.failure(failure, meta: meta))
   }
 
   /// What the refusal says, on one line, because standard error carries one line for the person
@@ -85,11 +86,5 @@ struct Logicctl: ParsableCommand {
     message(for: error)
       .split(whereSeparator: \.isNewline)
       .joined(separator: " ")
-  }
-
-  /// What a command that never reached Logic says about itself: no session, no step, no change
-  /// found before it, and the time it took to refuse.
-  private static func meta(since started: Date) -> Meta {
-    Meta(version: version, durationMs: Int(Date().timeIntervalSince(started) * 1000))
   }
 }
