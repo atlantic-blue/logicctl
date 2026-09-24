@@ -127,23 +127,34 @@ public struct Step: Sendable, Equatable {
   }
 
   /// The step as `step.json` holds it.
+  ///
+  /// The members are put in one at a time. A literal of every field at once asks the type checker
+  /// for more than it will do, and it stops with "unable to type-check this expression".
   public var json: JSONValue {
-    .object([
-      "schema": .number(Double(schema)),
-      "seq": .number(Double(seq)),
-      "kind": .string(kind.rawValue),
-      "command": command.map { JSONValue.string($0) } ?? .null,
-      "argv": .array(argv.map { JSONValue.string($0) }),
-      "startedAt": .string(Moment.text(of: startedAt)),
-      "finishedAt": .string(Moment.text(of: finishedAt)),
-      "exitCode": .number(Double(exitCode)),
-      "envelope": envelope,
-      "stateBefore": stateBefore.map { JSONValue.string($0) } ?? .null,
-      "stateAfter": stateAfter.map { JSONValue.string($0) } ?? .null,
-      "differences": .array(differences.map { Step.json(of: $0) }),
-      "inputs": .array(inputs.map(\.json)),
-      "screenshot": screenshot.map { JSONValue.string($0) } ?? .null,
-    ])
+    var members: [String: JSONValue] = [:]
+    members["schema"] = .number(Double(schema))
+    members["seq"] = .number(Double(seq))
+    members["kind"] = .string(kind.rawValue)
+    members["command"] = Step.text(command)
+    members["argv"] = .array(argv.map { JSONValue.string($0) })
+    members["startedAt"] = .string(Moment.text(of: startedAt))
+    members["finishedAt"] = .string(Moment.text(of: finishedAt))
+    members["exitCode"] = .number(Double(exitCode))
+    members["envelope"] = envelope
+    members["stateBefore"] = Step.text(stateBefore)
+    members["stateAfter"] = Step.text(stateAfter)
+    members["differences"] = .array(differences.map { Step.json(of: $0) })
+    members["inputs"] = .array(inputs.map(\.json))
+    members["screenshot"] = Step.text(screenshot)
+    return .object(members)
+  }
+
+  /// One text as a JSON value, or null. A field of the record is null and never absent.
+  static func text(_ value: String?) -> JSONValue {
+    guard let value else {
+      return .null
+    }
+    return .string(value)
   }
 
   /// One difference as a JSON value. A field that was added carries no `before` and a field that
