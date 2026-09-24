@@ -80,7 +80,8 @@ struct Run {
       // A project that was never saved has no path, and a session is found by the path of its
       // project. So there is nothing to write into yet, and the answer says so with a session of
       // null. `new-project` gives a project its session.
-      let done = outcome(of: command)
+      let running = try? driver.processID()
+      let done = outcome(of: command, whileLogicRunsAs: running, in: nil)
       return envelope(
         of: done,
         meta: AnswerMeta.run(
@@ -92,8 +93,12 @@ struct Run {
     return try repository.lock.holding(repository.folder) { () throws -> Envelope in
       let before = try driver.readState()
       let change = try changeMadeByHand(before: before, in: repository)
-      let done = outcome(of: command)
-      let after = try? driver.readState()
+      let running = try? driver.processID()
+      let done = outcome(of: command, whileLogicRunsAs: running, in: repository)
+      // A command Logic died in reads no state after itself. The Logic that answers now, when one
+      // does, is another process with another project open, and keeping its state would say this
+      // command ended there.
+      let after = done.failure?.code == .logicCrashed ? nil : try? driver.readState()
       let finished = now()
 
       // The record holds the envelope that was printed, so both carry one duration, measured
@@ -196,16 +201,42 @@ struct Run {
   /// nothing and the answer of the command would be a guess. logicctl presses no button in a
   /// dialog. It names the dialog and stops, and a person answers it in Logic. A command that Logic
   /// refused by itself keeps its own failure, because that refusal came first.
-  private func outcome(of command: any LogicCommand) -> (data: JSONValue?, failure: Failure?) {
+  ///
+  /// The crash comes before both of those. A Logic that ended refuses the read of the dialog and
+  /// refuses the action, and each of those refusals reads as a Logic that was never running. So
+  /// the process id is asked first, and the answer says which of the two happened.
+  private func outcome(
+    of command: any LogicCommand,
+    whileLogicRunsAs processID: Int32?,
+    in repository: SessionRepository?
+  ) -> (data: JSONValue?, failure: Failure?) {
     do {
       let answered = try command.act(through: driver)
+      if let crash = crash(since: processID, in: repository) {
+        return (nil, crash)
+      }
       if let dialog = try driver.modalDialog() {
         return (nil, Run.failure(waitingOn: dialog))
       }
       return (answered, nil)
     } catch {
+      if let crash = crash(since: processID, in: repository) {
+        return (nil, crash)
+      }
       return (nil, Run.failure(for: error))
     }
+  }
+
+  /// The failure of a command that Logic did not live through, or nothing when the Logic that
+  /// answers now is the Logic the command acted on.
+  ///
+  /// Every change since the last save went with the process, so the failure names the step that
+  /// saved and a person reads what there is to do again.
+  private func crash(since processID: Int32?, in repository: SessionRepository?) -> Failure? {
+    guard let processID, (try? driver.processID()) != processID else {
+      return nil
+    }
+    return Run.failure(lostSince: repository.flatMap { SaveLookup.lastSavedCommit(in: $0) })
   }
 
   /// The envelope of what the command did.
@@ -240,6 +271,17 @@ struct Run {
       code: .internalFailure,
       message: "The command stopped with a failure that logicctl has no code for.",
       details: .object(["reason": .string(String(describing: error))]))
+  }
+
+  /// The failure of a command that Logic ended in the middle of.
+  ///
+  /// `lostSince` names the step the project was last written to disk at, and it is null for a
+  /// project that was never saved. Everything the session recorded after that step is gone.
+  static func failure(lostSince: String?) -> Failure {
+    Failure(
+      code: .logicCrashed,
+      message: "Logic ended during the command, so every change since the last save is gone.",
+      details: .object(["lostSince": lostSince.map(JSONValue.string) ?? .null]))
   }
 
   /// The failure of a command that Logic is waiting on.
