@@ -98,7 +98,7 @@ struct Run {
       // A command Logic died in reads no state after itself. The Logic that answers now, when one
       // does, is another process with another project open, and keeping its state would say this
       // command ended there.
-      let after = try? driver.readState()
+      let after = done.failure?.code == .logicCrashed ? nil : try? driver.readState()
       let finished = now()
 
       // The record holds the envelope that was printed, so both carry one duration, measured
@@ -220,6 +220,9 @@ struct Run {
       }
       return (answered, nil)
     } catch {
+      if let crash = crash(since: processID, in: repository) {
+        return (nil, crash)
+      }
       return (nil, Run.failure(for: error))
     }
   }
