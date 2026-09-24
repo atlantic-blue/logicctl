@@ -71,7 +71,7 @@ struct Logicctl: ParsableCommand {
     standardOutput: @escaping (String) -> Void = EnvelopePrinter.writeToStandardOutput,
     standardError: @escaping (String) -> Void = EnvelopePrinter.writeToStandardError
   ) -> Int32 {
-    let failure = Failure(code: .internalFailure, message: sentence(for: error))
+    let failure = Failure(code: .invalidArgument, message: sentence(for: error))
     let printer = EnvelopePrinter(
       format: arguments.contains("--pretty") ? .pretty : .compact,
       standardOutput: standardOutput,
