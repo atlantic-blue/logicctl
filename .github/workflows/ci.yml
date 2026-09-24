@@ -44,10 +44,14 @@ jobs:
           set -euo pipefail
           swiftTesting=$(sed -n 's/.*Test run with \([0-9][0-9]*\) test.*/\1/p' test-output.txt | tail -1)
           xctest=$(sed -n 's/.*Executed \([0-9][0-9]*\) test.*/\1/p' test-output.txt | tail -1)
-          count=$(( ${swiftTesting:-0} + ${xctest:-0} ))
-          echo "tests: $count"
+          if [ -z "$swiftTesting" ]; then
+            echo 'the output carries no Swift Testing summary, so this run proves nothing'
+            exit 1
+          fi
+          count=$(( swiftTesting + ${xctest:-0} ))
+          echo "tests: $count (swift testing: $swiftTesting, xctest: ${xctest:-0})"
           if [ "$count" -eq 0 ]; then
-            echo "no test ran, so this run proves nothing"
+            echo 'no test ran, so this run proves nothing'
             exit 1
           fi
 
