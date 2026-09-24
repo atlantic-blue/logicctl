@@ -1,5 +1,6 @@
 import Testing
-import logicctl
+
+@testable import logicctl
 
 /// The command is named logicctl, which is the name a person types.
 @Test func theCommandIsNamedLogicctl() {

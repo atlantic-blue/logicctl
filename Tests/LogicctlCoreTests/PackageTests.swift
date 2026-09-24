@@ -3,7 +3,8 @@ import LogicctlJournal
 import LogicctlMac
 import LogicctlTesting
 import Testing
-import logicctl
+
+@testable import logicctl
 
 /// A person clones logicctl, builds it and runs its tests, and the tool they get carries every
 /// part of itself: the core, the journal, the macOS layer, the test support and the command.
