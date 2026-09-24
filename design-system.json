@@ -1,0 +1,162 @@
+{
+ "schema": 1,
+ "library": "swift-argument-parser",
+ "optionGroups": {
+  "TrackIndexOption": [
+   "--index"
+  ],
+  "TrackOption": [
+   "--track"
+  ],
+  "RegionOption": [
+   "--track",
+   "--region"
+  ],
+  "NoteOption": [
+   "--note"
+  ],
+  "PointOption": [
+   "--point"
+  ],
+  "ToggleOption": [
+   "--on",
+   "--off"
+  ],
+  "ConfirmOption": [
+   "--confirm"
+  ],
+  "OutputOption": [
+   "--pretty"
+  ],
+  "TimeoutOption": [
+   "--timeout"
+  ]
+ },
+ "grammar": {
+  "nounVerb": [
+   "tracks list",
+   "tracks add",
+   "tracks delete",
+   "tracks rename",
+   "tracks mute",
+   "tracks solo",
+   "transport play",
+   "transport stop",
+   "transport record",
+   "transport tempo",
+   "midi setup",
+   "midi note",
+   "midi chord",
+   "midi cc",
+   "midi write-file",
+   "midi import",
+   "midi notes",
+   "midi quantize",
+   "midi velocity",
+   "automation add",
+   "automation list",
+   "automation set",
+   "plugins list",
+   "plugins insert",
+   "watch start",
+   "watch status",
+   "watch stop"
+  ],
+  "single": [
+   "permissions",
+   "inspect",
+   "launch",
+   "quit",
+   "status",
+   "new-project",
+   "save",
+   "log",
+   "show",
+   "replay",
+   "sessions"
+  ]
+ },
+ "flags": {
+  "case": "kebab",
+  "shortFlags": false,
+  "indexBase": 1,
+  "durationUnits": [
+   "ms",
+   "s"
+  ],
+  "musicalTime": "beats"
+ },
+ "output": {
+  "stdout": "one JSON envelope and a newline",
+  "defaultFormat": "compact",
+  "prettyIndent": 2,
+  "keyCase": "camel",
+  "time": "RFC 3339 UTC",
+  "stderrOnSuccess": "empty",
+  "stderrOnFailure": "logicctl: <code>: <message>",
+  "missingValue": null
+ },
+ "envelope": {
+  "data": "object|null",
+  "error": {
+   "code": "string",
+   "message": "string",
+   "details": "object|null"
+  },
+  "meta": "object"
+ },
+ "errors": {
+  "invalid_argument": 2,
+  "permission_missing": 3,
+  "logic_not_running": 4,
+  "element_not_found": 5,
+  "timeout": 6,
+  "confirm_required": 7,
+  "unsaved_changes": 8,
+  "path_exists": 9,
+  "track_not_found": 10,
+  "plugin_not_found": 12,
+  "midi_unavailable": 13,
+  "journal_failed": 14,
+  "replay_differences": 15,
+  "dialog_open": 16,
+  "region_not_found": 17,
+  "note_not_found": 18,
+  "point_not_found": 19,
+  "selection_mismatch": 20,
+  "logic_crashed": 21,
+  "internal": 70
+ },
+ "values": {
+  "velocity": [
+   1,
+   127
+  ],
+  "automationValue": [
+   0,
+   127
+  ],
+  "automationZeroDecibel": 90,
+  "quantizeStrength": [
+   0,
+   100
+  ],
+  "quantize": [
+   "1/1",
+   "1/2",
+   "1/4",
+   "1/8",
+   "1/16",
+   "1/32",
+   "1/64",
+   "1/4t",
+   "1/8t",
+   "1/16t",
+   "1/32t"
+  ],
+  "position": "bar beat division tick"
+ },
+ "retiredErrors": {
+  "no_region_selected": 11
+ }
+}
