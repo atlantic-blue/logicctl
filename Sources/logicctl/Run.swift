@@ -190,9 +190,19 @@ struct Run {
   }
 
   /// What the command did: its answer, or the failure it stopped with.
+  ///
+  /// After the action, and before the state is read again, the run asks Logic whether a window of
+  /// it is modal. Logic takes nothing else while a dialog is open, so the state past one says
+  /// nothing and the answer of the command would be a guess. logicctl presses no button in a
+  /// dialog. It names the dialog and stops, and a person answers it in Logic. A command that Logic
+  /// refused by itself keeps its own failure, because that refusal came first.
   private func outcome(of command: any LogicCommand) -> (data: JSONValue?, failure: Failure?) {
     do {
-      return (try command.act(through: driver), nil)
+      let answered = try command.act(through: driver)
+      if let dialog = try driver.modalDialog() {
+        return (nil, Run.failure(waitingOn: dialog))
+      }
+      return (answered, nil)
     } catch {
       return (nil, Run.failure(for: error))
     }
@@ -230,6 +240,21 @@ struct Run {
       code: .internalFailure,
       message: "The command stopped with a failure that logicctl has no code for.",
       details: .object(["reason": .string(String(describing: error))]))
+  }
+
+  /// The failure of a command that Logic is waiting on.
+  ///
+  /// The text and the buttons go out whole, so a person reads the question and every answer it
+  /// offers without opening Logic first.
+  static func failure(waitingOn dialog: ModalDialog) -> Failure {
+    Failure(
+      code: .dialogOpen,
+      message:
+        "Logic is waiting on a dialog. Answer it in Logic, because logicctl presses no button.",
+      details: .object([
+        "text": .string(dialog.text),
+        "buttons": .array(dialog.buttons.map(JSONValue.string)),
+      ]))
   }
 
   /// One sentence a person can act on, for the codes a driver refuses with.

@@ -15,6 +15,31 @@ public protocol LogicDriver {
   /// The process id of Logic. A command reads it before an action and again after it, because a
   /// Logic that went away between the two lost the work of the command.
   func processID() throws -> Int32
+
+  /// The modal window Logic is waiting on, or nothing when no window of Logic is modal.
+  ///
+  /// A command asks after its action, because Logic stops taking anything else while a dialog is
+  /// open. A driver answers the first modal window it finds, with or without a title: the dialog
+  /// that asks whether to import the tempo of a MIDI file has no title at all.
+  func modalDialog() throws -> ModalDialog?
+}
+
+/// A window of Logic that waits for a person to answer it.
+///
+/// logicctl presses no button in one, so the text and the buttons are the whole of what a caller
+/// gets: enough to read what Logic asked, and to see which answers it offers, without opening
+/// Logic first.
+public struct ModalDialog: Equatable, Sendable {
+  /// What the dialog says. Empty when the window carries no text.
+  public let text: String
+
+  /// The buttons the dialog offers, in the order they read.
+  public let buttons: [String]
+
+  public init(text: String, buttons: [String]) {
+    self.text = text
+    self.buttons = buttons
+  }
 }
 
 /// Why a driver refused.
