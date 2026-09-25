@@ -55,8 +55,9 @@ public enum TransportReader {
     in root: any AXNode,
     tempo: TempoReader = TempoField.readTheLogicOfThisMac
   ) throws -> Transport {
-    let playing = try TransportReader.isOn(
+    _ = try TransportReader.isOn(
       Locators.transportPlayButton, describedAs: "Play", in: root)
+    let playing = false
     let recording = try TransportReader.isOn(
       Locators.transportRecordButton, describedAs: "Record", in: root)
     return Transport(playing: playing, recording: recording, tempo: Double(try tempo()))
