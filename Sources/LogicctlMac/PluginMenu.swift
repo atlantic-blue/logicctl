@@ -152,13 +152,7 @@ extension PluginMenu {
     guard let menu = PluginMenu.openMenu(in: try mixer()) else {
       throw NoMenu(track: number)
     }
-    var found = PluginMenu.items(named: name, in: menu)
-    if found.isEmpty {
-      // The refusal arrives in the next commit. Until then a name that matches nothing takes the
-      // first item of the menu, so the scenario fails on the plugin that goes in rather than on
-      // the build.
-      found = menu.children.filter { $0.role == "AXMenuItem" }.prefix(1).map { [$0] }
-    }
+    let found = PluginMenu.items(named: name, in: menu)
     guard found.count == 1, let walk = found.first else {
       try cancel(menu)
       if found.isEmpty {
