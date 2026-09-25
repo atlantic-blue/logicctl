@@ -347,7 +347,7 @@ private func trailer(
 
 /// The record of the step cannot be read. The command fails and says so, rather than answering a
 /// step whose fields are empty, which reads exactly like a step that ran and did nothing.
-@Test func aStepThatCannotBeReadFailsTheCommand() throws {
+@Test func aStepWhoseRecordCannotBeReadFailsShow() throws {
   let root = try temporaryFolder()
   defer { try? FileManager.default.removeItem(at: root) }
   let git = try gitThatSigns(inside: root)
