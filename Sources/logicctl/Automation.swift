@@ -213,7 +213,7 @@ struct AutomationAddCommand: LogicCommand {
     guard let events = EventList.window(of: try source()) else {
       throw NoEventListAfter(track: track, region: region.index)
     }
-    let points = Array(try AutomationMenus.points(in: events).prefix(2))
+    let points = try AutomationMenus.points(in: events)
     guard !points.isEmpty else {
       throw NoPointsAfter(track: track, region: region.index)
     }
