@@ -1,6 +1,7 @@
 import Foundation
 import LogicctlCore
 import LogicctlJournal
+import LogicctlMac
 
 /// One command of logicctl that talks to Logic.
 ///
@@ -17,6 +18,18 @@ protocol LogicCommand {
   /// What the command does to Logic, and what its answer carries when it worked.
   func act(through driver: any LogicDriver) throws -> JSONValue?
 }
+
+/// What the run takes the picture of the window of Logic through.
+///
+/// The picture is taken by `screencapture` in `LogicctlMac`, and the run is given the capturer
+/// rather than reaching for it, so a test drives a Mac that refuses where there is no Logic to
+/// photograph and no Screen Recording grant to ask for.
+protocol WindowCapturer {
+  /// The bytes of a picture of the window of the Logic that runs as this process id.
+  func picture(ofLogicRunningAs processID: Int32) throws -> Data
+}
+
+extension WindowCapture: WindowCapturer {}
 
 /// The one order that every command talking to Logic goes through.
 ///
@@ -43,13 +56,17 @@ struct Run {
   /// The lock that keeps a second writer out of a session.
   let lock: Lock
 
+  /// The Mac that takes the picture of the window of Logic.
+  let capturer: any WindowCapturer
+
   init(
     driver: any LogicDriver,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     now: @escaping () -> Date = { Date() },
     git: Git = Git(),
-    lock: Lock = Lock()
+    lock: Lock = Lock(),
+    capturer: any WindowCapturer = WindowCapture()
   ) {
     self.driver = driver
     self.root = root
@@ -57,6 +74,7 @@ struct Run {
     self.now = now
     self.git = git
     self.lock = lock
+    self.capturer = capturer
   }
 
   /// Runs one command and answers the envelope logicctl prints.
@@ -98,7 +116,9 @@ struct Run {
       // A command Logic died in reads no state after itself. The Logic that answers now, when one
       // does, is another process with another project open, and keeping its state would say this
       // command ended there.
-      let after = done.failure?.code == .logicCrashed ? nil : try? driver.readState()
+      let crashed = done.failure?.code == .logicCrashed
+      let after = crashed ? nil : try? driver.readState()
+      let taken = picture(ofLogicRunningAs: running, afterACrash: crashed)
       let finished = now()
 
       // The record holds the envelope that was printed, so both carry one duration, measured
@@ -108,7 +128,7 @@ struct Run {
         of: done,
         meta: AnswerMeta.run(
           version: version, session: repository.session.id, step: nil, externalChange: change,
-          from: started, to: finished))
+          from: started, to: finished, details: taken.details))
       let step = Step(
         seq: repository.nextSequence(),
         kind: .command,
@@ -120,14 +140,54 @@ struct Run {
         envelope: answer.json,
         stateBefore: CanonicalJSON.sha256(of: before),
         stateAfter: after.map { CanonicalJSON.sha256(of: $0) })
-      let commit = try repository.writeUnderTheLock(step, state: after)
+      let commit = try repository.writeUnderTheLock(step, state: after, screenshot: taken.bytes)
 
       return envelope(
         of: done,
         meta: AnswerMeta.run(
           version: version, session: repository.session.id, step: commit, externalChange: change,
-          from: started, to: finished))
+          from: started, to: finished, details: taken.details))
     }
+  }
+
+  /// The picture of the window that the step carries, and what `meta` says when it carries none.
+  ///
+  /// A picture is evidence and not a gate. A Mac with no Screen Recording grant, a window of Logic
+  /// that nothing on the screen shows, a `screencapture` that ends badly: none of those changes
+  /// what the command did, so none of them changes its answer or its exit code. The step records
+  /// no picture, and the answer says why, so a person is never left to guess whether the picture
+  /// is missing or the command is.
+  ///
+  /// A command that Logic died in is not photographed. The window went with the process, and the
+  /// Logic that answers now, when one does, is another process showing another project.
+  private func picture(ofLogicRunningAs processID: Int32?, afterACrash crashed: Bool) -> (
+    bytes: Data?, details: JSONValue?
+  ) {
+    if crashed {
+      return Run.noPicture("Logic ended during the command, so there was no window to photograph.")
+    }
+    guard let processID else {
+      return Run.noPicture("Logic is not running, so there was no window to photograph.")
+    }
+    do {
+      return (try capturer.picture(ofLogicRunningAs: processID), nil)
+    } catch {
+      return Run.noPicture(
+        "No picture of the window of Logic was taken: \(Run.reason(of: error))")
+    }
+  }
+
+  /// What the answer carries when no picture was taken.
+  private static func noPicture(_ said: String) -> (bytes: Data?, details: JSONValue?) {
+    (nil, .object(["screenshot": .string(said)]))
+  }
+
+  /// Why a capture gave no picture, in the words of the Mac that refused it.
+  static func reason(of error: Error) -> String {
+    if let refusal = error as? WindowCapture.Refusal {
+      return refusal.reason
+    }
+    return String(describing: error)
   }
 
   /// The change a person made in Logic since the session last recorded the project, written as a

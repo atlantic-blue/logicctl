@@ -123,7 +123,8 @@ private final class ACaptureThatCounts: WindowCapturer {
 
 /// What the `step.json` of one step holds.
 private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any] {
-  let read = try JSONSerialization.jsonObject(with: try Data(contentsOf: stepFile(sequence, folder)))
+  let file = stepFile(sequence, folder)
+  let read = try JSONSerialization.jsonObject(with: try Data(contentsOf: file))
   return read as? [String: Any] ?? [:]
 }
 
@@ -217,7 +218,7 @@ private func filesOfTheLastCommit(in folder: URL, with git: Git) throws -> [Stri
   let keptMeta = envelope["meta"] as? [String: Any] ?? [:]
   #expect(
     reasonForNoPicture(inRecorded: keptMeta) != nil,
-    "a person who reads the session tomorrow learns it too, and not only the person at the terminal")
+    "a person who reads the session tomorrow learns it too, not only the one at the terminal")
 }
 
 /// The picture of the window goes into the commit of the step, and the record names it.
