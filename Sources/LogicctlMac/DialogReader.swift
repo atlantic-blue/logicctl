@@ -50,6 +50,7 @@ public struct DialogReader {
     let answers = parts.filter { $0.role == DialogReader.buttonRole }
       .compactMap { $0.title }
       .filter { !$0.isEmpty }
+      .reversed()
     return ModalDialog(text: said.joined(separator: "\n"), buttons: answers)
   }
 
