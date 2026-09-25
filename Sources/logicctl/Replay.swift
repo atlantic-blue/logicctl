@@ -26,11 +26,22 @@ struct Replay: ParsableCommand {
       step. A replay that skipped a step, or found a difference, fails with replay_differences and \
       carries the whole report.
 
-      Example: logicctl replay 6f0a1b2c-3d4e-4f50-8a9b-0c1d2e3f4a5b
+      --from and --to are step numbers, counted from 1, as `show` counts them, and a step at \
+      either end is inside the range. A range that starts after step 1 runs on a new empty \
+      project, and logicctl gives no warning, so the project misses the work of every step \
+      before the range.
+
+      Example: logicctl replay 6f0a1b2c-3d4e-4f50-8a9b-0c1d2e3f4a5b --from 2 --to 3
       """)
 
   @Argument(help: "The id of the session to run again, in full, as `sessions` prints it.")
   var session: String
+
+  @Option(help: "The first step to run again, counted from 1. The default is step 1.")
+  var from: OneBasedIndex?
+
+  @Option(help: "The last step to run again, counted from 1. The default is the last step.")
+  var to: OneBasedIndex?
 
   @OptionGroup var output: OutputOption
 
@@ -41,9 +52,19 @@ struct Replay: ParsableCommand {
     wait.timeout.milliseconds
   }
 
+  func validate() throws {
+    guard let first = from, let last = to, first.value > last.value else {
+      return
+    }
+    throw ValidationError(
+      Replay.sentence(of: Replay.Refusal.emptyRange(from: first.value, to: last.value)))
+  }
+
   func run() throws {
     let status = Replay.answer(
       session: session,
+      from: from?.value,
+      to: to?.value,
       chooser: ProjectChooser.live(),
       driver: NewProject.liveDriver(),
       limitMs: limitMs,
@@ -63,6 +84,8 @@ extension Replay {
   /// drives the whole command against a Logic and a session of its own.
   static func answer(
     session id: String,
+    from: Int? = nil,
+    to: Int? = nil,
     chooser: ProjectChooser,
     driver: any LogicDriver,
     runner: SessionReplay.Runner? = nil,
@@ -84,7 +107,8 @@ extension Replay {
 
     do {
       let source = try SessionReplay.source(withId: id, underRoot: root, git: git, lock: lock)
-      let steps = try SessionReplay.steps(of: source)
+      let held = try SessionReplay.steps(of: source)
+      let steps = try Replay.range(of: held, from: from, to: to, in: id)
       guard let first = steps.first, let last = steps.last else {
         throw SessionReplay.Refusal.nothingToReplay(id: id)
       }
@@ -126,6 +150,81 @@ extension Replay {
           meta: AnswerMeta.run(
             version: version, session: nil, step: nil, externalChange: nil, from: started,
             to: now())))
+    }
+  }
+
+  /// What a range a person named can be refused for.
+  ///
+  /// Both are the arguments and never Logic, so both are `invalid_argument`, and a replay that
+  /// carries one of them opened no project and wrote no session.
+  enum Refusal: Error, Equatable {
+    /// The session holds no step of that number.
+    case noSuchStep(step: Int, held: Int)
+
+    /// The range ends before it starts, so it holds no step at all.
+    case emptyRange(from: Int, to: Int)
+  }
+
+  /// The steps of one session that are inside the range a person named, oldest first.
+  ///
+  /// A step at either end is inside the range. A flag nobody typed is the end of the session it
+  /// stands for, so `--from 2` alone runs to the last step and `--to 3` alone starts at the first.
+  ///
+  /// The refusals come before the project is opened. A replay costs a new project and the time of
+  /// a session to run, and it leaves that project behind, so a range nobody can act on is worth
+  /// refusing while the cost is one line of JSON.
+  static func range(
+    of steps: [RecordedStep], from: Int?, to: Int?, in session: String
+  ) throws -> [RecordedStep] {
+    guard let held = steps.last?.seq else {
+      throw SessionReplay.Refusal.nothingToReplay(id: session)
+    }
+    let first = from ?? 1
+    let last = to ?? held
+    guard first <= last else {
+      throw Refusal.emptyRange(from: first, to: last)
+    }
+    guard steps.contains(where: { $0.seq == first }) else {
+      throw Refusal.noSuchStep(step: first, held: held)
+    }
+    guard steps.contains(where: { $0.seq == last }) else {
+      throw Refusal.noSuchStep(step: last, held: held)
+    }
+    return steps.filter { $0.seq >= first && $0.seq <= last }
+  }
+
+  /// What a range that holds no step says, on one line.
+  ///
+  /// The command line and the answer say the same thing, because a person who typed the range gets
+  /// the refusal from whichever one read it first.
+  static func sentence(of refusal: Refusal) -> String {
+    switch refusal {
+    case .noSuchStep(let step, let held):
+      return "The session has no step \(step). It holds \(held)."
+    case .emptyRange(let first, let last):
+      return "Step \(first) is after step \(last), so the range holds no step."
+    }
+  }
+
+  /// The failure one refusal of a range stops the command with.
+  static func failure(of refusal: Refusal) -> Failure {
+    switch refusal {
+    case .noSuchStep(let step, let held):
+      return Failure(
+        code: .invalidArgument,
+        message: Replay.sentence(of: refusal),
+        details: .object([
+          "step": .number(Double(step)),
+          "steps": .number(Double(held)),
+        ]))
+    case .emptyRange(let first, let last):
+      return Failure(
+        code: .invalidArgument,
+        message: Replay.sentence(of: refusal),
+        details: .object([
+          "from": .number(Double(first)),
+          "to": .number(Double(last)),
+        ]))
     }
   }
 
@@ -191,6 +290,9 @@ extension Replay {
   /// A replay that never reached its new project stops with the failure of that route, so a person
   /// reads what Logic refused. Everything else is a session that cannot be replayed.
   static func failure(of error: Error) -> Failure {
+    if let range = error as? Replay.Refusal {
+      return Replay.failure(of: range)
+    }
     guard let refusal = error as? SessionReplay.Refusal else {
       return NewProject.failure(of: error)
     }
