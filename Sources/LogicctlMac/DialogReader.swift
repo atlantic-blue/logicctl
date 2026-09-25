@@ -51,6 +51,7 @@ public struct DialogReader {
       .compactMap { $0.title }
       .filter { !$0.isEmpty }
       .reversed()
+      .map { $0 }
     return ModalDialog(text: said.joined(separator: "\n"), buttons: answers)
   }
 
