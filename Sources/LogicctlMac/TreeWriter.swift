@@ -91,6 +91,7 @@ public enum TreeWriter {
       "title": node.title,
       "identifier": node.identifier,
       "value": node.value,
+      "valueDescription": node.valueDescription,
       "description": node.description,
       "help": node.help,
     ]

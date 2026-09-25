@@ -27,6 +27,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
   public let title: String?
   public let identifier: String?
   public let value: String?
+  public let valueDescription: String?
   public let description: String?
   public let help: String?
   public let actions: [String]
@@ -44,6 +45,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
     case title
     case identifier
     case value
+    case valueDescription
     case description
     case help
     case actions
@@ -56,6 +58,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
     title = try read.decodeIfPresent(String.self, forKey: .title)
     identifier = try read.decodeIfPresent(String.self, forKey: .identifier)
     value = try read.decodeIfPresent(String.self, forKey: .value)
+    valueDescription = try read.decodeIfPresent(String.self, forKey: .valueDescription)
     description = try read.decodeIfPresent(String.self, forKey: .description)
     help = try read.decodeIfPresent(String.self, forKey: .help)
     actions = try read.decodeIfPresent([String].self, forKey: .actions) ?? []
