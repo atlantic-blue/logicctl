@@ -133,9 +133,14 @@ private struct StopPlayback: LogicCommand {
   /// happen.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     try output.send(MachineControlMessage.stop)
+    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+      let moving = try driver.readState().transport.playing
+      return !moving
+    }
+    let transport = try driver.readState().transport
     return .object([
-      "playing": .bool(false),
-      "recording": .bool(false),
+      "playing": .bool(transport.playing),
+      "recording": .bool(transport.recording),
     ])
   }
 }
