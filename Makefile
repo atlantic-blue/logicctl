@@ -5,7 +5,7 @@
 # granted. That name is never written into the repository. It lives in LOGICCTL_SIGN_IDENTITY, in
 # the environment of this Mac.
 
-.PHONY: sign accept
+.PHONY: sign accept smoke
 
 sign:
 	@if [ -z "$$LOGICCTL_SIGN_IDENTITY" ]; then \
@@ -70,3 +70,45 @@ accept:
 	  echo "logicctl: the live scenarios of phase $(PART) ran and the run went red"; \
 	  exit "$$status"; \
 	fi
+
+# `make smoke PROJECT=<the copy Logic has open>` runs every command that reads Logic and changes
+# nothing: status, tracks list, midi notes, automation list and plugins list. It prints the envelope
+# of each one and it ends with a status that is not zero when any of them carries an error. The
+# pipeline has no Logic, so this run is the only place the reads meet the real application, and its
+# output goes into the pull request of the change.
+#
+# Logic holds the Mixer open and the Event List of the region open while it runs. A read walks to
+# the project window, and the notes and the points of a region are in the Event List of that region.
+# Measured on this Mac on 2026-09-25: a read of a window that is not open answers
+# element_not_found and names the locator it looked for.
+#
+# PROJECT names the copy, because no command that reads Logic answers the path of the project it has
+# open. The run resolves every link in that path and refuses any path outside /tmp, so it can never
+# read the work of a person, and it then reads the window title and refuses a copy Logic does not
+# have open.
+#
+# TRACK and REGION name the region the notes and the points come from. Both are 1 by default.
+#
+# It builds nothing and it signs nothing, for the reason `make accept` builds nothing: both grants
+# key on the signature, so a build here would take them away and every read would answer nothing.
+
+smoke:
+	@if [ -z "$(PROJECT)" ]; then \
+	  echo "logicctl: name the copy Logic has open, for example make smoke PROJECT=/tmp/logicctl-fixtures/F-T13.logicx"; \
+	  exit 1; \
+	fi
+	@if ! command -v node >/dev/null 2>&1; then \
+	  echo "logicctl: the smoke run is written in TypeScript, and this Mac has no node on the path"; \
+	  exit 1; \
+	fi
+	@binary="$${LOGICCTL_BINARY:-.build/release/logicctl}"; \
+	if [ ! -x "$$binary" ]; then \
+	  echo "logicctl: $$binary is not there, so run make sign and then run this again"; \
+	  exit 1; \
+	fi; \
+	if ! codesign --verify "$$binary" >/dev/null 2>&1; then \
+	  echo "logicctl: $$binary carries no signature, so run make sign and then run this again"; \
+	  exit 1; \
+	fi; \
+	PROJECT="$(PROJECT)" TRACK="$(TRACK)" REGION="$(REGION)" LOGICCTL_BINARY="$$binary" \
+	  node --experimental-strip-types scripts/smoke.ts
