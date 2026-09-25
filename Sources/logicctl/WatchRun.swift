@@ -274,7 +274,7 @@ final class SaveWatcher: @unchecked Sendable {
       log.wrote(said, at: moment)
     }
     let after = SaveWatcher.state(recorded, withPluginHashes: mapping.hashes)
-    let differences = StateDiff.between(after, after)
+    let differences = StateDiff.between(recorded, after)
     let step = Step(
       seq: repository.nextSequence(),
       kind: .save,
