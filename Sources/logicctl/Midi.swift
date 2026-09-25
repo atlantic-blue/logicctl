@@ -14,8 +14,8 @@ struct Midi: ParsableCommand {
       Example: logicctl midi write-file --in notes.json --out notes.mid
       """,
     subcommands: [
-      Setup.self, Note.self, Chord.self, ControlChange.self, Notes.self, Quantize.self,
-      SetVelocity.self, WriteFile.self,
+      Setup.self, Note.self, Chord.self, ControlChange.self, Import.self, Notes.self,
+      Quantize.self, SetVelocity.self, WriteFile.self,
     ])
 }
 
