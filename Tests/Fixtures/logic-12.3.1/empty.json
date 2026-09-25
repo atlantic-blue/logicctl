@@ -1,5 +1,5 @@
 {
-  "logicVersion": "12.3.0",
+  "logicVersion": "12.3.1",
   "root": {
     "actions": [
       "AXRaise"

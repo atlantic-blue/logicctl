@@ -41,7 +41,7 @@
       },
       {
         "role": "AXStaticText",
-        "value": "/Users/julian/Music/Logic/F-T0.logicx - Mixer: Tracks"
+        "value": "F-T0.logicx - Mixer: Tracks"
       },
       {
         "children": [
@@ -708,6 +708,6 @@
       }
     ],
     "role": "AXWindow",
-    "title": "/Users/julian/Music/Logic/F-T0.logicx - Mixer: Tracks"
+    "title": "F-T0.logicx - Mixer: Tracks"
   }
 }
