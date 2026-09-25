@@ -21,13 +21,28 @@ struct Sessions: ParsableCommand {
       many steps it holds. A project that was never saved carries no path. The newest session \
       comes first.
 
+      A project that moved is pointed at its new path with --relink, which takes the id of the \
+      session and then the path. The work goes on in the session that already holds it.
+
       Example: logicctl sessions --pretty
       """)
 
+  @Option(
+    parsing: .upToNextOption,
+    help: "Point a session at a project that moved: its id, then the new path.")
+  var relink: [String] = []
+
   @OptionGroup var output: OutputOption
 
+  /// Refuses a --relink that is not a session and a path, before anything is read or written.
+  func validate() throws {
+    guard relink.isEmpty || relink.count == Sessions.relinkValues else {
+      throw ValidationError("Give --relink the session and the new path, in that order.")
+    }
+  }
+
   func run() throws {
-    let status = Sessions.answer(format: output.format)
+    let status = Sessions.answer(relink: relink, format: output.format)
     guard status == 0 else {
       // The envelope is written already. The number goes out through the root command, which
       // prints nothing more for it.
@@ -37,8 +52,8 @@ struct Sessions: ParsableCommand {
 }
 
 extension Sessions {
-  /// Reads every session under one root, prints the envelope, and answers the number the process
-  /// exits with.
+  /// Reads every session under one root, or relinks one of them, prints the envelope, and answers
+  /// the number the process exits with.
   ///
   /// The root and the git are given, so a test reads sessions it wrote in a folder of its own and
   /// never the sessions of the operator.
@@ -58,6 +73,10 @@ extension Sessions {
     // This command reads no Logic, so it carries no session and no step in `meta`.
     func meta() -> Meta {
       AnswerMeta.refusal(version: Logicctl.version, from: started, to: now())
+    }
+
+    guard relink.isEmpty else {
+      return Sessions.relinked(relink, root: root, git: git, printer: printer, meta: meta)
     }
 
     do {

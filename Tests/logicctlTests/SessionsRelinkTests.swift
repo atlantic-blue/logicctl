@@ -154,3 +154,183 @@ private final class Answer {
     try commits(of: repository, git: git) == held + 1,
     "the move is one commit of its own, so the history says when the project moved")
 }
+
+/// The answer names the session, where the project sat, where it sits now, and the commit that
+/// carries the change. A caller that relinked a session reads the commit and goes straight to it.
+@Test func relinkAnswersWhatItChanged() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: aProjectWithOneTrack(), git: git)
+
+  let answer = Answer()
+  let exitCode = Sessions.answer(
+    relink: [repository.session.id, theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 0)
+  let data = try answer.data()
+  #expect(data["session"] as? String == repository.session.id)
+  #expect(data["pathBefore"] as? String == theOldPath, "where the project sat")
+  #expect(data["pathAfter"] as? String == theNewPath, "and where it sits now")
+  let head = try git.run(["rev-parse", "HEAD"], in: repository.folder)
+    .trimmingCharacters(in: .whitespacesAndNewlines)
+  #expect(
+    data["commit"] as? String == head,
+    "the commit of the change, so a person reads it without searching the history")
+}
+
+/// A relink is not a step. The count of steps says how much work a session holds, and a project
+/// that moved is nothing that was done to Logic, so the count must not move with the project.
+@Test func relinkAddsNoStepToTheCount() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let project = aProjectWithOneTrack()
+
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: project, git: git)
+  try writeSteps(3, into: repository, leaving: project)
+
+  let answer = Answer()
+  _ = Sessions.answer(
+    relink: [repository.session.id, theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  let rows = try SessionList.rows(underRoot: root, git: git)
+  try #require(rows.count == 1)
+  #expect(rows[0].steps == 3, "the work is the same work, and the listing says so")
+  #expect(rows[0].path == theNewPath, "and the listing says where the project sits now")
+}
+
+/// A person typed an id that no session carries. Nothing is written, and the answer names the id
+/// that was typed, because the usual cause is a short id or one character wrong.
+@Test func relinkOfASessionThatIsNotThereIsRefused() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: aProjectWithOneTrack(), git: git)
+  let held = try commits(of: repository, git: git)
+
+  let answer = Answer()
+  let exitCode = Sessions.answer(
+    relink: ["6b441a12", theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 2, "a name that is not there is invalid_argument, code 2")
+  #expect(try answer.failure()["code"] as? String == "invalid_argument")
+  #expect(try commits(of: repository, git: git) == held, "and nothing was written")
+  #expect(
+    SessionIndex.session(atProjectPath: theOldPath, root: root)?.id == repository.session.id,
+    "the session that is there still carries the path it had")
+}
+
+/// The path is the path the session already carries, so there is nothing to change. The person
+/// reads a sentence. Writing it would mean a commit that carries no change, which git refuses.
+@Test func relinkToThePathItAlreadyCarriesIsRefused() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: aProjectWithOneTrack(), git: git)
+  let held = try commits(of: repository, git: git)
+
+  let answer = Answer()
+  let exitCode = Sessions.answer(
+    relink: [repository.session.id, theOldPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 2, "nothing to do is invalid_argument, code 2")
+  #expect(try answer.failure()["code"] as? String == "invalid_argument")
+  #expect(answer.err.hasPrefix("logicctl: invalid_argument: "), "and one line for the person")
+  #expect(try commits(of: repository, git: git) == held, "the history is untouched")
+}
+
+/// A session of a project nobody saved yet carries no path. A relink gives it one, and the field
+/// that was null before says so.
+@Test func relinkGivesAPathToASessionThatHadNone() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let repository = try SessionRepository.start(
+    session: aSession(at: nil), root: root, state: aProjectWithOneTrack(), git: git)
+
+  let answer = Answer()
+  let exitCode = Sessions.answer(
+    relink: [repository.session.id, theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 0)
+  #expect(try answer.data()["pathBefore"] is NSNull, "a missing value is null and never absent")
+  #expect(SessionIndex.session(atProjectPath: theNewPath, root: root)?.id == repository.session.id)
+}
+
+/// The repository of the session cannot be written, so the relink fails as a write that failed
+/// and not as a person who typed something wrong.
+@Test func aRelinkThatCannotBeWrittenFailsAsJournalFailed() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: aProjectWithOneTrack(), git: git)
+  try FileManager.default.removeItem(at: repository.folder.appendingPathComponent(".git"))
+
+  let answer = Answer()
+  let exitCode = Sessions.answer(
+    relink: [repository.session.id, theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 14, "a write that failed is journal_failed, code 14")
+  #expect(try answer.failure()["code"] as? String == "journal_failed")
+}
+
+/// `sessions` reads no Logic, and a relink reads none either. It writes a commit and not a step,
+/// so `meta` names no session and no step, the way the data model asks.
+@Test func relinkNamesNoSessionAndNoStepInItsMeta() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let repository = try SessionRepository.start(
+    session: aSession(at: theOldPath), root: root, state: aProjectWithOneTrack(), git: git)
+
+  let answer = Answer()
+  _ = Sessions.answer(
+    relink: [repository.session.id, theNewPath],
+    root: root, git: git, standardOutput: answer.write, standardError: answer.writeError)
+
+  let meta = try answer.envelope()["meta"] as? [String: Any] ?? [:]
+  #expect(meta["session"] is NSNull, "this command read no project")
+  #expect(meta["step"] is NSNull, "and a relink is no step")
+}
+
+/// The command line reaches the relink. A flag the command does not hold is not there at all,
+/// whatever the code behind it does, and every test above would still pass.
+@Test func theCommandLineReachesRelink() throws {
+  let answer = Answer()
+  let exitCode = Logicctl.run(
+    arguments: ["sessions", "--help"], standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exitCode == 0)
+  #expect(answer.out.contains("--relink"), "the help names the flag a person types")
+}
+
+/// One value is a session with no path, or a path with no session. Neither can be acted on, so
+/// the command refuses it before it reads the journal, and says what to type instead.
+@Test func aRelinkThatIsNotASessionAndAPathIsRefused() throws {
+  let answer = Answer()
+  let exitCode = Logicctl.run(
+    arguments: ["sessions", "--relink", theNewPath], standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exitCode == 2, "the arguments were wrong, so invalid_argument, code 2")
+  let parsed = try JSONSerialization.jsonObject(with: Data(answer.out.utf8)) as? [String: Any]
+  let failure = parsed?["error"] as? [String: Any] ?? [:]
+  #expect(failure["code"] as? String == "invalid_argument")
+  #expect(
+    (failure["message"] as? String ?? "").contains("--relink"),
+    "and the sentence names the flag that was wrong")
+}
