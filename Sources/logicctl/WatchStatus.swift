@@ -17,7 +17,7 @@ import LogicctlMac
 struct WatchStatus: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "status",
-    abstract: "Report whether the watcher runs and which projects it covers.",
+    abstract: "Report whether this Mac carries a watcher, and which projects it covers.",
     discussion: """
       The answer carries the label launchd knows the watcher by, and the path of every project it \
       covers, the newest session first. A project that was never saved sits at no path, so \
