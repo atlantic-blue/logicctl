@@ -405,6 +405,7 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   // nothing until they say --confirm.
   let guarded = Printed()
   let ofTheirs = ATempoDisplay(at: tempoAtTheStart, carriedBy: theirs.driver)
+  let theirTime = TempoTime()
 
   let refusedTheirs = TransportCommand.Tempo.answer(
     driver: theirs.driver,
@@ -415,8 +416,8 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     version: "0.1.0",
     limitMs: theLimit,
     argv: ["96"],
-    clock: TempoTime().read,
-    sleeper: { _ in },
+    clock: theirTime.read,
+    sleeper: theirTime.sleep,
     git: theirs.git,
     capturer: NoPictureOfTheWindow(),
     standardOutput: guarded.write,
@@ -439,8 +440,8 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     version: "0.1.0",
     limitMs: theLimit,
     argv: ["96", "--confirm"],
-    clock: TempoTime().read,
-    sleeper: { _ in },
+    clock: theirTime.read,
+    sleeper: theirTime.sleep,
     git: theirs.git,
     capturer: NoPictureOfTheWindow(),
     standardOutput: saidYes.write,
