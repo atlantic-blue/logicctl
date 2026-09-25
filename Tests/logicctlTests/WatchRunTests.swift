@@ -82,7 +82,7 @@ private func aState(named names: [[String]], hashedFrom file: URL) throws -> Sta
   for (place, carried) in names.enumerated() {
     var plugins: [Plugin] = []
     for (slot, name) in carried.enumerated() {
-      let hash = given < chunks.count ? chunks[given].stateHash : nil
+      let hash: String? = given < chunks.count ? chunks[given].stateHash : nil
       plugins.append(Plugin(slot: slot + 1, name: name, stateHash: hash))
       given += 1
     }
@@ -216,7 +216,7 @@ private final class AHand: FileChangeSource, @unchecked Sendable {
 
 /// A watcher over one root, with a source and a log a test can read.
 private func aWatcher(
-  root: URL, source: FileChangeSource, git: Git, lock: Lock = Lock()
+  root: URL, source: any FileChangeSource, git: Git, lock: Lock = Lock()
 ) -> SaveWatcher {
   SaveWatcher(
     root: root,

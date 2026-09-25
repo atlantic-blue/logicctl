@@ -210,7 +210,17 @@ final class SaveWatcher: @unchecked Sendable {
     }
     // The stream is replaced away from the thread its own reports arrive on.
     work.async { [weak self] in
-      try? self?.watch(folders: folders)
+      guard let self else {
+        return
+      }
+      do {
+        try self.watch(folders: folders)
+      } catch {
+        let said: [String: JSONValue] = [
+          "event": .string("not watching"), "reason": .string("\(error)"),
+        ]
+        self.log.wrote(said, at: self.now())
+      }
     }
   }
 
@@ -369,7 +379,22 @@ extension SaveWatcher {
   static func mapping(
     ofNamedChunks chunks: [ProjectData.PluginChunk], onto plugins: [RecordedPlugin]
   ) -> Mapping {
-    Mapping(hashes: [], reason: "the plugins of a saved project are not read yet")
+    let named = chunks.filter { $0.name != nil }
+    guard named.count >= plugins.count else {
+      var reason = "the saved project holds \(named.count) named plugin chunks, "
+      reason += "and the state holds \(plugins.count) plugins"
+      return Mapping(hashes: [], reason: reason)
+    }
+    for (place, plugin) in plugins.enumerated() {
+      let carried = named[place].name ?? "a chunk with no name"
+      guard let name = plugin.name, name == carried else {
+        let held = plugin.name ?? "a plugin with no name"
+        var reason = "the state holds \(held) in slot \(plugin.slot + 1) "
+        reason += "of track \(plugin.track + 1), and the saved project holds \(carried) there"
+        return Mapping(hashes: [], reason: reason)
+      }
+    }
+    return Mapping(hashes: named.prefix(plugins.count).map(\.stateHash), reason: nil)
   }
 
   /// The recorded state with the hashes of this save over it.
@@ -377,26 +402,29 @@ extension SaveWatcher {
   /// Everything else stays as the session recorded it, because the watcher reads a file and never
   /// Logic. An empty list of hashes leaves the state as it was.
   static func state(_ state: JSONValue, withPluginHashes hashes: [String]) -> JSONValue {
-    guard !hashes.isEmpty, case .object(var members) = state,
-      case .array(let tracks) = members["tracks"] ?? .null
+    guard !hashes.isEmpty, case .object(let read) = state,
+      case .array(let tracks) = read["tracks"] ?? .null
     else {
       return state
     }
+    var members = read
     var given = 0
     var written: [JSONValue] = []
     for carried in tracks {
-      guard case .object(var fields) = carried,
-        case .array(let plugins) = fields["plugins"] ?? .null
+      guard case .object(let held) = carried,
+        case .array(let plugins) = held["plugins"] ?? .null
       else {
         written.append(carried)
         continue
       }
+      var fields = held
       var reset: [JSONValue] = []
       for plugin in plugins {
-        guard case .object(var named) = plugin, given < hashes.count else {
+        guard case .object(let carriedPlugin) = plugin, given < hashes.count else {
           reset.append(plugin)
           continue
         }
+        var named = carriedPlugin
         named["stateHash"] = .string(hashes[given])
         given += 1
         reset.append(.object(named))
