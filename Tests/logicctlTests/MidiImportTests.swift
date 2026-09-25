@@ -77,6 +77,9 @@ private enum Move: Equatable {
   /// An item of the menu the Where popup opened was pressed, by its title.
   case wherePopup(String)
 
+  /// Logic was brought to the front and the panel was raised.
+  case broughtToTheFront
+
   /// A folder row was opened, by the name it shows.
   case opened(String)
 
@@ -107,6 +110,10 @@ private final class APanel {
   /// A row the file list keeps selected besides the one the command asked for.
   private let alsoSelected: String?
 
+  /// Whether the Import button reads enabled once the file is selected. Logic behind another
+  /// application leaves it disabled, and a press of it does nothing.
+  private let importIsEnabled: Bool
+
   /// Whether the panel is open.
   private var shows = false
 
@@ -120,11 +127,13 @@ private final class APanel {
     carriedBy: FakeLogicDriver,
     landsIn: String? = nil,
     alsoSelected: String? = nil,
+    importIsEnabled: Bool = true,
     onImport: @escaping (FakeLogicDriver) -> Void
   ) {
     self.carriedBy = carriedBy
     self.landsIn = landsIn
     self.alsoSelected = alsoSelected
+    self.importIsEnabled = importIsEnabled
     self.onImport = onImport
   }
 
@@ -144,6 +153,8 @@ private final class APanel {
         self.shows = false
         self.onImport(self.carriedBy)
       },
+      bringToFront: { self.moves.append(.broughtToTheFront) },
+      enabled: { _ in self.importIsEnabled },
       pressItem: { title in
         self.moves.append(.wherePopup(title))
         self.folder = title
@@ -377,7 +388,9 @@ private func midiImport(
   #expect(try answer.data()?.keys.sorted() == ["region", "sha256", "track"], "and nothing else")
 
   #expect(
-    panel.moves == [.menu, .pressed(Locators.importWherePopup.name), .wherePopup(theDisk)]
+    panel.moves == [
+      .menu, .broughtToTheFront, .pressed(Locators.importWherePopup.name), .wherePopup(theDisk),
+    ]
       + folders(of: theFile).map(Move.opened)
       + [.selected([theFile.lastPathComponent]), .pressed(Locators.importButton.name)],
     "the panel was walked to the file where the file is, and then Import was pressed")
@@ -488,7 +501,8 @@ private func midiImport(
 ///
 /// Both answers change the project and neither is what the person typed. So logicctl presses
 /// nothing and stops, and the person reads the question and the three answers in the output. A
-/// tool that pressed a button here would change the tempo of a project on its own.
+/// tool that pressed a button here would change the tempo of a project on its own, and a tool that
+/// ticked the checkbox beside them, `supression-checkbox`, would stop Logic asking anybody again.
 @Test func theTempoQuestionStopsTheImport() throws {
   let logic = try aLogic()
   defer { try? FileManager.default.removeItem(at: logic.root) }
@@ -624,4 +638,27 @@ private func midiImport(
     "every folder of the path, from the start up disk down")
   #expect(facts.path.folders == ["Users", "someone", "Music"])
   #expect(facts.path.name == ".hidden-notes.mid", "and the file is taken as it is")
+}
+
+/// The Import button is disabled, so nothing is pressed and nothing is imported.
+///
+/// Measured on Logic 12.3.1 on 2026-09-25: with Logic behind another application, the file row
+/// selects and the button stays disabled. A press of a disabled button is taken by nobody, so a
+/// command that pressed it and read the project too early would report an import that never
+/// happened. The command reads the button instead, and says which control refused.
+@Test func aDisabledImportButtonStopsTheCommand() throws {
+  let logic = try aLogic()
+  defer { try? FileManager.default.removeItem(at: logic.root) }
+
+  let panel = APanel(
+    carriedBy: logic.driver, importIsEnabled: false, onImport: anImportThatLands)
+  let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
+
+  #expect(status == 5, "the button would take no press")
+  #expect(try answer.failureCode() == "element_not_found")
+  #expect(try answer.failureMessage().contains("OKButton"), "the message names the control")
+  #expect(
+    !panel.moves.contains(.pressed(Locators.importButton.name)),
+    "and nothing was pressed")
+  #expect(logic.driver.state?.tracks.count == 1, "so the project did not change")
 }

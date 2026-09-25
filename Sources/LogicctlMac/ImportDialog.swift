@@ -200,6 +200,12 @@ extension ImportFile {
 /// reads the popup after each open, because an open that landed somewhere else would leave the
 /// route selecting a file of that name in another folder.
 ///
+/// Logic is brought to the front before the walk. Measured on Logic 12.3.1 on 2026-09-25: with
+/// Logic behind another application, the file row selects and the Import button stays disabled, so
+/// a press of it does nothing and the command would report an import that never happened. The
+/// button reads enabled after the application is made frontmost and the panel is raised. The route
+/// reads that state after the selection rather than trusting it.
+///
 /// The panel is the expected answer to the menu item, so nothing reads it as a dialog to stop on.
 /// The dialog Logic opens after the import is read by the run of the command, which stops with
 /// `dialog_open`.
@@ -234,6 +240,13 @@ public struct ImportDialog {
   /// Presses the one element a locator names.
   public typealias Press = (Locator) throws -> Void
 
+  /// Brings Logic to the front and raises the panel.
+  public typealias BringToFront = () throws -> Void
+
+  /// Whether the one element a locator names is enabled.
+  public typealias ReadEnabled = (Locator) throws -> Bool
+
+
   /// Presses the item of the open menu whose title is this.
   public typealias PressItem = (String) throws -> Void
 
@@ -255,6 +268,12 @@ public struct ImportDialog {
   /// Presses a control of the panel.
   public let press: Press
 
+  /// Brings Logic to the front and raises the panel.
+  public let bringToFront: BringToFront
+
+  /// Reads whether a control of the panel is enabled.
+  public let enabled: ReadEnabled
+
   /// Presses an item of the menu the Where popup opens.
   public let pressItem: PressItem
 
@@ -274,6 +293,8 @@ public struct ImportDialog {
     openTheMenuItem: @escaping OpenTheMenuItem,
     showsThePanel: @escaping Read,
     press: @escaping Press,
+    bringToFront: @escaping BringToFront,
+    enabled: @escaping ReadEnabled,
     pressItem: @escaping PressItem,
     openFolder: @escaping OpenFolder,
     folderShown: @escaping ReadFolder,
@@ -283,6 +304,8 @@ public struct ImportDialog {
     self.openTheMenuItem = openTheMenuItem
     self.showsThePanel = showsThePanel
     self.press = press
+    self.bringToFront = bringToFront
+    self.enabled = enabled
     self.pressItem = pressItem
     self.openFolder = openFolder
     self.folderShown = folderShown
@@ -307,6 +330,7 @@ extension ImportDialog {
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
     }
+    try bringToFront()
     try press(Locators.importWherePopup)
     let disk = try startUpDisk()
     try pressItem(disk)
@@ -320,6 +344,11 @@ extension ImportDialog {
       }
     }
     try selection.selectOnly(path.name)
+    guard try enabled(Locators.importButton) else {
+      throw Refusal(
+        reason: "\(path.name) is selected in the Import panel and its OKButton is disabled, so "
+          + "Logic would take no press. Bring Logic to the front and run the command again.")
+    }
     try press(Locators.importButton)
   }
 }
@@ -348,6 +377,8 @@ extension ImportDialog {
       openTheMenuItem: ImportDialog.askTheLogicOfThisMacToImportAMidiFile,
       showsThePanel: ImportDialog.theLogicOfThisMacShowsThePanel,
       press: ImportDialog.pressInTheLogicOfThisMac,
+      bringToFront: ImportDialog.bringTheLogicOfThisMacToTheFront,
+      enabled: ImportDialog.isEnabledInTheLogicOfThisMac,
       pressItem: ImportDialog.pressTheOpenMenuItemOfThisMac,
       openFolder: ImportDialog.openTheFolderInTheLogicOfThisMac,
       folderShown: ImportDialog.theFolderTheLogicOfThisMacShows,
@@ -581,4 +612,59 @@ extension ImportDialog {
 
   /// What the panel calls the outline that lists the folders and the files.
   static let fileListIdentifier = "ListView"
+}
+
+extension ImportDialog {
+  /// Brings Logic to the front and raises the Import panel.
+  ///
+  /// Logic behind another application takes the selection of a file row and leaves the Import
+  /// button disabled, so the press that follows would do nothing at all. This is the one thing
+  /// the route does to the Mac that a person sees, and it is what makes the press land.
+  static func bringTheLogicOfThisMacToTheFront() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let application = logic.root as? LiveAXNode else {
+      throw Refusal(
+        reason: "Logic was read from a recorded tree, which nothing can bring to the front.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      application.element, kAXFrontmostAttribute as CFString, true as CFTypeRef)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "macOS refused to bring Logic to the front, error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+    let panel = try LocatorResolver.element(
+      of: Locators.importWindow, in: ImportDialog.frontWindow())
+    guard let window = panel as? LiveAXNode else {
+      throw Refusal(
+        reason: "The Import panel was read from a recorded tree, which nothing can raise.",
+        code: .internalFailure)
+    }
+    let raised = AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
+    guard raised == .success else {
+      throw Refusal(
+        reason: "Logic refused to raise the Import panel, error \(raised.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Whether the one element a locator names is enabled, in the panel Logic shows in front.
+  static func isEnabledInTheLogicOfThisMac(_ locator: Locator) throws -> Bool {
+    let element = try LocatorResolver.element(of: locator, in: ImportDialog.frontWindow())
+    guard let live = element as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which says nothing about Logic.",
+        code: .internalFailure)
+    }
+    var held: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      live.element, kAXEnabledAttribute as CFString, &held)
+    guard answered == .success else {
+      return false
+    }
+    return held as? Bool ?? false
+  }
 }

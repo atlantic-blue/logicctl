@@ -15,6 +15,12 @@ extension Midi {
   /// Logic asks whether to import the tempo of the file as well. Both answers change the project
   /// and neither is what the person typed, so logicctl presses nothing: the command stops with
   /// `dialog_open`, and the person answers the question in Logic.
+  ///
+  /// The dialog carries four controls, read from Logic 12.3.1 on 2026-09-25: the buttons
+  /// `action-button-1` No, `action-button-2` Import Tempo and `action-button-3` Cancel, and the
+  /// checkbox `supression-checkbox`, Don’t ask again. logicctl presses none of them. The checkbox
+  /// is the one that would last: a tick there stops Logic asking anybody again, on every later
+  /// import a person makes by hand.
   struct Import: ParsableCommand {
     static let configuration = CommandConfiguration(
       commandName: "import",
