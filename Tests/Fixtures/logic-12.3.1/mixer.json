@@ -1,0 +1,713 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXZoomWindow",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "this button also has an action to zoom the window",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "help": "",
+        "role": "AXImage",
+        "title": "F-T0.logicx"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "F-T0.logicx - Mixer: Tracks"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Leave Folder",
+                "help": "Leave Folder",
+                "role": "AXButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Edit",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Options",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "View",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "help": "",
+                "role": "AXStaticText",
+                "value": "Sends on Faders:"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "Sends on Faders - On/Off. Swaps the Pan knob and Fader on channel strips so that they control the panning and volume of the chosen send. ",
+                "role": "AXCheckBox",
+                "title": "Sends on Faders:",
+                "value": "0"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "Off, Sends on Faders pop-up menu. Assigns the Pan knob and Fader on channel strips to control the panning and volume of the chosen send. ",
+                "role": "AXPopUpButton",
+                "value": "Off"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Single",
+                    "help": "Show Signal Flow of Attentioned Track",
+                    "role": "AXRadioButton",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Tracks",
+                    "help": "Show all Channel Strips used by Tracks",
+                    "role": "AXRadioButton",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "All",
+                    "help": "Show all Channel Strips",
+                    "role": "AXRadioButton",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXRadioGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXMenuButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Narrow Channel Strips",
+                    "help": "Narrow Channel Strips",
+                    "role": "AXRadioButton",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Wide Channel Strips",
+                    "help": "Wide Channel Strips",
+                    "role": "AXRadioButton",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXRadioGroup"
+              }
+            ],
+            "description": "Mixer",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu"
+                ],
+                "children": [
+                  {
+                    "description": "name",
+                    "help": "Name field. Double-click to rename the channel strip. ",
+                    "role": "AXTextField",
+                    "value": "Deluxe Classic"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "mute",
+                    "help": "Mute button. Silence a channel strip so it’s no longer audible. Use on an aux or output channel strip to silence that part of the mix, or on the master channel strip to mute the project. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "solo",
+                    "help": "Solo button. Isolate a channel strip’s signal so that it can be heard alone. Use on an aux or output channel strip to isolate that part of the mix. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "children": [
+                      {
+                        "description": "fader knob",
+                        "role": "AXValueIndicator"
+                      }
+                    ],
+                    "description": "volume fader",
+                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix. You can leave the Volume fader of the master channel strip at 0 dB in most cases. ",
+                    "role": "AXSlider",
+                    "value": "173"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "volume fader level",
+                    "help": "Volume display. Shows the position of the Volume fader referenced to the dB scale to the left of the Mixer. Positive values increase the signal level, negative values decrease it, and 0 dB leaves it unchanged. ",
+                    "role": "AXTextField",
+                    "title": "volume fader level, 0.0 dB"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "peak level meter",
+                    "help": "Peak Level display. Shows the signal peak during playback. Values above 0 dB turn red to indicate signal clipping. Orange values above 0 dB do not clip due to internal floating point calculations. ",
+                    "role": "AXButton",
+                    "title": "peak level meter",
+                    "value": "signal clipping off"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "children": [
+                      {
+                        "description": "knob readout",
+                        "role": "AXStaticText",
+                        "value": ""
+                      }
+                    ],
+                    "description": "pan",
+                    "help": "Pan/Balance knob. Drag vertically to position the channel strip signal in the stereo field. ",
+                    "role": "AXSlider",
+                    "value": "0"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "automation",
+                        "role": "AXCheckBox",
+                        "value": "true"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "list",
+                        "role": "AXButton"
+                      }
+                    ],
+                    "description": "Read, automation enabled",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "group",
+                    "help": "Group slot. Add the channel strip to a group. You can also define which channel strip controls can be edited for the entire group at the same time. ",
+                    "role": "AXPopUpButton",
+                    "title": "group"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Stereo Output",
+                    "help": "Output slot. Click and hold to choose the channel strip output destination—where the channel strip signal is sent. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "send button",
+                    "help": "Send slot. Route the signal to an aux channel strip. Use sends to process or submix multiple track output signals. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                    ],
+                    "description": "audio plug-in",
+                    "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                    ],
+                    "description": "insert bar",
+                    "role": "AXButton"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "bypass",
+                        "role": "AXCheckBox",
+                        "value": "false"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "open",
+                        "role": "AXButton"
+                      },
+                      {
+                        "actions": [
+                          "AXPress",
+                          "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                        ],
+                        "description": "list",
+                        "role": "AXButton"
+                      }
+                    ],
+                    "description": "Channel EQ",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "bypass",
+                        "role": "AXCheckBox",
+                        "value": "false"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "open",
+                        "role": "AXButton"
+                      },
+                      {
+                        "actions": [
+                          "AXPress",
+                          "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                        ],
+                        "description": "list",
+                        "role": "AXButton"
+                      }
+                    ],
+                    "description": "E-Piano",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "MIDI plug-in",
+                    "help": "MIDI Effect slot. Insert a MIDI effect. Click an occupied slot to open the plug-in. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "EQ",
+                    "help": "EQ display. Click to add a Channel EQ or open an inserted Channel or Linear Phase EQ. Shift-click to add a Linear Phase EQ. Use EQ to shape an audio signal by adjusting the levels of specific frequency ranges. ",
+                    "role": "AXButton",
+                    "value": "on"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "gain reduction meter",
+                    "help": "Gain reduction meter. Shows the gain reduction of the first Compressor plug-in. If no Compressor is inserted, it shows the gain reduction of an inserted Limiter or Adaptive Limiter plug-in. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "setting",
+                    "help": "Setting button. Load and save channel strip settings, which contain setup information for a channel strip, including plug-ins. ",
+                    "role": "AXButton"
+                  }
+                ],
+                "description": "Deluxe Classic",
+                "role": "AXLayoutItem"
+              },
+              {
+                "actions": [
+                  "AXShowMenu"
+                ],
+                "children": [
+                  {
+                    "description": "name",
+                    "help": "Name field. Double-click to rename the channel strip. ",
+                    "role": "AXTextField",
+                    "value": "Stereo Out"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "mute",
+                    "help": "Mute button. Silence a channel strip so it’s no longer audible. Use on an aux or output channel strip to silence that part of the mix, or on the master channel strip to mute the project. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "bounce",
+                    "help": "Bounce button. Render the signal of one or more output channel strips to an audio file, or to multiple audio files. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "children": [
+                      {
+                        "description": "fader knob",
+                        "role": "AXValueIndicator"
+                      }
+                    ],
+                    "description": "volume fader",
+                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix. You can leave the Volume fader of the master channel strip at 0 dB in most cases. ",
+                    "role": "AXSlider",
+                    "value": "173"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "volume fader level",
+                    "help": "Volume display. Shows the position of the Volume fader referenced to the dB scale to the left of the Mixer. Positive values increase the signal level, negative values decrease it, and 0 dB leaves it unchanged. ",
+                    "role": "AXTextField",
+                    "title": "volume fader level, 0.0 dB"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "peak level meter",
+                    "help": "Peak Level display. Shows the signal peak during playback. Values above 0 dB turn red to indicate signal clipping. Orange values above 0 dB do not clip due to internal floating point calculations. ",
+                    "role": "AXButton",
+                    "title": "peak level meter",
+                    "value": "signal clipping off"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "children": [
+                      {
+                        "description": "knob readout",
+                        "role": "AXStaticText",
+                        "value": ""
+                      }
+                    ],
+                    "description": "pan",
+                    "help": "Pan/Balance knob. Drag vertically to position the channel strip signal in the stereo field. ",
+                    "role": "AXSlider",
+                    "value": "0"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "automation",
+                        "role": "AXCheckBox",
+                        "value": "true"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "list",
+                        "role": "AXButton"
+                      }
+                    ],
+                    "description": "Read, automation enabled",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "group",
+                    "help": "Group slot. Add the channel strip to a group. You can also define which channel strip controls can be edited for the entire group at the same time. ",
+                    "role": "AXPopUpButton",
+                    "title": "group"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                    ],
+                    "description": "audio plug-in",
+                    "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                    ],
+                    "description": "audio plug-in",
+                    "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXShowMenu",
+                      "AXPress"
+                    ],
+                    "description": "channel mode",
+                    "help": "Output Channel Mode button. Switches a pair of linked outputs between one stereo channel strip and two mono channel strips. ",
+                    "role": "AXButton",
+                    "value": "Stereo"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "mastering assistant",
+                    "help": "Mastering Assistant. Click to insert Mastering Assistant. ",
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "EQ",
+                    "help": "EQ display. Click to add a Channel EQ or open an inserted Channel or Linear Phase EQ. Shift-click to add a Linear Phase EQ. Use EQ to shape an audio signal by adjusting the levels of specific frequency ranges. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "gain reduction meter",
+                    "help": "Gain reduction meter. Shows the gain reduction of the first Compressor plug-in. If no Compressor is inserted, it shows the gain reduction of an inserted Limiter or Adaptive Limiter plug-in. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "setting",
+                    "help": "Setting button. Load and save channel strip settings, which contain setup information for a channel strip, including plug-ins. ",
+                    "role": "AXButton"
+                  }
+                ],
+                "description": "Stereo Out",
+                "role": "AXLayoutItem"
+              },
+              {
+                "actions": [
+                  "AXShowMenu"
+                ],
+                "children": [
+                  {
+                    "description": "name",
+                    "help": "Name field. Double-click to rename the channel strip. ",
+                    "role": "AXTextField",
+                    "value": "Master"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "mute",
+                    "help": "Mute button. Silence a channel strip so it’s no longer audible. Use on an aux or output channel strip to silence that part of the mix, or on the master channel strip to mute the project. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "dim",
+                    "help": "Dim button. Set the volume according to the Dim value set in Audio General settings. Otherwise, the volume follows the master Volume fader. ",
+                    "role": "AXButton",
+                    "value": "off"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "children": [
+                      {
+                        "description": "fader knob",
+                        "role": "AXValueIndicator"
+                      }
+                    ],
+                    "description": "volume fader",
+                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix. You can leave the Volume fader of the master channel strip at 0 dB in most cases. ",
+                    "role": "AXSlider",
+                    "value": "173"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "volume fader level",
+                    "help": "Volume display. Shows the position of the Volume fader referenced to the dB scale to the left of the Mixer. Positive values increase the signal level, negative values decrease it, and 0 dB leaves it unchanged. ",
+                    "role": "AXTextField",
+                    "title": "volume fader level, 0.0 dB"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "automation",
+                        "role": "AXCheckBox",
+                        "value": "false"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "list",
+                        "role": "AXButton"
+                      }
+                    ],
+                    "description": "Read, automation disabled",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "group",
+                    "help": "Group slot. Add the channel strip to a group. You can also define which channel strip controls can be edited for the entire group at the same time. ",
+                    "role": "AXPopUpButton",
+                    "title": "group"
+                  }
+                ],
+                "description": "Master",
+                "role": "AXLayoutItem"
+              }
+            ],
+            "description": "Mixer",
+            "help": "",
+            "role": "AXLayoutArea"
+          }
+        ],
+        "description": "Mixer",
+        "help": "",
+        "role": "AXGroup"
+      }
+    ],
+    "role": "AXWindow",
+    "title": "F-T0.logicx - Mixer: Tracks"
+  }
+}
