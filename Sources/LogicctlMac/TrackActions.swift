@@ -253,3 +253,36 @@ extension TrackActions {
     }
   }
 }
+
+extension TrackActions {
+  /// Removes one track.
+  ///
+  /// Logic removes the track that is selected, so the header of the track is pressed first and the
+  /// item of the Track menu after it. Nothing in the state of a project says which track is
+  /// selected, so the press on the header answers the same whether it selected the track or not.
+  /// The tracks the project has left are the whole of the evidence that the right one went.
+  ///
+  /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
+  /// types `--index`.
+  public func delete(trackNumber number: Int) throws {
+    try pressInWindow(Locators.trackHeader(number: number))
+    try press(TrackActions.deleteTrack)
+  }
+
+  /// The item of the Track menu that removes the track that is selected.
+  ///
+  /// The title is matched whole. The same menu holds `Delete Unused Tracks`, which removes every
+  /// track that carries no region, so a walk that took the first item starting with those two
+  /// words would take tracks nobody named.
+  ///
+  /// The walk starts at the application, because the menu bar of an application sits beside its
+  /// windows and not under one. No recorded tree holds a menu bar, so the live suite of phase 2 is
+  /// what proves this walk against Logic itself.
+  public static let deleteTrack = Locator(
+    name: "menu.track.deleteTrack",
+    path: toTheTrackMenu + [LocatorStep(role: "AXMenuItem", title: "Delete Track")])
+
+  /// The walk from the application of Logic to the items of its Track menu.
+  private static let toTheTrackMenu: [LocatorStep] =
+    Locators.trackMenu.path + [LocatorStep(role: "AXMenu")]
+}
