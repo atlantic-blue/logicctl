@@ -115,13 +115,14 @@ struct AutomationListCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
-    guard EventList.window(of: try source()) != nil else {
+    guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: track, region: region.index)
     }
+    let points = try AutomationMenus.points(in: window)
     return .object([
       "track": .number(Double(track)),
       "region": .number(Double(region.index)),
-      "points": .array([]),
+      "points": .array(points.map(\.json)),
     ])
   }
 }
