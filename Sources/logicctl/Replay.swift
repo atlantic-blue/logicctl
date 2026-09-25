@@ -190,7 +190,7 @@ extension Replay {
     guard steps.contains(where: { $0.seq == last }) else {
       throw Refusal.noSuchStep(step: last, held: held)
     }
-    return steps.filter { $0.seq >= first && $0.seq <= last }
+    return steps
   }
 
   /// What a range that holds no step says, on one line.
