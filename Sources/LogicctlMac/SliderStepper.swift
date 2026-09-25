@@ -80,7 +80,19 @@ public struct SliderStepper {
 }
 
 extension SliderStepper {
-  /// Moves the slider to one value, and answers with the value it reached.
+  /// How long one step of the slider has to reach the tree before the slider counts as stuck.
+  ///
+  /// Logic writes the step some time after the write, so a read that still answers the old value
+  /// says nothing on its own. A slider that answers the old value for this long answers it because
+  /// it did not move, and the command stops rather than writing at it again.
+  public static let settleMs = 500
+
+  /// Moves the slider to one value, one step at a time, and answers with the value it reached.
+  ///
+  /// The action of the slider moves it `stepOfAnAction`, so the stepper spends one of those while
+  /// the value is that far away and a write of one step after that. It stops at the value, with
+  /// `Refusal` when a step did not move the slider, and with `Wait.RanOut` when the whole move
+  /// passed its limit. A value the slider already shows costs Logic nothing.
   public func move(
     to value: Int,
     limitMs: Int = Wait.defaultLimitMs,
@@ -88,6 +100,33 @@ extension SliderStepper {
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws -> Int {
-    try read()
+    let started = clock()
+    var shown = try read()
+    while shown != value {
+      let waited = clock() - started
+      if waited >= limitMs {
+        throw Wait.RanOut(waitedMs: waited)
+      }
+      let before = shown
+      if abs(value - before) >= SliderStepper.stepOfAnAction {
+        try act(before < value ? .up : .down)
+      } else {
+        try write(value)
+      }
+      let settle = min(SliderStepper.settleMs, limitMs - (clock() - started))
+      do {
+        try Wait.until(limitMs: settle, pollMs: pollMs, clock: clock, sleeper: sleeper) {
+          shown = try read()
+          return shown != before
+        }
+      } catch is Wait.RanOut {
+        let waitedInAll = clock() - started
+        if waitedInAll >= limitMs {
+          throw Wait.RanOut(waitedMs: waitedInAll)
+        }
+        throw Refusal(asked: value, read: before)
+      }
+    }
+    return shown
   }
 }
