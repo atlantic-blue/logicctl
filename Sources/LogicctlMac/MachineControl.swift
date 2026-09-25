@@ -16,11 +16,15 @@ public struct MachineControlMessage: Sendable, Equatable {
     /// Stop the transport where it is.
     case stop
 
+    /// Start recording on the tracks that are armed.
+    case record
+
     /// The byte the Machine Control command set gives this command.
     var command: UInt8 {
       switch self {
       case .play: return 0x02
       case .stop: return 0x01
+      case .record: return 0x06
       }
     }
   }
@@ -57,6 +61,9 @@ public struct MachineControlMessage: Sendable, Equatable {
 
   /// Stop the transport.
   public static let stop = MachineControlMessage(kind: .stop)
+
+  /// Start recording. The Machine Control command set calls this one Record Strobe.
+  public static let record = MachineControlMessage(kind: .record)
 
   /// The six bytes of the message.
   public var bytes: [UInt8] {
