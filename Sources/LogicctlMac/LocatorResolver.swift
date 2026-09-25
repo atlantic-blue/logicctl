@@ -35,7 +35,7 @@ public enum LocatorResolver {
         code: .elementNotFound,
         message: sentence,
         details: .object([
-          "locatorName": .string(locator),
+          "locator": .string(locator),
           "step": .number(Double(step)),
           "matched": .number(Double(matched)),
         ]))
