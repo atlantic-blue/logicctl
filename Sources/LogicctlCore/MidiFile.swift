@@ -84,7 +84,7 @@ public enum MidiFile {
         Event(
           tick: starts + held, isOff: true, pitch: note.pitch, channel: note.channel, velocity: 0))
     }
-    return out.sorted { comes($0, before: $1) }
+    return out
   }
 
   /// Which of two events is written first.
