@@ -103,9 +103,9 @@ public enum ChannelStrip {
 
   /// Whether one child of a strip is a slot with a plugin in it.
   ///
-  /// The automation group of the strip carries a check box and a button named `list`, in the shape a
-  /// plugin slot carries them, and Logic writes its name in the same place. The check box described
-  /// `bypass` is what tells the two apart: only a plugin can be bypassed.
+  /// The automation group of the strip carries a check box and a button named `list`, in the shape
+  /// a plugin slot carries them, and Logic writes its name in the same place. The check box
+  /// described `bypass` is what tells the two apart: only a plugin can be bypassed.
   private static func isOccupied(_ node: any AXNode) -> Bool {
     guard node.role == "AXGroup", node.description != nil else {
       return false
