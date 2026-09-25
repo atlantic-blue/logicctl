@@ -104,7 +104,7 @@ private final class Recorded {
   #expect(good == 0, "a command that worked exits with 0")
   #expect(worked.err.isEmpty, "and says nothing on standard error")
   let metaText =
-    #""meta":{"durationMs":12,"externalChange":null,"session":"aa11bb22","#
+    #""meta":{"details":null,"durationMs":12,"externalChange":null,"session":"aa11bb22","#
     + #""step":null,"version":"0.1.0"}"#
   #expect(
     worked.out == #"{"data":{"running":false},"error":null,"# + metaText + "}\n",

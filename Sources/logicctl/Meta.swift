@@ -16,21 +16,24 @@ enum AnswerMeta {
   }
 
   /// What a command that talked to Logic says about itself: the session it was written into, the
-  /// commit of its step, and the commit of the change a person made before it.
+  /// commit of its step, the commit of the change a person made before it, and anything that went
+  /// beside the command without failing it.
   static func run(
     version: String,
     session: String?,
     step: String?,
     externalChange: String?,
     from started: Date,
-    to ended: Date
+    to ended: Date,
+    details: JSONValue? = nil
   ) -> Meta {
     Meta(
       version: version,
       session: session,
       step: step,
       externalChange: externalChange,
-      durationMs: milliseconds(from: started, to: ended))
+      durationMs: milliseconds(from: started, to: ended),
+      details: details)
   }
 
   /// How long something took, in whole milliseconds. A clock that steps back gives zero.
