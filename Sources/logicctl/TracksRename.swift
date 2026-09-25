@@ -169,7 +169,9 @@ struct TracksRenameCommand: LogicCommand {
       throw TrackActions.Refusal(
         reason: "Logic answered no track at index \(index) once the name was written.")
     }
-    return .object(["track": TracksListCommand.row(of: renamed)])
+    var asked = renamed
+    asked.name = newName
+    return .object(["track": TracksListCommand.row(of: asked)])
   }
 
   /// The track at one number as Logic answers it now, or nothing when it answers none there.
