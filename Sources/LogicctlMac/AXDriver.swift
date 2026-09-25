@@ -32,9 +32,14 @@ public struct AXDriver: LogicStatusReader {
   /// is the question of whether there is a Logic at all, and a refusal would leave a script with
   /// an exit code instead of an answer.
   public func status() throws -> LogicStatus {
-    // The four reads arrive in the next commit. This one answers one fixed state, so the scenario
-    // runs and fails on what it reads back rather than on a build.
-    LogicStatus(running: true, frontmost: false, window: nil, version: nil)
+    guard let open = try tree() else {
+      return LogicStatus.notRunning
+    }
+    return LogicStatus(
+      running: true,
+      frontmost: applicationInFront() == LogicTree.bundleIdentifier,
+      window: open.atTheFrontWindow()?.root.title,
+      version: open.logicVersion.isEmpty ? nil : open.logicVersion)
   }
 
   /// The tree of the Logic that runs on this Mac, or nothing when no Logic runs.
