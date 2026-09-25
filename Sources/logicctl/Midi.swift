@@ -15,7 +15,7 @@ struct Midi: ParsableCommand {
       """,
     subcommands: [
       Setup.self, Note.self, Chord.self, ControlChange.self, Notes.self, Quantize.self,
-      WriteFile.self,
+      SetVelocity.self, WriteFile.self,
     ])
 }
 

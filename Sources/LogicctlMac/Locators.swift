@@ -150,6 +150,52 @@ public enum Locators {
     path: toTheTrackMenu
       + [LocatorStep(role: "AXMenuItem", title: "New Software Instrument Track")])
 
+  /// The item of the menu bar that carries what Logic does to the mix, and to automation with it.
+  ///
+  /// The walk starts at the application, as the walk to the Track menu does, because the menu bar
+  /// of an application sits beside its windows and not under one. So no recorded tree holds it,
+  /// and the live suite of phase 4 is what proves this walk against Logic itself.
+  public static let mixMenu = Locator(
+    name: "menu.mix",
+    path: toTheMenuBar + [LocatorStep(role: "AXMenuBarItem", title: "Mix")])
+
+  /// The item of the Mix menu that opens what Logic can make as track automation.
+  public static let createTrackAutomationMenu = Locator(
+    name: "menu.mix.createTrackAutomation",
+    path: toTheMixMenu + [LocatorStep(role: "AXMenuItem", title: "Create Track Automation")])
+
+  /// The item that makes one automation point at each border of the selected region.
+  ///
+  /// The title is matched whole and not as a beginning. The same submenu carries "Create 2
+  /// Automation Points each for Volume, Pan, Sends" and "Create 2 Automation Points for Visible
+  /// Parameter", and both of those read as this one for the first 24 characters. Either would
+  /// change more of the project than a person asked for, and no later read of the region would
+  /// say which item was pressed.
+  public static let createAutomationPointsAtRegionBorders = Locator(
+    name: "menu.mix.createAutomationPointsAtRegionBorders",
+    path: toTheCreateTrackAutomationMenu
+      + [
+        LocatorStep(role: "AXMenuItem", title: "Create 2 Automation Points at Region Borders")
+      ])
+
+  /// The item of the Mix menu that opens what Logic can convert automation into.
+  public static let convertAutomationMenu = Locator(
+    name: "menu.mix.convertAutomation",
+    path: toTheMixMenu + [LocatorStep(role: "AXMenuItem", title: "Convert Automation")])
+
+  /// The item that moves the automation of the track into the region it sits over.
+  ///
+  /// The title is matched whole here too. The same submenu carries "Convert All Track Automation
+  /// to Region Automation", which moves the automation of the whole track rather than what is
+  /// visible over the one region.
+  public static let convertTrackAutomationToRegionAutomation = Locator(
+    name: "menu.mix.convertTrackAutomationToRegionAutomation",
+    path: toTheConvertAutomationMenu
+      + [
+        LocatorStep(
+          role: "AXMenuItem", title: "Convert Visible Track Automation to Region Automation")
+      ])
+
   /// The play button of the Control Bar.
   public static let transportPlayButton = Locator(
     name: "transport.playButton",
@@ -272,9 +318,10 @@ public enum Locators {
 
   /// Every locator a recorded tree proves. A test resolves each one in the trees it was read from.
   ///
-  /// The three menu locators are not here. A menu bar sits beside the windows of an application
-  /// rather than under one, so no recorded tree holds it, and a walk of it can only be proved
-  /// against the Logic of this Mac. The live suite of phase 2 does that.
+  /// The menu locators are not here. A menu bar sits beside the windows of an application rather
+  /// than under one, so no recorded tree holds it, and a walk of it can only be proved against the
+  /// Logic of this Mac. The live suite of phase 2 does that for the Track menu, and the live
+  /// acceptance of phase 4 does it for the Mix menu.
   public static let all: [Locator] = [
     mainWindow,
     tracksHeader,
@@ -328,6 +375,27 @@ public enum Locators {
     LocatorStep(role: "AXApplication"),
     LocatorStep(role: "AXMenuBar"),
   ]
+
+  /// The walk from the application of Logic to the items of its Mix menu.
+  private static let toTheMixMenu: [LocatorStep] =
+    toTheMenuBar + [
+      LocatorStep(role: "AXMenuBarItem", title: "Mix"),
+      LocatorStep(role: "AXMenu"),
+    ]
+
+  /// The walk from the application of Logic to the items of the Create Track Automation submenu.
+  private static let toTheCreateTrackAutomationMenu: [LocatorStep] =
+    toTheMixMenu + [
+      LocatorStep(role: "AXMenuItem", title: "Create Track Automation"),
+      LocatorStep(role: "AXMenu"),
+    ]
+
+  /// The walk from the application of Logic to the items of the Convert Automation submenu.
+  private static let toTheConvertAutomationMenu: [LocatorStep] =
+    toTheMixMenu + [
+      LocatorStep(role: "AXMenuItem", title: "Convert Automation"),
+      LocatorStep(role: "AXMenu"),
+    ]
 
   /// The walk from the application of Logic to the items of its Track menu.
   private static let toTheTrackMenu: [LocatorStep] =
