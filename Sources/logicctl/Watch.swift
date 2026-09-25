@@ -11,16 +11,17 @@ import LogicctlMac
 /// changes, and no history holds that. The watcher closes that gap. It runs as a launch agent of
 /// the user, so it comes back after a restart, and it writes a `save` step of its own.
 ///
-/// `start` and `stop` manage the agent. They read no Logic, so they take no lock, they write no
-/// step, and their answers carry no session and no step in `meta`, the way the data model asks.
+/// `start`, `status` and `stop` manage the agent. They read no Logic, so they take no lock, they
+/// write no step, and their answers carry no session and no step in `meta`, the way the data model
+/// asks.
 struct Watch: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "watch",
-    abstract: "Start and stop the watcher that records a save made in Logic.",
+    abstract: "Start, read and stop the watcher that records a save made in Logic.",
     discussion: """
       Example: logicctl watch start
       """,
-    subcommands: [Start.self, Stop.self, WatchRun.self])
+    subcommands: [Start.self, WatchStatus.self, Stop.self, WatchRun.self])
 }
 
 extension Watch {
