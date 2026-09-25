@@ -50,3 +50,49 @@ public enum DriverRefusal: String, Error, Equatable, Sendable {
   /// Logic is not running, so there is no project to read.
   case logicNotRunning = "logic_not_running"
 }
+
+/// What Logic is doing, read without opening a project.
+///
+/// A person or an agent asks this before anything else, and a Mac where Logic is not running is a
+/// normal answer to it rather than a failure. So every field stands on its own: a Logic that is not
+/// running is `running` false with nothing else to say, and a missing value is null and never
+/// absent.
+public struct LogicStatus: Equatable, Sendable {
+  /// True while Logic runs on this Mac.
+  public let running: Bool
+
+  /// True while Logic is the application in front. It is false when Logic runs behind another
+  /// application, and false when Logic does not run at all.
+  public let frontmost: Bool
+
+  /// The title of the front window of Logic, or nil when Logic shows no window.
+  public let window: String?
+
+  /// The version of the Logic that runs, or nil when none runs.
+  public let version: String?
+
+  public init(running: Bool, frontmost: Bool, window: String?, version: String?) {
+    self.running = running
+    self.frontmost = frontmost
+    self.window = window
+    self.version = version
+  }
+
+  /// The answer of a Mac where Logic is not running.
+  public static let notRunning = LogicStatus(
+    running: false, frontmost: false, window: nil, version: nil)
+}
+
+/// What `status` reads Logic through.
+///
+/// This is its own protocol and not part of `LogicDriver`, because none of it needs a project. A
+/// driver answers this before the tracks and the transport exist to read, and every one of the four
+/// values it carries is there whether or not Logic has anything open.
+///
+/// It is the one read of logicctl that never refuses for a Logic that is not running. Every other
+/// read throws `DriverRefusal.logicNotRunning`, because there is no project to answer about. Here
+/// the absence is the answer.
+public protocol LogicStatusReader {
+  /// What Logic is doing now.
+  func status() throws -> LogicStatus
+}

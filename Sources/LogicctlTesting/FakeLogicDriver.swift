@@ -5,7 +5,7 @@ import LogicctlCore
 /// It holds one state in memory and answers it. It refuses what the real driver refuses: with no
 /// Logic to read, every read throws `DriverRefusal.logicNotRunning`. A fake that answered there
 /// would make every test of a command a false pass, because the pipeline has no Logic at all.
-public final class FakeLogicDriver: LogicDriver {
+public final class FakeLogicDriver: LogicDriver, LogicStatusReader {
   /// The state the driver answers. Nil stands for a Mac where Logic is not running.
   public var state: State?
 
@@ -14,6 +14,13 @@ public final class FakeLogicDriver: LogicDriver {
 
   /// Where the project sits. Nil stands for a project that was never saved.
   public var path: String?
+
+  /// True while Logic is the application in front. A Mac where Logic is not running answers
+  /// false whatever this says.
+  public var frontmost = false
+
+  /// The title of the front window of Logic, or nil when Logic shows no window.
+  public var window: String?
 
   /// The dialog Logic waits on. Nil stands for a Logic with no modal window open. A command of a
   /// test opens one by setting it while it acts, which is when Logic opens one.
@@ -59,5 +66,18 @@ public final class FakeLogicDriver: LogicDriver {
   public func modalDialog() throws -> ModalDialog? {
     guard state != nil else { throw DriverRefusal.logicNotRunning }
     return dialog
+  }
+
+  /// What Logic is doing, as the fake holds it.
+  ///
+  /// This is the one read that does not refuse where Logic is not running, because the real driver
+  /// does not refuse there either. A fake that threw here would let the command that answers the
+  /// question pass a test it fails on a real Mac.
+  public func status() throws -> LogicStatus {
+    guard let state else {
+      return LogicStatus.notRunning
+    }
+    return LogicStatus(
+      running: true, frontmost: frontmost, window: window, version: state.logic.version)
   }
 }
