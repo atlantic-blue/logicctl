@@ -72,6 +72,9 @@ private let aTempo = 96
 }
 
 /// A Control Bar whose check box carries the title of the play button and is another control.
+///
+/// The record button of this bar is the one Logic describes, so the play button is the whole of
+/// what the reader refuses here.
 private let aBarThatMoved = """
   {
     "logicVersion": "12.3.1",
@@ -81,6 +84,12 @@ private let aBarThatMoved = """
         {
           "role": "AXGroup",
           "children": [
+            {
+              "role": "AXCheckBox",
+              "title": "Record",
+              "description": "Record",
+              "value": "0"
+            },
             {
               "role": "AXCheckBox",
               "title": "Play",
