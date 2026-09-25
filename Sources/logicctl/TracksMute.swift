@@ -130,22 +130,28 @@ struct TracksMuteCommand: LogicCommand {
   /// How the wait sleeps between two reads.
   let sleeper: Wait.Sleeper
 
-  /// Presses the mute button of the track, waits for Logic to show the state that was asked for,
-  /// and answers the row of that track as Logic holds it then.
+  /// Brings the track to the state that was asked for, and answers the row of that track as Logic
+  /// holds it then.
   ///
-  /// The tracks are read before the press, so a number that names no track is refused while the
-  /// project is still as the person left it.
+  /// The tracks are read first, for two reasons. A number that names no track is refused while the
+  /// project is still as the person left it. And the mute button of Logic is a check box, so the
+  /// one action it offers turns the state over rather than setting it: a press on a track that is
+  /// already in the state that was asked for would take it out of that state. So the press happens
+  /// only where Logic shows the other state, and a command that asks for the state a track already
+  /// holds presses nothing and prints the row.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let before = try driver.readState().tracks
-    guard before.contains(where: { $0.index == index }) else {
+    guard let target = before.first(where: { $0.index == index }) else {
       throw RegionTarget.NoTrack(index: index)
     }
-    try actions.mute(trackNumber: index - 1)
-    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      guard let shown = try TracksMuteCommand.track(numbered: index, through: driver) else {
-        return false
+    if target.mute != muted {
+      try actions.mute(trackNumber: index - 1)
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        guard let shown = try TracksMuteCommand.track(numbered: index, through: driver) else {
+          return false
+        }
+        return shown.mute == muted
       }
-      return shown.mute == muted
     }
     guard let track = try TracksMuteCommand.track(numbered: index, through: driver) else {
       throw TrackActions.Refusal(
