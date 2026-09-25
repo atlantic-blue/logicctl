@@ -92,9 +92,8 @@ extension TempoField {
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws -> Int {
-    let stepper = SliderStepper(read: read, write: write, act: act)
-    return try stepper.move(
-      to: tempo, limitMs: limitMs, pollMs: pollMs, clock: clock, sleeper: sleeper)
+    try write(tempo)
+    return try read()
   }
 }
 
