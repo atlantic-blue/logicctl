@@ -58,17 +58,25 @@ public struct TrackActions {
   /// Presses one item of the menu bar of Logic.
   public let press: Press
 
+  /// Presses one control of the window Logic shows in front.
+  ///
+  /// It is a second closure and not the one above, because the two walk different trees. The menu
+  /// bar of an application sits beside its windows, and a track header sits inside one, so a walk
+  /// that starts at the application never reaches a header and a walk that starts at the window
+  /// never reaches the menu bar.
+  public let pressInWindow: Press
+
   /// Writes into one field of a track header.
   public let write: Write
 
-  public init(press: @escaping Press) {
-    self.press = press
-    self.write = TrackActions.noWriteWasGiven
-  }
-
-  public init(press: @escaping Press, write: @escaping Write) {
-    self.press = press
-    self.write = write
+  /// A caller names the closures its command needs, and what it leaves out refuses.
+  ///
+  /// A command that only presses a menu item gives one closure, and a test of it says nothing
+  /// about a window it never touches.
+  public init(press: Press? = nil, pressInWindow: Press? = nil, write: Write? = nil) {
+    self.press = press ?? TrackActions.noMenuPressWasGiven
+    self.pressInWindow = pressInWindow ?? TrackActions.noWindowPressWasGiven
+    self.write = write ?? TrackActions.noWriteWasGiven
   }
 
   /// What a caller that asked for a press alone gets when something asks it to write.
@@ -79,6 +87,24 @@ public struct TrackActions {
   private static func noWriteWasGiven(_ locator: Locator, _ text: String) throws {
     throw Refusal(
       reason: "No write was given for \(locator.name), so nothing could be written into it.",
+      code: .internalFailure)
+  }
+
+  /// What a caller that asked for a menu press alone gets when something asks it to press in the
+  /// window, and the other way round.
+  ///
+  /// Each one refuses rather than doing nothing. A press that quietly went nowhere would leave the
+  /// command reading the old state back, and it would report a timeout that names Logic for a wire
+  /// that was never joined here.
+  private static func noWindowPressWasGiven(_ locator: Locator) throws {
+    throw Refusal(
+      reason: "No window press was given for \(locator.name), so nothing could press it.",
+      code: .internalFailure)
+  }
+
+  private static func noMenuPressWasGiven(_ locator: Locator) throws {
+    throw Refusal(
+      reason: "No menu press was given for \(locator.name), so nothing could press it.",
       code: .internalFailure)
   }
 }
@@ -101,6 +127,30 @@ extension TrackActions {
     try write(Locators.trackNameField(number: number), name)
   }
 
+  /// Presses the mute button in the header of one track.
+  ///
+  /// The button is a check box, so the press turns the mute on when it is off and off when it is
+  /// on. Nothing here says which of the two happened. The caller decides whether to press at all,
+  /// and reads the track again afterwards.
+  ///
+  /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
+  /// types `--index`.
+  public func mute(trackNumber number: Int) throws {
+    try pressInWindow(Locators.trackMuteButton(number: number))
+  }
+
+  /// Presses the solo button in the header of one track.
+  ///
+  /// The button is a check box, so the press turns the solo on when it is off and off when it is
+  /// on. Nothing here says which of the two happened. The caller decides whether to press at all,
+  /// and reads the track again afterwards.
+  ///
+  /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
+  /// types `--index`.
+  public func solo(trackNumber number: Int) throws {
+    try pressInWindow(Locators.trackSoloButton(number: number))
+  }
+
   /// The item of the Track menu that makes one track of this type.
   public static func menuItem(for type: NewTrackType) -> Locator {
     switch type {
@@ -117,6 +167,7 @@ extension TrackActions {
   public static func live() -> TrackActions {
     TrackActions(
       press: TrackActions.pressInTheMenuBarOfThisMac,
+      pressInWindow: TrackActions.pressInTheWindowOfThisMac,
       write: TrackActions.writeIntoTheLogicOfThisMac)
   }
 
@@ -168,6 +219,36 @@ extension TrackActions {
     guard answered == .success else {
       throw Refusal(
         reason: "Logic refused the write into \(locator.name), error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+}
+
+extension TrackActions {
+  /// Presses the one control a locator names, in the window Logic shows in front.
+  ///
+  /// The walk starts at the front window and not at the application, because a track header sits
+  /// inside a window. A press through Accessibility is not a mouse event, so it does not go through
+  /// the input gate: it asks the one element the walk found to act on itself.
+  ///
+  /// In the tree recorded from Logic 12.3.1 the mute button of a track header is an `AXCheckBox`
+  /// whose one action is `AXPress`, so the press is the whole of what Logic offers here, and it
+  /// turns the mute on when it is off and off when it is on. The caller reads the track again
+  /// afterwards, because a press Logic refused answers the same as one it took.
+  public static func pressInTheWindowOfThisMac(_ locator: Locator) throws {
+    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
+      throw Refusal(reason: "Logic shows no window, so nothing in it could be pressed.")
+    }
+    let element = try LocatorResolver.element(of: locator, in: front.root)
+    guard let live = element as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which nothing can press.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementPerformAction(live.element, kAXPressAction as CFString)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused the press of \(locator.name), error \(answered.rawValue).",
         code: .internalFailure)
     }
   }
