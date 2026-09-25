@@ -208,7 +208,8 @@ private func trailer(
   #expect(step["seq"] as? Int == 2, "the step the person asked for")
   #expect(step["kind"] as? String == "command")
   #expect(step["command"] as? String == "tracks mute")
-  #expect(step["argv"] as? [String] == ["--index", "1", "--on"], "the arguments as they were typed")
+  #expect(
+    step["argv"] as? [String] == ["--index", "1", "--on"], "the arguments as they were typed")
   #expect(step["exitCode"] as? Int == 0)
   #expect(step["startedAt"] as? String == "2023-11-14T22:14:20Z", "RFC 3339 in UTC")
   #expect(step["finishedAt"] as? String == "2023-11-14T22:14:21Z")
