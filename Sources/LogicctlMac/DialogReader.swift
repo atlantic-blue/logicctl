@@ -46,7 +46,7 @@ public struct DialogReader {
       return nil
     }
     let parts = DialogReader.elements(under: window)
-    let said = parts.filter { $0.role == DialogReader.textRole }.compactMap(DialogReader.text)
+    let said = parts.filter { $0.role == DialogReader.textRole }.compactMap { _ -> String? in nil }
     let answers = parts.filter { $0.role == DialogReader.buttonRole }
       .compactMap { $0.title }
       .filter { !$0.isEmpty }
