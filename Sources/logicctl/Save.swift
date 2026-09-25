@@ -69,6 +69,7 @@ extension Save {
     format: OutputFormat = .compact,
     argv: [String] = [],
     currentFolder: String = FileManager.default.currentDirectoryPath,
+    files: FileManager = .default,
     now: @escaping () -> Date = { Date() },
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds,
@@ -82,6 +83,26 @@ extension Save {
     let printer = EnvelopePrinter(
       format: format, standardOutput: standardOutput, standardError: standardError)
     let path = Save.absolutePath(of: typed, from: currentFolder)
+
+    if files.fileExists(atPath: path) {
+      guard confirmed else {
+        return printer.write(
+          Envelope.failure(
+            Save.alreadyThere(path),
+            meta: AnswerMeta.refusal(version: version, from: started, to: now())))
+      }
+      // A panel of macOS asks whether to replace what is at the path, and logicctl presses no
+      // button in a dialog. So the thing in the way goes first, on the word of the person who
+      // typed --confirm, and Logic is then asked to write to a path that is free.
+      do {
+        try files.removeItem(atPath: path)
+      } catch {
+        return printer.write(
+          Envelope.failure(
+            Save.couldNotClear(path, because: error),
+            meta: AnswerMeta.refusal(version: version, from: started, to: now())))
+      }
+    }
 
     let run = Run(
       driver: driver,
@@ -107,6 +128,26 @@ extension Save {
       ? URL(fileURLWithPath: expanded)
       : URL(fileURLWithPath: currentFolder).appendingPathComponent(expanded)
     return full.standardizedFileURL.path
+  }
+
+  /// What the command stops with when the path is taken.
+  static func alreadyThere(_ path: String) -> Failure {
+    Failure(
+      code: .pathExists,
+      message: "Something is at that path already, so the project was not saved. "
+        + "Give another path, or --confirm to write over it.",
+      details: .object(["path": .string(path)]))
+  }
+
+  /// What the command stops with when `--confirm` was given and the path could not be cleared.
+  static func couldNotClear(_ path: String, because error: Error) -> Failure {
+    Failure(
+      code: .pathExists,
+      message: "What is at that path could not be removed, so the project was not saved.",
+      details: .object([
+        "path": .string(path),
+        "reason": .string(String(describing: error)),
+      ]))
   }
 
   /// What this command reads the state of Logic through on this Mac.
