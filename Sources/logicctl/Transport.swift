@@ -22,7 +22,7 @@ struct TransportCommand: ParsableCommand {
       Example: logicctl transport play
       """,
     subcommands: [
-      Play.self, Stop.self, Record.self,
+      Play.self, Stop.self, Record.self, Tempo.self,
     ])
 }
 
