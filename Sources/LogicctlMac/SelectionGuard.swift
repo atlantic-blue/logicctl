@@ -63,5 +63,9 @@ public struct SelectionGuard {
   /// something else, so a second write would aim an edit at a state nobody read.
   public func selectOnly(_ target: String) throws {
     try select([target])
+    let held = try selection()
+    guard held == [target] else {
+      throw Refusal(target: target, selected: held)
+    }
   }
 }
