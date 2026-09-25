@@ -79,11 +79,30 @@ public struct StateReader {
   /// read, so a track whose strip this walk cannot see keeps the plugins the last state gave it,
   /// and the difference between the two states reports no plugin change from that read.
   public func state(after previous: State?) throws -> State {
-    State(
-      logic: LogicVersion(version: ""),
-      project: Project(name: ""),
-      transport: Transport(tempo: 0),
-      tracks: [])
+    let tree = try readTree()
+    guard let version = try readStatus().version else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let front = tree.atTheFrontWindow() else {
+      throw Refusal(reason: "Logic shows no window, so there is no project to read.")
+    }
+    guard let name = try readName() else {
+      throw Refusal(reason: "The window of Logic names no project, so there is no state to read.")
+    }
+    let savedAt = try readPath().flatMap(readSaveTime)
+    let transport = try TransportReader.transport(in: front.root, tempo: readTempo)
+    let mixer = ChannelStrip.window(of: tree)
+    let tracks = try TrackReader.tracks(in: front.root).map { track -> Track in
+      var read = track
+      read.regions = RegionReader.regions(ofTrack: track.index, in: front.root)
+      read.plugins = plugins(of: track, in: mixer, after: previous)
+      return read
+    }
+    return State(
+      logic: LogicVersion(version: version),
+      project: Project(name: name, savedAt: savedAt),
+      transport: transport,
+      tracks: tracks)
   }
 
   /// The plugins of one track: what the Mixer shows for it, or what the last state gave it.
