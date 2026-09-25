@@ -33,7 +33,7 @@ public struct AXDriver: LogicStatusReader {
   /// an exit code instead of an answer.
   public func status() throws -> LogicStatus {
     guard let open = try tree() else {
-      return LogicStatus.notRunning
+      throw DriverRefusal.logicNotRunning
     }
     return LogicStatus(
       running: true,
