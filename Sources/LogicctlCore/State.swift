@@ -86,15 +86,17 @@ public struct Project: Sendable, Equatable {
   /// One time as one text. A hash must not move when a formatter reads a different locale or
   /// a different time zone, so the form is fixed here.
   static func text(of moment: Date) -> String {
-    moment.formatted(
-      Date.ISO8601FormatStyle(
-        dateSeparator: .dash,
-        dateTimeSeparator: .standard,
-        timeSeparator: .colon,
-        timeZoneSeparator: .omitted,
-        includingFractionalSeconds: false,
-        timeZone: .gmt))
+    moment.formatted(Project.form)
   }
+
+  /// The one form a time is written in, and the one form it is read back from.
+  static let form = Date.ISO8601FormatStyle(
+    dateSeparator: .dash,
+    dateTimeSeparator: .standard,
+    timeSeparator: .colon,
+    timeZoneSeparator: .omitted,
+    includingFractionalSeconds: false,
+    timeZone: .gmt)
 }
 
 /// What the transport of Logic is doing.
