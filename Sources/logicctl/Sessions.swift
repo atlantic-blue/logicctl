@@ -43,6 +43,7 @@ extension Sessions {
   /// The root and the git are given, so a test reads sessions it wrote in a folder of its own and
   /// never the sessions of the operator.
   static func answer(
+    relink: [String] = [],
     root: URL = SessionRepository.defaultRoot,
     git: Git = Git(),
     format: OutputFormat = .compact,
