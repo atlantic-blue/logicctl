@@ -1,0 +1,529 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXZoomWindow",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "this button also has an action to zoom the window",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "help": "",
+        "role": "AXImage",
+        "title": "F-T13.logicx"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "F-T13.logicx - Tracks"
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "Display Mode, Display Mode pop-up menu. Switch the ruler display between bars and beats, or hours, minutes, and seconds, or a combination of both. You can also open giant displays. ",
+                "role": "AXPopUpButton",
+                "value": "Beats & Project"
+              },
+              {
+                "description": "Playhead Position",
+                "help": "Playhead Position (Bars), Playhead Position display. Indicates the playhead position in bars and beats. Drag each element vertically to edit it, or double-click and enter a new value. ",
+                "role": "AXGroup",
+                "valueDescription": "46 bars 1 beat "
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "description": "Tempo",
+                "help": "Tempo, Tempo display. Indicates the playback or recording speed. Drag vertically to speed up or slow down the tempo, or double-click and enter a new value. ",
+                "role": "AXSlider",
+                "value": "120",
+                "valueDescription": "120"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "",
+                "help": "Project Tempo menu, Project Tempo pop-up menu. Choose whether the project tempo is maintained, adapts to the tempo of audio recordings and imported audio files, or if Logic\u00a0Pro determines the project tempo behavior. ",
+                "role": "AXPopUpButton"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Time Signature",
+                "help": "Time Signature, Time Signature display. Indicates the number of beats in a bar and the note value for one beat. Drag vertically to edit the value, or double-click and enter a new value. ",
+                "role": "AXPopUpButton",
+                "value": "4/4"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Key Signature",
+                "help": "Key Signature, Key Signature display. Indicates the key signature of the project. Choose a major or minor key signature from the pop-up menu. ",
+                "role": "AXPopUpButton",
+                "value": "C Major"
+              }
+            ],
+            "description": "Control Bar",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Cycle",
+            "help": "Cycle   C, Cycle button. Use Cycle to repeatedly play, or record over, the project section within the yellow cycle area that appears in the ruler. ",
+            "role": "AXCheckBox",
+            "title": "Cycle",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Flashback Capture",
+            "help": "Flashback Capture   \u21e7R, Flashback Capture. Capture a recent MIDI or audio performance, even if Logic Pro wasn\u2019t recording while you were playing. ",
+            "role": "AXButton",
+            "title": "Flashback Capture",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Free Tempo Recording",
+            "help": "Free Tempo Recording   \u2303\u2325\u2318R, Free Tempo Recording. Mutes all existing content during recording and performs a Smart Tempo analysis. ",
+            "role": "AXCheckBox",
+            "title": "Free Tempo Recording",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Record",
+            "help": "Record   R, Record button. Record to the selected track, or to multiple record-ready tracks. ",
+            "role": "AXCheckBox",
+            "title": "Record",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Play",
+            "help": "Play   \u2305, Play button. Start playback from the playhead position, or from the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXCheckBox",
+            "title": "Play",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Stop",
+            "help": "Stop   0, Stop button. Stop playback or recording. Click when stopped to move the playhead to the project start point, or to the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXButton",
+            "title": "Stop",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Replace",
+            "help": "Replace   /, Replace button. Replace an existing recording, or a portion of it, with a new recording. ",
+            "role": "AXCheckBox",
+            "title": "Replace",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Tuner",
+            "help": "This control is unavailable because no audio track is selected., Tuner button. Tune instruments connected to your system. ",
+            "role": "AXCheckBox",
+            "title": "Tuner",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Solo",
+            "help": "Solo, Solo button. Only hear selected regions during playback. ",
+            "role": "AXCheckBox",
+            "title": "Solo",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Count In",
+            "help": "Count In   \u21e7K, Count-in button. Play a predefined count-in before recording starts. Control-click the button to open a menu where you can choose the count-in length. ",
+            "role": "AXCheckBox",
+            "title": "Count In",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Metronome Click",
+            "help": "Metronome Click   K, Metronome button. Hear a click at the project tempo during playback or recording. Click and hold for further options. ",
+            "role": "AXCheckBox",
+            "title": "Metronome Click",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Library",
+            "help": "Library   Y, Library button. Load patches and presets for the selected channel strip or plug-in type; start playing immediately. Loading a patch can affect multiple channel strips. ",
+            "role": "AXCheckBox",
+            "title": "Library",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Inspector",
+            "help": "Inspector   I, Inspector button. View and edit region and track settings, based on where you\u2019re working and the item selected. You can also set channel strip pan and volume, or add effects. ",
+            "role": "AXCheckBox",
+            "title": "Inspector",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Quick Help",
+            "help": "Quick Help button. Show the Quick Help area. If the inspector is closed, Quick Help opens as a separate window. ",
+            "role": "AXCheckBox",
+            "title": "Quick Help",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Toolbar",
+            "help": "Toolbar   \u2303\u2325\u2318T, Toolbar button. Show the toolbar, which contains buttons for key functions. ",
+            "role": "AXCheckBox",
+            "title": "Toolbar",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Smart Controls",
+            "help": "Smart Controls   B, Smart Controls button. Quickly modify the sound of the current patch without having to edit individual channel strips or plug-ins. ",
+            "role": "AXCheckBox",
+            "title": "Smart Controls",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Mixer",
+            "help": "Mixer   X, Mixer button. Open the Mixer, which shows channel strips for each track in the project. You can edit channel strip controls, add and edit plug-ins, and customize routing options. ",
+            "role": "AXCheckBox",
+            "title": "Mixer",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Editors",
+            "help": "Editors   E, Editors button. Access editors\u2014Audio Track, Audio File, Session Players, Piano Roll, Score, or Step Editor\u2014based on the selected track type. ",
+            "role": "AXCheckBox",
+            "title": "Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "List Editors",
+            "help": "List Editors   D, List Editors button. View and edit MIDI events, markers, tempo changes, and signature events. ",
+            "role": "AXCheckBox",
+            "title": "List Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Note Pads",
+            "help": "Note Pads   \u2303\u21e7P, Note Pads button. Create, view, and edit project and track text notes. ",
+            "role": "AXCheckBox",
+            "title": "Note Pads",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Loop Browser",
+            "help": "Loop Browser   O, Loop Browser button. Add prerecorded loops to your project. ",
+            "role": "AXCheckBox",
+            "title": "Loop Browser",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Browsers",
+            "help": "Browsers   F, Browsers button. Access audio and other media files. You can also import data and settings from other projects. ",
+            "role": "AXCheckBox",
+            "title": "Browsers",
+            "value": "0"
+          }
+        ],
+        "description": "Control Bar",
+        "help": "Control bar. Contains buttons and displays for key project and app functions. To customize, Control-click the control bar and choose Customize Control Bar and Display. ",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "help": "",
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXList"
+          }
+        ],
+        "description": "Inspector",
+        "help": "",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "help": "",
+                "identifier": "_NS:874",
+                "role": "AXGroup"
+              }
+            ],
+            "description": "Library",
+            "help": "Library. Load and save patches, plug-in presets, or Sampler instruments, based on the selected channel strip slot. Loading a patch can affect multiple channel strips. ",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Library",
+        "help": "",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Leave Folder",
+                "help": "Leave Folder",
+                "role": "AXButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Catch Playhead",
+                "help": "Catch Playhead   `",
+                "role": "AXCheckBox",
+                "value": "true"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXMenuButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Waveform Zoom",
+                "help": "Waveform Zoom",
+                "role": "AXCheckBox",
+                "title": "Waveform Zoom",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "description": "Vertical Zoom",
+                "help": "Vertical Zoom",
+                "role": "AXSlider",
+                "value": "0.4660441875457764"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "description": "Horizontal Zoom",
+                "help": "Horizontal Zoom",
+                "role": "AXSlider",
+                "value": "0.2312084436416626"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "children": [
+              {
+                "help": "",
+                "role": "AXSplitGroup"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Tracks",
+        "help": "",
+        "role": "AXGroup"
+      }
+    ],
+    "role": "AXWindow",
+    "title": "F-T13.logicx - Tracks"
+  }
+}
