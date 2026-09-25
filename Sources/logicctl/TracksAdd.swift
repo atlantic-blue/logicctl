@@ -5,9 +5,8 @@ import LogicctlJournal
 import LogicctlMac
 
 extension NewTrackType: ExpressibleByArgument {
-  /// The check of the word is not built yet, so every word reads as an audio track.
   public init?(argument: String) {
-    self = .audio
+    self.init(rawValue: argument)
   }
 }
 
