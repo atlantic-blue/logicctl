@@ -72,10 +72,6 @@ extension Midi.Notes {
   }
 
   /// What this command reads Logic through on this Mac.
-  ///
-  /// Nothing in logicctl reads the whole state of Logic yet, so there is no driver over the real
-  /// Logic to give here. The part that reads the tracks brings one, and this command is written
-  /// against the protocol so that it needs no change when it arrives.
   static func liveDriver() -> any LogicDriver {
     Tracks.liveDriver()
   }

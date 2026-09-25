@@ -210,38 +210,38 @@ extension NewProject {
     return Run.failure(for: error)
   }
 
-  /// What this command reads the state of Logic through on this Mac.
+  /// What every command reads the state of Logic through on this Mac.
   ///
-  /// Nothing in logicctl reads the whole state of Logic yet, so there is no driver over the real
-  /// Logic to give here. The part that reads the tracks brings one, and this command is written
-  /// against the protocol so that it needs no change when it arrives.
-  static func liveDriver() -> any LogicDriver {
-    NoDriverYet()
-  }
-}
-
-/// The driver of a Logic that logicctl cannot read yet.
-///
-/// It refuses every read with the reason, rather than answering a state that nobody measured. A
-/// driver that made one up would write a journal that says Logic held something it never held.
-private struct NoDriverYet: LogicDriver {
-  /// One sentence a person can act on.
-  static let reason =
-    "logicctl cannot read the state of Logic yet, so new-project cannot record its session."
-
-  func readState() throws -> State {
-    throw ProjectChooser.Refusal(reason: NoDriverYet.reason, code: .internalFailure)
+  /// `AXDriver` is that driver, and it reads the running Logic through Accessibility. The plugins
+  /// of a track come from the Mixer, so a walk that sees no strip keeps the plugins the session
+  /// recorded last, and `LogicctlMac` does not see the journal: the read of `state.json` is given
+  /// here.
+  ///
+  /// The driver is a parameter with the live one as its value, so a test drives this same call
+  /// against a tree that `inspect` recorded. That is how the pipeline, which has no Logic, proves
+  /// the driver every person runs.
+  static func liveDriver(
+    _ driver: AXDriver = AXDriver.live(recordedState: { path in
+      NewProject.stateRecorded(ofProjectAt: path)
+    })
+  ) -> any LogicDriver {
+    driver
   }
 
-  func projectPath() throws -> String? {
-    throw ProjectChooser.Refusal(reason: NoDriverYet.reason, code: .internalFailure)
-  }
-
-  func processID() throws -> Int32 {
-    throw ProjectChooser.Refusal(reason: NoDriverYet.reason, code: .internalFailure)
-  }
-
-  func modalDialog() throws -> ModalDialog? {
-    throw ProjectChooser.Refusal(reason: NoDriverYet.reason, code: .internalFailure)
+  /// The state the session of the project at one path recorded last, or nothing when no session
+  /// carries that path and nothing when that session recorded no state yet.
+  static func stateRecorded(
+    ofProjectAt path: String, root: URL = SessionRepository.defaultRoot
+  ) -> State? {
+    guard let repository = SessionIndex.repository(ofProjectAt: path, root: root) else {
+      return nil
+    }
+    let file = repository.folder.appendingPathComponent("state.json")
+    guard let written = try? Data(contentsOf: file),
+      let value = try? CanonicalJSON.value(of: String(decoding: written, as: UTF8.self))
+    else {
+      return nil
+    }
+    return State(json: value)
   }
 }

@@ -176,11 +176,6 @@ extension Quit {
   }
 
   /// What this command reads the state of Logic through on this Mac.
-  ///
-  /// Nothing in logicctl reads the whole state of Logic yet, so there is no driver over the real
-  /// Logic to give here, and the name of the project is read from none. The part that reads the
-  /// tracks brings one, and this command is written against the protocol so that it needs no
-  /// change when it arrives.
   static func liveDriver() -> any LogicDriver {
     NewProject.liveDriver()
   }

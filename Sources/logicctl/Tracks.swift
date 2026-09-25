@@ -82,10 +82,6 @@ extension Tracks.List {
 
 extension Tracks {
   /// What this command reads the state of Logic through on this Mac.
-  ///
-  /// Nothing in logicctl reads the whole state of Logic yet, so there is no driver over the real
-  /// Logic to give here. The step that brings one hands it to every command at once, and this
-  /// command is written against the protocol so that it needs no change when it arrives.
   static func liveDriver() -> any LogicDriver {
     NewProject.liveDriver()
   }

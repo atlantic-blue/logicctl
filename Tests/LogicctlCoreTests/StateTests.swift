@@ -125,3 +125,37 @@ private let canonicalHash = "f5a4cb24fe7a6c72273c53be614a07546900c5433df4dcb2999
   #expect(lines.contains("    \"version\": \"12.3.1\""))
   #expect(lines.last == "}")
 }
+
+/// A project with every field of the state filled in: a save, two tracks, a region, and a plugin
+/// with a hash and one without.
+private func aProjectWithEverythingFilledIn() -> State {
+  State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: "F-T3b", savedAt: Date(timeIntervalSince1970: 1_790_000_000)),
+    transport: Transport(playing: true, recording: true, tempo: 96.5),
+    tracks: [
+      Track(
+        index: 1, name: "Deluxe Classic", type: .softwareInstrument, mute: true, solo: true,
+        arm: true,
+        regions: [Region(index: 1, name: "MIDI Region", start: "1 bar", end: "2 bars")],
+        plugins: [Plugin(slot: 1, name: "E-Piano", stateHash: "abc"), Plugin(slot: 2, name: "EQ")]),
+      Track(index: 2, name: "Audio 1", type: .audio),
+    ])
+}
+
+/// A command starts from the state its session recorded last, because the plugins of a track come
+/// from the Mixer and Logic shows the Mixer only while a person keeps it open. So the state that
+/// went into `state.json` has to come back out of it, whole: a field this read dropped would reach
+/// the comparison as a change that nobody made.
+@Test func aStateReadsBackFromTheJsonItWrote() throws {
+  let state = aProjectWithEverythingFilledIn()
+
+  let written = CanonicalJSON.text(of: state, indent: 2)
+  let read = try #require(State(json: try CanonicalJSON.value(of: written)))
+
+  #expect(read == state, "every field of the state, back from the text it wrote")
+  #expect(CanonicalJSON.sha256(of: read) == CanonicalJSON.sha256(of: state), "so the hash holds")
+  #expect(
+    State(json: .object(["schema": .number(1)])) == nil, "a value that is no state reads as none")
+  #expect(State(json: .string("a state")) == nil, "and neither does a text")
+}
