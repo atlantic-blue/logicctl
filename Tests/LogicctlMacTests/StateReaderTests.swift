@@ -185,23 +185,21 @@ private func plugins(ofTrack number: Int, in state: State) throws -> [Plugin] {
 @Test func stateReaderRefusesWhatItCannotRead() throws {
   let tree = try recorded("region.json")
 
-  #expect(throws: DriverRefusal.logicNotRunning) {
-    try StateReader(
-      tree: { throw DriverRefusal.logicNotRunning },
-      status: { LogicStatus.notRunning },
-      name: { "F-T3b" },
-      path: { nil },
-      tempo: { aTempo }).state(after: nil)
-  }
+  let noLogic = StateReader(
+    tree: { throw DriverRefusal.logicNotRunning },
+    status: { LogicStatus.notRunning },
+    name: { "F-T3b" },
+    path: { nil },
+    tempo: { aTempo })
+  let noVersion = StateReader(
+    tree: { tree },
+    status: { LogicStatus.notRunning },
+    name: { "F-T3b" },
+    path: { nil },
+    tempo: { aTempo })
 
-  #expect(throws: DriverRefusal.logicNotRunning) {
-    try StateReader(
-      tree: { tree },
-      status: { LogicStatus.notRunning },
-      name: { "F-T3b" },
-      path: { nil },
-      tempo: { aTempo }).state(after: nil)
-  }
+  #expect(throws: DriverRefusal.logicNotRunning) { try noLogic.state(after: nil) }
+  #expect(throws: DriverRefusal.logicNotRunning) { try noVersion.state(after: nil) }
 
   let windowless = #expect(throws: StateReader.Refusal.self) {
     try reader(over: application(showing: [])).state(after: nil)
