@@ -1,0 +1,413 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "children": [
+          {
+            "actions": [
+              "AXScrollLeftByPage",
+              "AXScrollRightByPage",
+              "AXScrollUpByPage",
+              "AXScrollDownByPage"
+            ],
+            "children": [
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "document",
+                            "help": "",
+                            "identifier": "_NS:9",
+                            "role": "AXImage"
+                          },
+                          {
+                            "help": "",
+                            "identifier": "_NS:28",
+                            "role": "AXStaticText",
+                            "value": "New Project"
+                          }
+                        ],
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "clock",
+                            "help": "",
+                            "identifier": "_NS:9",
+                            "role": "AXImage"
+                          },
+                          {
+                            "help": "",
+                            "identifier": "_NS:28",
+                            "role": "AXStaticText",
+                            "value": "Recent"
+                          }
+                        ],
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "",
+                            "help": "",
+                            "identifier": "_NS:9",
+                            "role": "AXImage"
+                          },
+                          {
+                            "help": "",
+                            "identifier": "_NS:28",
+                            "role": "AXStaticText",
+                            "value": "Live Loops Grids"
+                          }
+                        ],
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "move",
+                            "help": "",
+                            "identifier": "_NS:9",
+                            "role": "AXImage"
+                          },
+                          {
+                            "help": "",
+                            "identifier": "_NS:28",
+                            "role": "AXStaticText",
+                            "value": "Project Templates"
+                          }
+                        ],
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "actions": [
+                      "AXShowDefaultUI",
+                      "AXShowAlternateUI"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "move",
+                            "help": "",
+                            "identifier": "_NS:9",
+                            "role": "AXImage"
+                          },
+                          {
+                            "help": "",
+                            "identifier": "_NS:28",
+                            "role": "AXStaticText",
+                            "value": "My Templates"
+                          }
+                        ],
+                        "role": "AXCell"
+                      }
+                    ],
+                    "role": "AXRow"
+                  },
+                  {
+                    "identifier": "AutomaticTableColumnIdentifier.0",
+                    "role": "AXColumn"
+                  }
+                ],
+                "help": "",
+                "identifier": "_NS:13",
+                "role": "AXOutline"
+              }
+            ],
+            "help": "",
+            "identifier": "_NS:9",
+            "role": "AXScrollArea"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Get More Sounds",
+                    "identifier": "getMoreSounds",
+                    "role": "AXButton"
+                  },
+                  {
+                    "description": "5 available sound packs",
+                    "role": "AXUnknown"
+                  }
+                ],
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "role": "AXSplitter",
+            "value": "220"
+          },
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXScrollLeftByPage",
+                  "AXScrollRightByPage",
+                  "AXScrollUpByPage",
+                  "AXScrollDownByPage"
+                ],
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXScrollToVisible"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "help": "",
+                                "identifier": "_NS:155",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "help": "",
+                                    "identifier": "_NS:25",
+                                    "role": "AXButton",
+                                    "title": ""
+                                  }
+                                ],
+                                "help": "",
+                                "identifier": "_NS:7",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "help": "",
+                                "identifier": "_NS:125",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "help": "",
+                                "identifier": "_NS:139",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "help": "",
+                                "identifier": "_NS:171",
+                                "role": "AXStaticText",
+                                "value": "Empty Project"
+                              }
+                            ],
+                            "role": "AXGroup"
+                          },
+                          {
+                            "children": [
+                              {
+                                "help": "",
+                                "identifier": "_NS:155",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "help": "",
+                                    "identifier": "_NS:25",
+                                    "role": "AXButton",
+                                    "title": ""
+                                  }
+                                ],
+                                "help": "",
+                                "identifier": "_NS:7",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "help": "",
+                                "identifier": "_NS:164",
+                                "role": "AXStaticText",
+                                "value": "Live Loops"
+                              }
+                            ],
+                            "role": "AXGroup"
+                          }
+                        ],
+                        "role": "AXList"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:8",
+                    "role": "AXList"
+                  }
+                ],
+                "help": "",
+                "identifier": "_NS:22",
+                "role": "AXScrollArea"
+              },
+              {
+                "help": "",
+                "identifier": "_NS:36",
+                "role": "AXStaticText",
+                "value": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:32",
+                "role": "AXDisclosureTriangle",
+                "value": "0"
+              },
+              {
+                "help": "",
+                "identifier": "_NS:37",
+                "role": "AXStaticText",
+                "value": "Details"
+              },
+              {
+                "help": "",
+                "identifier": "_NS:46",
+                "role": "AXStaticText",
+                "value": "Create an empty project"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:9",
+                "role": "AXButton",
+                "title": "Open an existing project…"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:25",
+                "role": "AXButton",
+                "title": "Cancel"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:32",
+                "role": "AXButton",
+                "title": "Choose"
+              }
+            ],
+            "help": "",
+            "identifier": "_NS:44",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "",
+        "identifier": "_NS:43",
+        "role": "AXSplitGroup"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "Choose a Project"
+      }
+    ],
+    "identifier": "newProjectDialog",
+    "role": "AXWindow",
+    "title": "Choose a Project"
+  }
+}

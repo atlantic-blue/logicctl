@@ -1,0 +1,1471 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "help": "",
+        "role": "AXImage",
+        "title": "Untitled.logicx"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "Untitled.logicx - Tracks"
+      },
+      {
+        "actions": [
+          "AXRaise"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "help": "",
+                "identifier": "_NS:18",
+                "role": "AXStaticText",
+                "value": "Create New Track"
+              },
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Software Instrument",
+                            "role": "AXRadioButton",
+                            "value": "1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "External MIDI",
+                            "role": "AXRadioButton",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXRadioGroup"
+                      }
+                    ],
+                    "description": "MIDI, Software Instrument, selected",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Software Instrument",
+                            "role": "AXRadioButton",
+                            "value": "1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "External MIDI",
+                            "role": "AXRadioButton",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXRadioGroup"
+                      }
+                    ],
+                    "description": "Pattern, Software Instrument",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Drummer",
+                            "role": "AXRadioButton",
+                            "value": "1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Bass Player",
+                            "role": "AXRadioButton",
+                            "value": "0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Keyboard Player",
+                            "role": "AXRadioButton",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXRadioGroup"
+                      }
+                    ],
+                    "description": "Session Player, Drummer",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Mic or Line",
+                            "role": "AXRadioButton",
+                            "value": "1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Guitar or Bass",
+                            "role": "AXRadioButton",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXRadioGroup"
+                      }
+                    ],
+                    "description": "Audio, Mic or Line",
+                    "role": "AXGroup"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:54",
+                "role": "AXDisclosureTriangle",
+                "value": "0"
+              },
+              {
+                "help": "",
+                "identifier": "_NS:46",
+                "role": "AXStaticText",
+                "value": "Details"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:618",
+                "role": "AXButton",
+                "title": "Create"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "help": "",
+                "identifier": "_NS:611",
+                "role": "AXButton",
+                "title": "Cancel"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Help",
+                "help": "",
+                "identifier": "_NS:608",
+                "role": "AXButton"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXConfirm"
+                ],
+                "description": "Number of tracks to create",
+                "help": "",
+                "identifier": "_NS:597",
+                "role": "AXTextField",
+                "value": "1"
+              },
+              {
+                "help": "",
+                "identifier": "_NS:593",
+                "role": "AXStaticText",
+                "value": "Number of tracks to create:"
+              }
+            ],
+            "help": "",
+            "identifier": "_NS:682",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "New Track",
+        "identifier": "_NS:676",
+        "role": "AXSheet"
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "Display Mode, Display Mode pop-up menu. Switch the ruler display between bars and beats, or hours, minutes, and seconds, or a combination of both. You can also open giant displays. ",
+                "role": "AXPopUpButton",
+                "value": "Beats & Project"
+              },
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "description": "bar",
+                    "role": "AXSlider",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "description": "beat",
+                    "role": "AXSlider",
+                    "value": "1"
+                  }
+                ],
+                "description": "Playhead Position",
+                "help": "Playhead Position (Bars), Playhead Position display. Indicates the playhead position in bars and beats. Drag each element vertically to edit it, or double-click and enter a new value. ",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "description": "Tempo",
+                "help": "Tempo, Tempo display. Indicates the playback or recording speed. Drag vertically to speed up or slow down the tempo, or double-click and enter a new value. ",
+                "role": "AXSlider",
+                "value": "120"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "",
+                "help": "Project Tempo menu, Project Tempo pop-up menu. Choose whether the project tempo is maintained, adapts to the tempo of audio recordings and imported audio files, or if Logic Pro determines the project tempo behavior. ",
+                "role": "AXPopUpButton"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Time Signature",
+                "help": "Time Signature, Time Signature display. Indicates the number of beats in a bar and the note value for one beat. Drag vertically to edit the value, or double-click and enter a new value. ",
+                "role": "AXPopUpButton",
+                "value": "4/4"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Key Signature",
+                "help": "Key Signature, Key Signature display. Indicates the key signature of the project. Choose a major or minor key signature from the pop-up menu. ",
+                "role": "AXPopUpButton",
+                "value": "C Major"
+              }
+            ],
+            "description": "Control Bar",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Cycle",
+            "help": "Cycle   C, Cycle button. Use Cycle to repeatedly play, or record over, the project section within the yellow cycle area that appears in the ruler. ",
+            "role": "AXCheckBox",
+            "title": "Cycle",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Flashback Capture",
+            "help": "Flashback Capture   ⇧R, Flashback Capture. Capture a recent MIDI or audio performance, even if Logic Pro wasn’t recording while you were playing. ",
+            "role": "AXButton",
+            "title": "Flashback Capture",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Free Tempo Recording",
+            "help": "Free Tempo Recording   ⌃⌥⌘R, Free Tempo Recording. Mutes all existing content during recording and performs a Smart Tempo analysis. ",
+            "role": "AXCheckBox",
+            "title": "Free Tempo Recording",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Record",
+            "help": "Record   R, Record button. Record to the selected track, or to multiple record-ready tracks. ",
+            "role": "AXCheckBox",
+            "title": "Record",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Play",
+            "help": "Play   ⌅, Play button. Start playback from the playhead position, or from the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXCheckBox",
+            "title": "Play",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Stop",
+            "help": "Stop   0, Stop button. Stop playback or recording. Click when stopped to move the playhead to the project start point, or to the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXButton",
+            "title": "Stop",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Replace",
+            "help": "Replace   /, Replace button. Replace an existing recording, or a portion of it, with a new recording. ",
+            "role": "AXCheckBox",
+            "title": "Replace",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Tuner",
+            "help": "This control is unavailable because there is no recording track., Tuner button. Tune instruments connected to your system. ",
+            "role": "AXCheckBox",
+            "title": "Tuner",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Solo",
+            "help": "Solo, Solo button. Only hear selected regions during playback. ",
+            "role": "AXCheckBox",
+            "title": "Solo",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Count In",
+            "help": "Count In   ⇧K, Count-in button. Play a predefined count-in before recording starts. Control-click the button to open a menu where you can choose the count-in length. ",
+            "role": "AXCheckBox",
+            "title": "Count In",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Metronome Click",
+            "help": "Metronome Click   K, Metronome button. Hear a click at the project tempo during playback or recording. Click and hold for further options. ",
+            "role": "AXCheckBox",
+            "title": "Metronome Click",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Library",
+            "help": "Library   Y, Library button. Load patches and presets for the selected channel strip or plug-in type; start playing immediately. Loading a patch can affect multiple channel strips. ",
+            "role": "AXCheckBox",
+            "title": "Library",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Inspector",
+            "help": "Inspector   I, Inspector button. View and edit region and track settings, based on where you’re working and the item selected. You can also set channel strip pan and volume, or add effects. ",
+            "role": "AXCheckBox",
+            "title": "Inspector",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Quick Help",
+            "help": "Quick Help button. Show the Quick Help area. If the inspector is closed, Quick Help opens as a separate window. ",
+            "role": "AXCheckBox",
+            "title": "Quick Help",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Toolbar",
+            "help": "Toolbar   ⌃⌥⌘T, Toolbar button. Show the toolbar, which contains buttons for key functions. ",
+            "role": "AXCheckBox",
+            "title": "Toolbar",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Smart Controls",
+            "help": "Smart Controls   B, Smart Controls button. Quickly modify the sound of the current patch without having to edit individual channel strips or plug-ins. ",
+            "role": "AXCheckBox",
+            "title": "Smart Controls",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Mixer",
+            "help": "Mixer   X, Mixer button. Open the Mixer, which shows channel strips for each track in the project. You can edit channel strip controls, add and edit plug-ins, and customize routing options. ",
+            "role": "AXCheckBox",
+            "title": "Mixer",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Editors",
+            "help": "Editors   E, Editors button. Access editors—Audio Track, Audio File, Session Players, Piano Roll, Score, or Step Editor—based on the selected track type. ",
+            "role": "AXCheckBox",
+            "title": "Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "List Editors",
+            "help": "List Editors   D, List Editors button. View and edit MIDI events, markers, tempo changes, and signature events. ",
+            "role": "AXCheckBox",
+            "title": "List Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Note Pads",
+            "help": "Note Pads   ⌃⇧P, Note Pads button. Create, view, and edit project and track text notes. ",
+            "role": "AXCheckBox",
+            "title": "Note Pads",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Loop Browser",
+            "help": "Loop Browser   O, Loop Browser button. Add prerecorded loops to your project. ",
+            "role": "AXCheckBox",
+            "title": "Loop Browser",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Browsers",
+            "help": "Browsers   F, Browsers button. Access audio and other media files. You can also import data and settings from other projects. ",
+            "role": "AXCheckBox",
+            "title": "Browsers",
+            "value": "0"
+          }
+        ],
+        "description": "Control Bar",
+        "help": "Control bar. Contains buttons and displays for key project and app functions. To customize, Control-click the control bar and choose Customize Control Bar and Display. ",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXScrollLeftByPage",
+                      "AXScrollRightByPage",
+                      "AXScrollUpByPage",
+                      "AXScrollDownByPage"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Mute:"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXCheckBox",
+                                "title": "",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Loop:"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXCheckBox",
+                                "title": "",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Quantize"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Off"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Q-Swing:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "50"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Transpose:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Pitch Source:"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Off"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Velocity Offset:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "role": "AXDisclosureTriangle",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXConfirm"
+                                    ],
+                                    "help": "",
+                                    "role": "AXTextField",
+                                    "value": " More"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": " More"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "identifier": "idLabel",
+                            "role": "AXColumn"
+                          },
+                          {
+                            "identifier": "idValue",
+                            "role": "AXColumn"
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:33",
+                        "role": "AXOutline"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:108",
+                    "role": "AXScrollArea"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:102",
+                    "role": "AXDisclosureTriangle",
+                    "title": "",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXShowMenu"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:141",
+                    "role": "AXStaticText",
+                    "value": "MIDI Defaults"
+                  },
+                  {
+                    "help": "",
+                    "identifier": "_NS:137",
+                    "role": "AXStaticText",
+                    "value": "Region:"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXScrollLeftByPage",
+                      "AXScrollRightByPage",
+                      "AXScrollUpByPage",
+                      "AXScrollDownByPage"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "identifier": "idLabel",
+                            "role": "AXColumn"
+                          },
+                          {
+                            "identifier": "idValue",
+                            "role": "AXColumn"
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:47",
+                        "role": "AXTable"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:108",
+                    "role": "AXScrollArea"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:102",
+                    "role": "AXDisclosureTriangle",
+                    "title": "",
+                    "value": "1"
+                  },
+                  {
+                    "help": "",
+                    "identifier": "_NS:141",
+                    "role": "AXStaticText",
+                    "value": "Track:"
+                  },
+                  {
+                    "actions": [
+                      "AXShowMenu",
+                      "AXConfirm"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:137",
+                    "role": "AXTextField",
+                    "value": "Not Assigned"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "children": [
+                  {
+                    "description": "Mixer",
+                    "help": "",
+                    "role": "AXLayoutArea"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXList"
+          }
+        ],
+        "description": "Inspector",
+        "help": "",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Leave Folder",
+                "help": "Leave Folder",
+                "role": "AXButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Edit",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Functions",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "View",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Live Loops Grid",
+                    "help": "Show/Hide Live Loops Grid",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Tracks area",
+                    "help": "Show/Hide Tracks area",
+                    "role": "AXCheckBox",
+                    "value": "1"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Automation",
+                    "help": "Show/Hide Automation   A",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Flex",
+                    "help": "Show/Hide Flex   ⌘F",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Catch Playhead",
+                "help": "Catch Playhead   `",
+                "role": "AXCheckBox",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Left Click Tool, Pointer Tool",
+                    "help": "Left Click Tool",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Command-Click Tool, Marquee Tool",
+                    "help": "Command-Click Tool",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "help": "",
+                "role": "AXStaticText",
+                "value": "Snap:"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXPopUpButton",
+                "value": "Smart"
+              },
+              {
+                "help": "",
+                "role": "AXStaticText",
+                "value": "Drag:"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Drag Mode",
+                "help": "Drag Mode",
+                "role": "AXPopUpButton",
+                "value": "No Overlap"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Waveform Zoom",
+                "help": "Waveform Zoom",
+                "role": "AXCheckBox",
+                "title": "Waveform Zoom",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Vertical Auto Zoom",
+                    "help": "Vertical Auto Zoom",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Horizontal Auto Zoom",
+                    "help": "Horizontal Auto Zoom",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.3797396421432495"
+                  }
+                ],
+                "description": "Vertical Zoom",
+                "help": "Vertical Zoom",
+                "role": "AXSlider",
+                "value": "0.3797396421432495"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.1974011063575745"
+                  }
+                ],
+                "description": "Horizontal Zoom",
+                "help": "Horizontal Zoom",
+                "role": "AXSlider",
+                "value": "0.1974011063575745"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Add Tracks   ⌥⌘N",
+                            "help": "Add Tracks button. Add audio and software instrument tracks. Use tracks for recording, editing, and arranging regions. ",
+                            "role": "AXButton",
+                            "value": "0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "New Track with Duplicate Settings   ⌘D",
+                            "help": "Duplicate Track button. Create an empty track with the same settings as the selected track. Option-click to create a track with the same settings and content. ",
+                            "role": "AXButton",
+                            "value": "0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Show/Hide Global Tracks   G",
+                            "help": "Global Tracks button. Work with global tracks to control various aspects of the overall project, such as arrangement and tempo. ",
+                            "role": "AXCheckBox",
+                            "value": "0"
+                          }
+                        ],
+                        "description": "Tracks legend",
+                        "help": "",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "cycle region",
+                                "help": "Cycle area. Repeatedly play or record over the project section within the yellow bar. Drag the bar to move the range, or the edges to edit the length. ",
+                                "role": "AXLayoutItem",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Playhead thumb",
+                                "help": "Playhead. Indicates the playback position. Move by dragging, clicking the lower part of the ruler, or using the LCD Position displays. ",
+                                "role": "AXValueIndicator",
+                                "value": "164926744166400"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Start Marker",
+                                "help": "Project Start marker. Indicates the project start point. Drag left to play upbeats or program change commands before the first downbeat. ",
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "End Marker",
+                                "help": "Project End marker. Indicates the project end point. When recording, the marker moves to fit the project length. Drag vertically to change position. ",
+                                "role": "AXValueIndicator",
+                                "value": "2111062325329920"
+                              }
+                            ],
+                            "description": "Tracks time ruler",
+                            "help": "",
+                            "role": "AXLayoutArea"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "description": "Tracks header",
+                            "help": "",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "help": "Workspace. The primary area for recording, editing, and arranging audio, MIDI, and Session Player regions, divided into different track types. ",
+                                "role": "AXLayoutArea",
+                                "value": "0"
+                              }
+                            ],
+                            "description": "Tracks contents",
+                            "help": "",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "children": [
+                              {
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  }
+                ],
+                "help": "",
+                "role": "AXSplitGroup"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Tracks",
+        "help": "",
+        "role": "AXGroup"
+      }
+    ],
+    "role": "AXWindow",
+    "title": "Untitled.logicx - Tracks"
+  }
+}

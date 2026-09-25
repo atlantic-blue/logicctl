@@ -106,6 +106,43 @@ public enum Locators {
     name: "transport.recordButton",
     path: toTheControlBar + [LocatorStep(role: "AXCheckBox", title: "Record")])
 
+  /// The window Logic shows when no project is open.
+  ///
+  /// Logic gives this window an identifier of its own, which no other window of Logic carries, so
+  /// the presence of the window is how logicctl knows that no project is open.
+  public static let chooserWindow = Locator(
+    name: "chooser.window",
+    path: [LocatorStep(role: "AXWindow", identifier: "newProjectDialog")])
+
+  /// The name of the first template the chooser offers, which is the empty project.
+  ///
+  /// The tile itself carries no name a path can read, so this text is what says which template the
+  /// first tile is. A Logic that puts another template first moves this name, and the walk that
+  /// presses the tile is refused rather than opening a template nobody asked for.
+  public static let chooserEmptyProject = Locator(
+    name: "chooser.emptyProject",
+    path: toTheFirstTemplate + [LocatorStep(role: "AXStaticText")])
+
+  /// The first template tile, which is what a press selects.
+  public static let chooserEmptyProjectTile = Locator(
+    name: "chooser.emptyProjectTile",
+    path: toTheFirstTemplate
+      + [LocatorStep(role: "AXGroup", identifier: "_NS:7"), LocatorStep(role: "AXButton")])
+
+  /// The button that opens the template the chooser has selected.
+  public static let chooserChooseButton = Locator(
+    name: "chooser.chooseButton",
+    path: toTheChooserPanel + [LocatorStep(role: "AXButton", title: "Choose")])
+
+  /// The sheet Logic puts on a project that has no tracks, which asks for the first track.
+  ///
+  /// Logic shows it on a project it has just made, and again when the last track of a project is
+  /// deleted. So the sheet is how logicctl reads that the project in front has no tracks. logicctl
+  /// presses no button in it: Create would make a track, and Cancel closes a project Logic made.
+  public static let newTrackSheet = Locator(
+    name: "newTrackSheet.sheet",
+    path: [LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet")])
+
   /// Every locator this file holds. A test resolves each one in the trees it was read from.
   public static let all: [Locator] = [
     mainWindow,
@@ -115,7 +152,29 @@ public enum Locators {
     transportPlayButton,
     transportStopButton,
     transportRecordButton,
+    chooserWindow,
+    chooserEmptyProject,
+    chooserEmptyProjectTile,
+    chooserChooseButton,
+    newTrackSheet,
   ]
+
+  /// The walk from the window of the chooser to the panel that holds the templates and the
+  /// buttons.
+  private static let toTheChooserPanel: [LocatorStep] = [
+    LocatorStep(role: "AXWindow", identifier: "newProjectDialog"),
+    LocatorStep(role: "AXSplitGroup"),
+    LocatorStep(role: "AXGroup", identifier: "_NS:44"),
+  ]
+
+  /// The walk from the window of the chooser to the first template it offers.
+  private static let toTheFirstTemplate: [LocatorStep] =
+    toTheChooserPanel + [
+      LocatorStep(role: "AXScrollArea"),
+      LocatorStep(role: "AXList"),
+      LocatorStep(role: "AXList"),
+      LocatorStep(role: "AXGroup", index: 0),
+    ]
 
   /// The walk from the window to the header of the first track.
   private static let toTheFirstTrack: [LocatorStep] =
