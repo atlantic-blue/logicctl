@@ -20,10 +20,15 @@ sign:
 
 # `make accept PART=<n>` runs the live acceptance of one phase of the stories against the Logic on
 # this Mac. It is the only run that drives the real application, so it carries the guards the
-# pipeline cannot: the live suite is off unless this target turns it on, the binary it drives is
-# the signed one, and a run that proves nothing says so rather than exiting zero. It builds nothing
-# and signs nothing, because both grants key on the signature and a fresh build here would hand the
-# suite a binary this Mac granted nothing to.
+# pipeline cannot. The live suite is off unless this target turns it on. The binary it drives is
+# the signed one, and this target builds nothing and signs nothing, because both grants key on the
+# signature and a fresh build would carry neither.
+#
+# It counts the scenarios itself, from a line each scenario prints as it starts, and not from the
+# summary of the test runner. The summary counts a scenario that was left out as a test that ran:
+# adding the two live scenarios of phase 0 took a green pipeline from 92 tests to 97 while both of
+# them were skipped. A phase where every scenario was left out would read there as a phase that
+# passed against Logic.
 
 accept:
 	@if [ -z "$(PART)" ]; then \
@@ -50,12 +55,15 @@ accept:
 	LOGICCTL_LIVE=1 LOGICCTL_BINARY="$$binary" \
 	  swift test --filter "Phase$(PART)LiveScenarios" > "$$output" 2>&1 || status=$$?; \
 	cat "$$output"; \
-	swiftTesting=$$(sed -n 's/.*Test run with \([0-9][0-9]*\) test.*/\1/p' "$$output" | tail -1); \
-	xctest=$$(sed -n 's/.*Executed \([0-9][0-9]*\) test.*/\1/p' "$$output" | tail -1); \
-	count=$$(( $${swiftTesting:-0} + $${xctest:-0} )); \
-	echo "scenarios: $$count"; \
-	if [ "$$count" -eq 0 ]; then \
+	ran=$$(grep -c '^live scenario: ' "$$output" || true); \
+	left=$$(grep -c ' skipped' "$$output" || true); \
+	echo "scenarios: $$ran"; \
+	if [ "$$ran" -eq 0 ]; then \
 	  echo "logicctl: no live scenario ran for phase $(PART), so this run proves nothing"; \
+	  exit 1; \
+	fi; \
+	if [ "$$left" -ne 0 ]; then \
+	  echo "logicctl: phase $(PART) left $$left scenario out, so it is not accepted"; \
 	  exit 1; \
 	fi; \
 	if [ "$$status" -ne 0 ]; then \

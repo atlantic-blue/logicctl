@@ -59,6 +59,16 @@ enum LiveHarness {
     environment[liveVariable] == "1"
   }
 
+  /// Says on the output of the run that one live scenario is about to drive Logic.
+  ///
+  /// `make accept` counts these lines. The summary of the test runner counts a scenario that was
+  /// left out as a test that ran, so a phase where every scenario was skipped reads there as 92
+  /// tests becoming 97: the two live scenarios are in the total and neither one drove anything.
+  /// A scenario prints this line itself, so a line can only come from a scenario that ran.
+  static func liveScenario(_ name: String) {
+    print("live scenario: \(name)")
+  }
+
   /// What the harness refuses to do, and what the operator does about it.
   enum Refusal: Error, CustomStringConvertible {
     /// The project named is under the music folder, so it is the work of a person.
@@ -557,15 +567,18 @@ private func makefile() throws -> String {
 
 /// An acceptance run that proves nothing says so, instead of reporting a pass.
 ///
-/// `make accept` is how a person runs the live suite, one phase of the stories at a time. Two runs
-/// prove nothing and both look exactly like a clean run from the outside: a phase nobody wrote
-/// scenarios for, and a name that matches no scenario at all. Swift prints a summary and exits
-/// zero, and the operator reads a green run as a phase that passed against Logic.
+/// `make accept` is how a person runs the live suite, one phase of the stories at a time. Three
+/// runs prove nothing and all three look like a clean run from the outside: a phase nobody wrote
+/// scenarios for, a name that matches no scenario, and a phase whose scenarios were all left out
+/// because the live suite was off. The last one is the trap: the summary of the test runner counts
+/// a scenario it left out as a test that ran, so the two live scenarios of phase 0 took a green
+/// pipeline from 92 tests to 97 while neither one drove anything.
 ///
-/// So the target counts what ran and refuses a count of zero, and it refuses a phase that is not
-/// one of the five before it starts anything. It turns the live suite on itself, with the variable,
-/// so nobody has to remember it. It builds nothing and signs nothing: the grants key on the
-/// signature, so a build here would hand the suite a binary this Mac granted nothing to.
+/// So the target counts the line each scenario prints as it starts, it refuses a count of zero,
+/// and it refuses a run that left any scenario out. It refuses a phase that is not one of the five
+/// before it starts anything. It turns the live suite on itself, so nobody has to remember the
+/// variable. It builds nothing and signs nothing: the grants key on the signature, so a build here
+/// would hand the suite a binary this Mac granted nothing to.
 @Test func theAcceptTargetRefusesARunThatProvesNothing() throws {
   let unnamed = try make(["accept"])
   #expect(unnamed.status != 0, "a run that names no phase stops, so nothing reads it as a pass")
@@ -584,9 +597,17 @@ private func makefile() throws -> String {
     target.contains("LOGICCTL_LIVE=1"),
     "the target turns the live suite on, so a person never runs it by hand")
   #expect(
-    target.contains("scenarios: $$count"),
-    "it prints what ran, because the count is the evidence and not the colour")
+    target.contains("live scenario: "),
+    "it counts the line a scenario prints as it starts, which only a scenario that ran can print")
+  #expect(
+    target.contains("Test run with") == false,
+    "and never the summary of the runner, which counts a scenario it left out")
+  #expect(
+    target.contains("scenarios: $$ran"), "it prints that count, because the count is the evidence")
   #expect(
     target.contains("no live scenario ran"),
-    "and a count of zero ends the run, whatever swift said about it")
+    "a count of zero ends the run, whatever swift said about it")
+  #expect(
+    target.contains("is not accepted"),
+    "and so does a run that left a scenario of the phase out")
 }

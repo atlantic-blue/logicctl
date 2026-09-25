@@ -19,6 +19,8 @@ struct Phase0LiveScenarios {
   /// an empty interface and report a project with nothing in it, which is why phase 0 asks this
   /// first.
   @Test func permissionsReadsBothGrantsOfThisMac() throws {
+    LiveHarness.liveScenario("permissionsReadsBothGrantsOfThisMac")
+
     let answer = try LiveHarness.logicctl(["permissions"])
     let read = try LiveHarness.envelope(
       LiveHarness.GrantsAnswer.self, of: answer, from: "permissions")
@@ -36,6 +38,8 @@ struct Phase0LiveScenarios {
   /// changed or saved. Logic shows the copy by name, and `inspect --window main` answers with that
   /// window and the version of Logic it read it from.
   @Test func inspectReadsTheTreeOfTheScratchCopy() throws {
+    LiveHarness.liveScenario("inspectReadsTheTreeOfTheScratchCopy")
+
     let folder = try LiveHarness.temporaryFolder()
     defer { try? FileManager.default.removeItem(at: folder) }
 
