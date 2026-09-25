@@ -1,0 +1,75 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "description": "Logic Pro alert",
+        "help": "",
+        "identifier": "_NS:35",
+        "role": "AXImage"
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "help": "",
+        "identifier": "_NS:78",
+        "role": "AXStaticText",
+        "value": "Also import tempo information?"
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "help": "",
+        "identifier": "_NS:58",
+        "role": "AXStaticText",
+        "value": "This will replace the project\u2019s current tempo information in the range of the MIDI file. Consider that the sequencer tempo will get out of sync with any previously recorded audio tracks, unless those are in Flex mode!"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "identifier": "supression-checkbox",
+        "role": "AXCheckBox",
+        "title": "Don\u2019t ask again",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "identifier": "action-button-1",
+        "role": "AXButton",
+        "title": "No"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "identifier": "action-button-2",
+        "role": "AXButton",
+        "title": "Import Tempo"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "identifier": "action-button-3",
+        "role": "AXButton",
+        "title": "Cancel"
+      }
+    ],
+    "description": "alert",
+    "identifier": "_NS:91",
+    "role": "AXWindow",
+    "title": ""
+  }
+}
