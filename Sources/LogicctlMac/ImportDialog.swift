@@ -584,6 +584,9 @@ extension ImportDialog {
   }
 
   /// The window the Logic of this Mac shows in front, which is the panel once it opens.
+  ///
+  /// This reader waits on a panel, and Logic puts a panel in front of the project window, so the
+  /// window in front is the one to read here and the project window is not.
   private static func frontWindow() throws -> any AXNode {
     guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
       throw Refusal(reason: "Logic shows no window, so nothing in it could be reached.")

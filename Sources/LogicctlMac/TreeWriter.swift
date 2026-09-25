@@ -57,17 +57,54 @@ public struct LogicTree {
     return LogicTree(logicVersion: logicVersion, root: window)
   }
 
+  /// The same tree, starting at the window the project sits in, or nothing when Logic shows no
+  /// such window.
+  ///
+  /// Logic keeps several windows open at once, and the first of the list is not the one a person
+  /// raised. The Event List of a project stays first in the list while the Mixer is in front, and
+  /// `AXMain` follows whatever is raised, so it names the Mixer there. Neither of the two finds
+  /// the window that holds the project. So the window is found by what it holds: the header of the
+  /// tracks sits in that window and in no other window of Logic.
+  ///
+  /// A tree that starts at a window answers that window. Every locator was read from a recording
+  /// of one window, and the walk to the tracks header starts at the window itself.
+  public func atTheProjectWindow() -> LogicTree? {
+    guard root.role != LogicTree.windowRole else {
+      return self
+    }
+    guard let window = LogicTree.windows(under: root).first(where: LogicTree.holdsTheTracks) else {
+      return nil
+    }
+    return LogicTree(logicVersion: logicVersion, root: window)
+  }
+
+  /// The role Logic gives a window.
+  static let windowRole = "AXWindow"
+
   /// The first element with the role of a window, looked for a level at a time so the windows of
   /// the application come before anything a window holds.
   private static func firstWindow(under node: any AXNode) -> (any AXNode)? {
+    LogicTree.windows(under: node).first
+  }
+
+  /// Every window of the tree, a level at a time, so the windows of the application come before
+  /// anything a window holds.
+  private static func windows(under node: any AXNode) -> [any AXNode] {
     var level: [any AXNode] = [node]
+    var found: [any AXNode] = []
     while !level.isEmpty {
-      if let window = level.first(where: { $0.role == "AXWindow" }) {
-        return window
-      }
+      found += level.filter { $0.role == LogicTree.windowRole }
       level = level.flatMap { $0.children }
     }
-    return nil
+    return found
+  }
+
+  /// Whether one window holds the header of the tracks.
+  ///
+  /// The walk is the test. A window that is not the project window refuses it at its first step,
+  /// and the refusal is the answer here rather than a failure to carry anywhere.
+  private static func holdsTheTracks(_ window: any AXNode) -> Bool {
+    (try? LocatorResolver.element(of: Locators.tracksHeader, in: window)) != nil
   }
 }
 

@@ -195,7 +195,7 @@ extension TrackActions {
 }
 
 extension TrackActions {
-  /// Writes one text into the field a locator names, in the window Logic shows in front.
+  /// Writes one text into the field a locator names, in the window the project sits in.
   ///
   /// In the tree recorded from Logic 12.3.1, the name field of a track header carries one action,
   /// `AXPress`, its value reads `0` rather than the name, and its help text reads "Name field.
@@ -205,10 +205,12 @@ extension TrackActions {
   /// `timeout` rather than a rename that nothing did. The live acceptance of phase 2 is what says
   /// which of the two happens.
   public static func writeIntoTheLogicOfThisMac(_ locator: Locator, _ text: String) throws {
-    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
-      throw Refusal(reason: "Logic shows no window, so nothing in it could be written into.")
+    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window with the tracks of a project in it, so "
+          + "\(Locators.mainWindow.name) reached nothing to write into.")
     }
-    let element = try LocatorResolver.element(of: locator, in: front.root)
+    let element = try LocatorResolver.element(of: locator, in: project.root)
     guard let live = element as? LiveAXNode else {
       throw Refusal(
         reason: "\(locator.name) was found in a recorded tree, which nothing can write into.",
@@ -225,9 +227,9 @@ extension TrackActions {
 }
 
 extension TrackActions {
-  /// Presses the one control a locator names, in the window Logic shows in front.
+  /// Presses the one control a locator names, in the window the project sits in.
   ///
-  /// The walk starts at the front window and not at the application, because a track header sits
+  /// The walk starts at the project window and not at the application, because a track header sits
   /// inside a window. A press through Accessibility is not a mouse event, so it does not go through
   /// the input gate: it asks the one element the walk found to act on itself.
   ///
@@ -236,10 +238,12 @@ extension TrackActions {
   /// turns the mute on when it is off and off when it is on. The caller reads the track again
   /// afterwards, because a press Logic refused answers the same as one it took.
   public static func pressInTheWindowOfThisMac(_ locator: Locator) throws {
-    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
-      throw Refusal(reason: "Logic shows no window, so nothing in it could be pressed.")
+    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window with the tracks of a project in it, so "
+          + "\(Locators.mainWindow.name) reached nothing to press.")
     }
-    let element = try LocatorResolver.element(of: locator, in: front.root)
+    let element = try LocatorResolver.element(of: locator, in: project.root)
     guard let live = element as? LiveAXNode else {
       throw Refusal(
         reason: "\(locator.name) was found in a recorded tree, which nothing can press.",

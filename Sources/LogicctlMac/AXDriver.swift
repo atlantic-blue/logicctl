@@ -10,10 +10,11 @@ import LogicctlCore
 ///
 /// Four reads answer `status`, and each one comes from a different place. Whether Logic runs, and
 /// which version it is, come from the application bundle that macOS has open. Whether Logic is in
-/// front comes from the workspace. The title of the window comes from the Accessibility tree. So
-/// the driver is given the tree and the front application rather than reaching for them, and the
-/// pipeline, which has no Logic, drives the same code against a tree that `inspect` recorded from
-/// Logic 12.3.1.
+/// front comes from the workspace. The title comes from the Accessibility tree, and it is the
+/// title of the window the tracks sit in rather than of the window in front, which is the Mixer
+/// whenever a person opens one. So the driver is given the tree and the front application rather
+/// than reaching for them, and the pipeline, which has no Logic, drives the same code against a
+/// tree that `inspect` recorded from Logic 12.3.1.
 ///
 /// Every other read is given the same way, so the pipeline proves the joining as well: a driver
 /// built over the recorded trees answers the conformance suite that `FakeLogicDriver` answers.
@@ -83,7 +84,7 @@ public struct AXDriver: LogicDriver, LogicStatusReader {
     return LogicStatus(
       running: true,
       frontmost: applicationInFront() == LogicTree.bundleIdentifier,
-      window: open.atTheFrontWindow()?.root.title,
+      window: open.atTheProjectWindow()?.root.title,
       version: open.logicVersion.isEmpty ? nil : open.logicVersion)
   }
 
