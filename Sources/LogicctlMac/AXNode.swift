@@ -24,6 +24,13 @@ public protocol AXNode {
   /// down.
   var value: String? { get }
 
+  /// What the element holds, written the way Logic shows it on the screen, or nil when Logic
+  /// shows no such text.
+  ///
+  /// A slider of the Event List carries its number here. Its `value` is a scaled 32 bit number,
+  /// so the velocity of a note is read from this and from nothing else.
+  var valueDescription: String? { get }
+
   /// What the element is for, in the words Accessibility carries. The plugin slot of a channel
   /// strip is found by this and by nothing else: its description reads `audio plug-in`.
   var description: String? { get }

@@ -165,6 +165,24 @@ public enum Locators {
     name: "transport.recordButton",
     path: toTheControlBar + [LocatorStep(role: "AXCheckBox", title: "Record")])
 
+  /// The window Logic shows the events of one region in.
+  ///
+  /// It is the element a recorded Event List tree starts at, as the main window is for a tree of
+  /// the tracks area. The walk names the role alone: the title of the window carries the name of
+  /// the project, so no path can name it and hold for the next project.
+  public static let eventListWindow = Locator(
+    name: "eventList.window",
+    path: [LocatorStep(role: "AXWindow")])
+
+  /// The table of events of the Event List, which holds one row per event of the region.
+  ///
+  /// Nothing on the walk carries an identifier or a title, so every step names its role and its
+  /// place. The table holds the rows of the region and one group of buttons, which is the header
+  /// of the columns, so a reader takes the rows and leaves the group.
+  public static let eventListTable = Locator(
+    name: "eventList.table",
+    path: toTheEventListTable)
+
   /// The window Logic shows when no project is open.
   ///
   /// Logic gives this window an identifier of its own, which no other window of Logic carries, so
@@ -243,6 +261,8 @@ public enum Locators {
     chooserEmptyProjectTile,
     chooserChooseButton,
     newTrackSheet,
+    eventListWindow,
+    eventListTable,
     saveWindow,
     saveNameField,
     saveButton,
@@ -286,6 +306,15 @@ public enum Locators {
       LocatorStep(role: "AXMenuBarItem", title: "Track"),
       LocatorStep(role: "AXMenu"),
     ]
+
+  /// The walk from the window of the Event List to the table of events it holds.
+  private static let toTheEventListTable: [LocatorStep] = [
+    LocatorStep(role: "AXWindow"),
+    LocatorStep(role: "AXGroup", index: 0),
+    LocatorStep(role: "AXGroup", index: 2),
+    LocatorStep(role: "AXScrollArea", index: 0),
+    LocatorStep(role: "AXTable", index: 0),
+  ]
 
   /// The walk from the window to the Control Bar, which holds the transport.
   private static let toTheControlBar: [LocatorStep] = [

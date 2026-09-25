@@ -21,6 +21,10 @@ private let windowsWithATrack = ["one-track.json", "region.json"]
 /// The tree of the window Logic shows while no project is open.
 private let chooserWindows = ["project-chooser.json"]
 
+/// The trees of the window Logic shows the events of one region in. One holds a region of three
+/// notes, and one holds a region of four notes with volume automation on it.
+private let eventLists = ["event-list-notes.json", "event-list-automation.json"]
+
 /// The tree of the window Logic opens for File, "Save As...".
 private let savePanels = ["save-as-window.json"]
 
@@ -116,6 +120,18 @@ private func provedLocators() -> [ProvedLocator] {
       trees: savePanels,
       names: "the button that writes the project where the field says",
       holds: { $0.role == "AXButton" && $0.title == "Save" }),
+    ProvedLocator(
+      locator: Locators.eventListWindow,
+      trees: eventLists,
+      names: "the window Logic shows the events of one region in",
+      holds: { $0.role == "AXWindow" && ($0.title ?? "").hasSuffix(" - Event List") }),
+    ProvedLocator(
+      locator: Locators.eventListTable,
+      trees: eventLists,
+      names: "the table of events of the Event List",
+      holds: { table in
+        table.role == "AXTable" && table.children.contains { $0.role == "AXRow" }
+      }),
     ProvedLocator(
       locator: Locators.newTrackSheet,
       trees: emptyProjects,
