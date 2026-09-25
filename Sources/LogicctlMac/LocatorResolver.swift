@@ -78,11 +78,11 @@ public enum LocatorResolver {
   /// of every child moves as soon as it does.
   private static func elements(of step: LocatorStep, among nodes: [any AXNode]) -> [any AXNode] {
     let ofTheRole = nodes.filter { $0.role == step.role }
-    if let identifier = step.identifier {
-      return ofTheRole.filter { $0.identifier == identifier }
-    }
     if let title = step.title {
       return ofTheRole.filter { $0.title == title }
+    }
+    if let identifier = step.identifier {
+      return ofTheRole.filter { $0.identifier == identifier }
     }
     guard let index = step.index else {
       return ofTheRole
