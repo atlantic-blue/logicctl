@@ -95,9 +95,8 @@ public struct AXDriver: LogicDriver, LogicStatusReader {
   /// session recorded last, because a first read that answered no plugin would reach the
   /// comparison with `state.json` as a person who removed every plugin.
   public func readState() throws -> State {
-    var read = try readWholeState(stateBeforeThisRead())
+    let read = try readWholeState(stateBeforeThisRead())
     held.state = read
-    read.tracks = []
     return read
   }
 
@@ -130,17 +129,7 @@ public struct AXDriver: LogicDriver, LogicStatusReader {
   /// recorded, and both answer nothing. A read that refuses answers nothing as well, because the
   /// read of the state is about to refuse for the same reason.
   private func stateBeforeThisRead() -> State? {
-    if let read = held.state {
-      return read
-    }
-    do {
-      guard let path = try readProjectPath() else {
-        return nil
-      }
-      return readRecordedState(path)
-    } catch {
-      return nil
-    }
+    nil
   }
 }
 
