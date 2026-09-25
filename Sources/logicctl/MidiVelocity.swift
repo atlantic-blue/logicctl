@@ -224,7 +224,7 @@ struct MidiVelocityCommand: LogicCommand {
       throw NoVelocitySlider(
         track: target.track.value, region: region.index, note: asked)
     }
-    let reached = try events.stepper(slider).read()
+    let reached = try events.stepper(slider).move(to: value.value)
 
     return .object([
       "track": .number(Double(target.track.value)),
