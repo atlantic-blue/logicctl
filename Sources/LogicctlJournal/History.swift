@@ -72,7 +72,7 @@ public enum History {
   /// history, and a history with one step quietly left out reads exactly like a history that never
   /// held it.
   public static func rows(of repository: SessionRepository) throws -> [HistoryRow] {
-    let printed = try repository.git.run(["log", "--reverse", "--format=%H %s"], in: repository.folder)
+    let printed = try repository.git.run(["log", "--format=%H %s"], in: repository.folder)
     var rows: [HistoryRow] = []
     for line in printed.split(separator: "\n") {
       let fields = line.split(separator: " ", maxSplits: 1)
