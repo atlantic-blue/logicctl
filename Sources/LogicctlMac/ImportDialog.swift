@@ -246,7 +246,6 @@ public struct ImportDialog {
   /// Whether the one element a locator names is enabled.
   public typealias ReadEnabled = (Locator) throws -> Bool
 
-
   /// Presses the item of the open menu whose title is this.
   public typealias PressItem = (String) throws -> Void
 
