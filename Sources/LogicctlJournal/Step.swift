@@ -219,9 +219,28 @@ extension SessionRepository {
     inputs: [InputFile] = [],
     session moved: Session? = nil
   ) throws -> String {
+    try write(
+      step, stateJSON: state?.json, screenshot: screenshot, inputs: inputs, session: moved)
+  }
+
+  /// Writes one step as one commit, with the state as the JSON that `state.json` carries, and
+  /// answers the id of that commit.
+  ///
+  /// The watcher needs this one. It reads a saved project and never Logic, so it holds no state of
+  /// its own: what it writes is the state the session recorded with the new plugin hashes over it.
+  /// Reading that back into a `State` and writing it out again would drop every field of the
+  /// record this version of logicctl does not know about.
+  @discardableResult
+  public func write(
+    _ step: Step,
+    stateJSON: JSONValue?,
+    screenshot: Data? = nil,
+    inputs: [InputFile] = [],
+    session moved: Session? = nil
+  ) throws -> String {
     try lock.holding(folder) { () throws -> String in
       try writeUnderTheLock(
-        step, state: state, screenshot: screenshot, inputs: inputs, session: moved)
+        step, stateJSON: stateJSON, screenshot: screenshot, inputs: inputs, session: moved)
     }
   }
 
@@ -247,6 +266,20 @@ extension SessionRepository {
     inputs: [InputFile] = [],
     session moved: Session? = nil
   ) throws -> String {
+    try writeUnderTheLock(
+      step, stateJSON: state?.json, screenshot: screenshot, inputs: inputs, session: moved)
+  }
+
+  /// Writes one step as one commit, with the state as the JSON that `state.json` carries, while
+  /// the caller holds the lock of this session.
+  @discardableResult
+  public func writeUnderTheLock(
+    _ step: Step,
+    stateJSON: JSONValue?,
+    screenshot: Data? = nil,
+    inputs: [InputFile] = [],
+    session moved: Session? = nil
+  ) throws -> String {
     var recorded = step
     recorded.inputs = inputs.map(\.record)
     recorded.screenshot = screenshot.map { _ in SessionRepository.screenshotName }
@@ -257,8 +290,8 @@ extension SessionRepository {
       try writeText(CanonicalJSON.text(of: moved.json, indent: 2), to: "session.json")
       staged.append("session.json")
     }
-    if let state {
-      try writeText(CanonicalJSON.text(of: state, indent: 2), to: "state.json")
+    if let stateJSON {
+      try writeText(CanonicalJSON.text(of: stateJSON, indent: 2), to: "state.json")
       staged.append("state.json")
     }
     try make(stepFolder)
