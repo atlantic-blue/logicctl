@@ -141,10 +141,8 @@ extension ProjectChooser {
     }
     let answered = AXUIElementPerformAction(live.element, kAXPressAction as CFString)
     guard answered == .success else {
-      throw Refusal(
-        reason: "Logic refused the press of \(locator.name), with Accessibility error "
-          + "\(answered.rawValue).",
-        code: .internalFailure)
+      let said = "Logic refused the press of \(locator.name), error \(answered.rawValue)."
+      throw Refusal(reason: said, code: .internalFailure)
     }
   }
 }

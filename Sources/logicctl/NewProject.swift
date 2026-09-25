@@ -144,15 +144,14 @@ extension NewProject {
     ])
   }
 
-
   /// The session of the project this command made.
   ///
   /// It is the one session logicctl writes with `createdByLogicctl` true. Every other session is
   /// started for a project a person made, and the guard reads that field before it lets a command
   /// change one of those.
-  static func session(of state: State, at path: String?, version: String, startedAt: Date)
-    -> Session
-  {
+  static func session(
+    of state: State, at path: String?, version: String, startedAt: Date
+  ) -> Session {
     Session(
       createdAt: startedAt,
       project: Session.Project(name: state.project.name, path: path, createdByLogicctl: true),
@@ -162,9 +161,9 @@ extension NewProject {
 
   /// What the command answers: the project Logic opened, the session that records it, and where
   /// that session sits.
-  static func answered(_ state: State, at path: String?, session: Session, in folder: URL)
-    -> JSONValue
-  {
+  static func answered(
+    _ state: State, at path: String?, session: Session, in folder: URL
+  ) -> JSONValue {
     .object([
       "project": NewProject.project(of: state, path: path),
       "session": .string(session.id),
@@ -183,9 +182,9 @@ extension NewProject {
   ///
   /// A picture is evidence and not a gate. A Mac with no Screen Recording grant does not change
   /// what the command did, so the step records no picture and the answer says why.
-  static func picture(ofTheLogicOf driver: any LogicDriver, through capturer: any WindowCapturer)
-    -> (bytes: Data?, details: JSONValue?)
-  {
+  static func picture(
+    ofTheLogicOf driver: any LogicDriver, through capturer: any WindowCapturer
+  ) -> (bytes: Data?, details: JSONValue?) {
     do {
       return (try capturer.picture(ofLogicRunningAs: try driver.processID()), nil)
     } catch {
@@ -228,8 +227,7 @@ extension NewProject {
 private struct NoDriverYet: LogicDriver {
   /// One sentence a person can act on.
   static let reason =
-    "logicctl cannot read the state of Logic yet, so new-project cannot record its session on "
-    + "this Mac."
+    "logicctl cannot read the state of Logic yet, so new-project cannot record its session."
 
   func readState() throws -> State {
     throw ProjectChooser.Refusal(reason: NoDriverYet.reason, code: .internalFailure)
