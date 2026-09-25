@@ -130,7 +130,7 @@ public struct LaunchAgent {
       throw Refusal(reason: "launchd refused to unload the launch agent: \(error)")
     }
     do {
-      try FileManager.default.removeItem(at: file)
+      try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     } catch {
       throw Refusal(reason: "the launch agent was unloaded and its file stayed: \(error)")
     }
