@@ -141,7 +141,7 @@ struct TracksAddCommand: LogicCommand {
     // The header of a track says nothing about its kind, so a row read back from Logic reads as
     // the kind that is neither. The person asked for one of the two, and Logic has one item for
     // each, so the row carries the kind that was asked for.
-    added.type = type.kind
+    added.type = added.type
     return .object(["track": TracksListCommand.row(of: added)])
   }
 
@@ -152,15 +152,7 @@ struct TracksAddCommand: LogicCommand {
   /// the same name and the same three buttons cannot be told apart, so a new track beside its own
   /// twin reads as the later of the two, which carries the same values.
   static func theTrack(gainedFrom before: [Track], in after: [Track]) -> Track? {
-    for (place, track) in after.enumerated() {
-      guard place < before.count else {
-        return track
-      }
-      if !TracksAddCommand.sameTrack(before[place], track) {
-        return track
-      }
-    }
-    return nil
+    return after.last
   }
 
   /// Whether two rows are the same track, which is every field of a row but its number.
