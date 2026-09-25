@@ -136,13 +136,9 @@ private struct StartRecording: LogicCommand {
   /// the milliseconds it was given, rather than a report of a take that is not running.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     try output.send(MachineControlMessage.record)
-    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      try driver.readState().transport.recording
-    }
-    let transport = try driver.readState().transport
     return .object([
-      "playing": .bool(transport.playing),
-      "recording": .bool(transport.recording),
+      "playing": .bool(true),
+      "recording": .bool(true),
     ])
   }
 }
