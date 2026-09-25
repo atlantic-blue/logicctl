@@ -55,7 +55,7 @@ enum RegionTarget {
     }
     let asked = option.region.value
     guard let region = track.regions.first(where: { $0.index == asked }) else {
-      throw NoRegion(track: number, region: asked, regions: asked)
+      throw NoRegion(track: number, region: asked, regions: track.regions.count)
     }
     return region
   }
