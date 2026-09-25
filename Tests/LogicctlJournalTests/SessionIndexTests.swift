@@ -152,3 +152,36 @@ private func withPath(_ session: Session, _ path: String) -> Session {
   carried.project.path = path
   return carried
 }
+
+/// The one command that can be recorded into the session of a project that sits nowhere.
+///
+/// A project that was never saved has no path, and a session is found by the path of its project,
+/// so nothing finds this one that way. `save` is the command that gives the project its first
+/// path, and until it runs the name Logic shows is the whole address there is. Two projects of a
+/// person can carry one name, so the newest session wins: that is the project being worked on now,
+/// and the path written at the end of the save makes every later lookup the strong one.
+@Test func theSessionOfAProjectWithNoPathIsFoundByItsName() throws {
+  let root = try temporaryFolder()
+  let git = try gitThatSigns(inside: root)
+  let early = Date(timeIntervalSince1970: 1_700_000_000)
+  let late = Date(timeIntervalSince1970: 1_700_009_000)
+
+  let first = aSession(named: "Untitled", at: early)
+  let second = aSession(named: "Untitled", at: late)
+  var saved = aSession(named: "Untitled", at: late)
+  saved.project.path = "/tmp/Saved.logicx"
+  let other = aSession(named: "Another", at: late)
+  for session in [first, second, saved, other] {
+    _ = try SessionRepository.start(session: session, root: root, git: git)
+  }
+
+  let found = SessionIndex.session(ofAProjectWithNoPathNamed: "Untitled", root: root)
+  #expect(found?.id == second.id, "the newest session of a project that sits nowhere")
+
+  let repository = SessionIndex.repository(
+    ofAProjectWithNoPathNamed: "Untitled", root: root, git: git)
+  #expect(repository?.session.id == second.id, "and the repository the save writes into")
+  #expect(
+    SessionIndex.session(ofAProjectWithNoPathNamed: "Nobody", root: root) == nil,
+    "a name no session carries finds nothing")
+}
