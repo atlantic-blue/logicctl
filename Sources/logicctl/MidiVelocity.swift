@@ -7,11 +7,15 @@ import LogicctlMac
 extension Midi {
   /// Sets the velocity of one note of a region.
   ///
+  /// The type is not called `Velocity`, because `Velocity` is the scale of 1 to 127 that every
+  /// command of this noun takes, and a type of that name under `Midi` hides the scale from all of
+  /// them. The command a person types is `velocity`.
+  ///
   /// Logic holds the velocity of a note on a slider in the row of the Event List, and it applies an
   /// edit to every row it holds selected. So the row of the note is held on its own, the selection
   /// is read back, and only then does the slider move. The answer names the one note it changed and
   /// the velocity the slider reads afterwards.
-  struct Velocity: ParsableCommand {
+  struct SetVelocity: ParsableCommand {
     static let configuration = CommandConfiguration(
       commandName: "velocity",
       abstract: "Set the velocity of one note of a region.",
@@ -29,13 +33,13 @@ extension Midi {
     @OptionGroup var target: NoteOption
 
     @Option(help: "The velocity the note carries after the change, 1 to 127.")
-    var value: LogicctlCore.Velocity
+    var value: Velocity
 
     @OptionGroup var output: OutputOption
 
     func run() throws {
       let status = answer(
-        driver: Midi.Velocity.liveDriver(), of: LogicTree.ofRunningLogic, format: output.format)
+        driver: Midi.SetVelocity.liveDriver(), of: LogicTree.ofRunningLogic, format: output.format)
       guard status == 0 else {
         // The envelope is written already. The number goes out through the root command, which
         // prints nothing more for it.
@@ -45,7 +49,7 @@ extension Midi {
   }
 }
 
-extension Midi.Velocity {
+extension Midi.SetVelocity {
   /// Changes the velocity, prints the envelope, and answers the number the process exits with.
   ///
   /// The driver, the tree and the rows are given rather than reached for, so the pipeline drives
@@ -108,7 +112,7 @@ struct MidiVelocityCommand: LogicCommand {
   let note: NoteOption
 
   /// The velocity the note carries after the change.
-  let value: LogicctlCore.Velocity
+  let value: Velocity
 
   /// What Logic is asked to do to the rows of the Event List.
   let events: EventList.Actions

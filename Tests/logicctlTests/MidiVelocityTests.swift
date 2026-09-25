@@ -185,7 +185,7 @@ private func midiVelocity(_ arguments: [String], against logic: AFakeLogic) thro
   var out = ""
   var err = ""
   let typed = try Logicctl.parseAsRoot(arguments)
-  let velocity = try #require(typed as? Midi.Velocity)
+  let velocity = try #require(typed as? Midi.SetVelocity)
   let status = velocity.answer(
     driver: FakeLogicDriver(tracks: aProjectWithARegionOnTrack4()),
     of: { logic.tree },
