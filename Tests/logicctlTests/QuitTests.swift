@@ -297,7 +297,8 @@ private func driverOfAProject(named: String, at path: String? = "/tmp/F-T0.logic
 
   let failed = try answer.failure()
   #expect(failed["code"] as? String == "invalid_argument")
-  let sentence = "This project was never saved, so there is nowhere to write it. "
+  let sentence =
+    "This project was never saved, so there is nowhere to write it. "
     + "Run save --path <path> first."
   #expect(failed["message"] as? String == sentence)
 }
