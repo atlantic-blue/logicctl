@@ -57,7 +57,9 @@ public enum SaveLookup {
   }
 
   /// What the `step.json` of one step holds, or null when there is no reading it.
-  static func record(ofSequence sequence: Int, in repository: SessionRepository) -> JSONValue {
+  public static func record(
+    ofSequence sequence: Int, in repository: SessionRepository
+  ) -> JSONValue {
     let file =
       repository.folder
       .appendingPathComponent("steps")
