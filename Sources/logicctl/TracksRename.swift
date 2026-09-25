@@ -139,18 +139,43 @@ struct TracksRenameCommand: LogicCommand {
   /// How the wait sleeps between two reads.
   let sleeper: Wait.Sleeper
 
-  /// Writes the name into the header of the track, waits for Logic to show a name of its own, and
-  /// answers the row of that track.
+  /// Writes the name into the header of the track, waits for Logic to show the change, and answers
+  /// the row of that track as Logic holds it then.
   ///
   /// The tracks are read before the write, so a number that names no track is refused while the
   /// project is still as the person left it.
+  ///
+  /// The wait ends when the track carries the name that was asked for, or any name other than the
+  /// one it carried. Both are Logic answering. The first covers a rename to the name the track
+  /// already has, which changes nothing and is no failure, and it keeps a replay of a session
+  /// giving the same result on its second run. The second covers a name Logic made of its own,
+  /// which is the name the project now holds and the name that goes in the answer. A write that
+  /// changed nothing reaches neither, and the command answers `timeout` rather than a rename that
+  /// Logic refused.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let before = try driver.readState().tracks
     guard let target = before.first(where: { $0.index == index }) else {
       throw RegionTarget.NoTrack(index: index)
     }
+    let was = target.name
     try actions.rename(trackNumber: index - 1, to: newName)
-    // The row is read back from Logic in the next commit.
-    return .object(["track": TracksListCommand.row(of: target)])
+    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+      guard let shown = try TracksRenameCommand.track(numbered: index, through: driver) else {
+        return false
+      }
+      return shown.name == newName || shown.name != was
+    }
+    guard let renamed = try TracksRenameCommand.track(numbered: index, through: driver) else {
+      throw TrackActions.Refusal(
+        reason: "Logic answered no track at index \(index) once the name was written.")
+    }
+    return .object(["track": TracksListCommand.row(of: renamed)])
+  }
+
+  /// The track at one number as Logic answers it now, or nothing when it answers none there.
+  private static func track(
+    numbered index: Int, through driver: any LogicDriver
+  ) throws -> Track? {
+    try driver.readState().tracks.first { $0.index == index }
   }
 }
