@@ -22,7 +22,8 @@ struct Logicctl: ParsableCommand {
       Every answer but this one is a single JSON object on standard output.
 
       Example: logicctl --help
-      """)
+      """,
+    subcommands: [Permissions.self])
 
   /// Reads the arguments of the process, answers on both channels, and exits with the number the
   /// design system gives what happened.
@@ -44,6 +45,12 @@ struct Logicctl: ParsableCommand {
       try command.run()
       return 0
     } catch {
+      // A command that printed its own envelope asks for the number it exits with, and nothing
+      // else is written for it. Writing a second envelope here would put two JSON objects on
+      // standard output, and the caller reads exactly one.
+      if let asked = error as? ExitCode {
+        return asked.rawValue
+      }
       // `--help`, and a command that asks for help by having nothing to do, leave through here
       // too. They are not failures, so they keep the plain text of the library and exit 0.
       if exitCode(for: error).rawValue == 0 {

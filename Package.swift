@@ -57,6 +57,7 @@ let package = Package(
       dependencies: [
         "LogicctlCore",
         "LogicctlJournal",
+        "LogicctlMac",
         "LogicctlTesting",
         "logicctl",
       ]),
