@@ -15,7 +15,7 @@ struct Automation: ParsableCommand {
     discussion: """
       Example: logicctl automation add --track 3 --region 1
       """,
-    subcommands: [Add.self])
+    subcommands: [Add.self, List.self])
 }
 
 extension Automation {
