@@ -28,6 +28,10 @@ private let eventLists = ["event-list-notes.json", "event-list-automation.json"]
 /// The tree of the window Logic opens for File, "Save As...".
 private let savePanels = ["save-as-window.json"]
 
+/// The tree of the window Logic shows the channel strips in. It holds one track strip, then the
+/// output strip and the master strip.
+private let mixers = ["mixer.json"]
+
 /// The trees of a project that has no tracks. Logic puts the sheet that asks for a track on a
 /// project it has just made, and on a project whose last track was deleted.
 private let emptyProjects = ["new-project-sheet.json", "empty.json"]
@@ -131,6 +135,18 @@ private func provedLocators() -> [ProvedLocator] {
       names: "the table of events of the Event List",
       holds: { table in
         table.role == "AXTable" && table.children.contains { $0.role == "AXRow" }
+      }),
+    ProvedLocator(
+      locator: Locators.mixerWindow,
+      trees: mixers,
+      names: "the window Logic shows the channel strips in",
+      holds: { $0.role == "AXWindow" && ($0.title ?? "").contains(" - Mixer") }),
+    ProvedLocator(
+      locator: Locators.mixerStrips,
+      trees: mixers,
+      names: "the area of the Mixer that holds one channel strip per track",
+      holds: { area in
+        area.role == "AXLayoutArea" && area.children.contains { $0.role == "AXLayoutItem" }
       }),
     ProvedLocator(
       locator: Locators.newTrackSheet,

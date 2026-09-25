@@ -183,6 +183,33 @@ public enum Locators {
     name: "eventList.table",
     path: toTheEventListTable)
 
+  /// The window Logic shows the channel strips of the project in.
+  ///
+  /// It is the element a recorded Mixer tree starts at, as the main window is for a tree of the
+  /// tracks area. The title carries the name of the project and the view the Mixer is in, for
+  /// example `F-T0.logicx - Mixer: Tracks`, so no path can name it and hold for the next project.
+  public static let mixerWindow = Locator(
+    name: "mixer.window",
+    path: [LocatorStep(role: "AXWindow")])
+
+  /// The area of the Mixer that holds one channel strip per track, and the output and master
+  /// strips after them.
+  public static let mixerStrips = Locator(
+    name: "mixer.strips",
+    path: toTheMixerStrips)
+
+  /// The channel strip of one track, counted from 0 among the strips the Mixer shows.
+  ///
+  /// A strip carries no identifier and no title, so its place among the layout items is the whole
+  /// of what a path can name here. The Mixer shows the output and master strips after the strips
+  /// of the tracks, so a number past the last track reaches a strip that belongs to no track. The
+  /// reader compares the name of the strip with the name of the track for that reason.
+  public static func mixerStrip(number: Int) -> Locator {
+    Locator(
+      name: "mixer.strip\(number + 1)",
+      path: toTheMixerStrips + [LocatorStep(role: "AXLayoutItem", index: number)])
+  }
+
   /// The window Logic shows when no project is open.
   ///
   /// Logic gives this window an identifier of its own, which no other window of Logic carries, so
@@ -263,6 +290,8 @@ public enum Locators {
     newTrackSheet,
     eventListWindow,
     eventListTable,
+    mixerWindow,
+    mixerStrips,
     saveWindow,
     saveNameField,
     saveButton,
@@ -314,6 +343,13 @@ public enum Locators {
     LocatorStep(role: "AXGroup", index: 2),
     LocatorStep(role: "AXScrollArea", index: 0),
     LocatorStep(role: "AXTable", index: 0),
+  ]
+
+  /// The walk from the window of the Mixer to the area that holds the channel strips.
+  private static let toTheMixerStrips: [LocatorStep] = [
+    LocatorStep(role: "AXWindow"),
+    LocatorStep(role: "AXGroup", index: 0),
+    LocatorStep(role: "AXLayoutArea", index: 0),
   ]
 
   /// The walk from the window to the Control Bar, which holds the transport.
