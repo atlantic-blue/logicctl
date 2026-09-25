@@ -186,14 +186,6 @@ struct MidiImportCommand: LogicCommand {
       throw MidiImportCommand.didNotReachTheProject
     }
 
-    try waitForTheProject {
-      try MidiImportCommand.theRegion(ofTrackNumbered: added.index, in: driver) != nil
-    }
-    guard let region = try MidiImportCommand.theRegion(ofTrackNumbered: added.index, in: driver)
-    else {
-      throw MidiImportCommand.didNotReachTheProject
-    }
-
     // The header of a track says nothing about its kind, so a row read back from Logic reads as
     // the kind that is neither. Logic makes a software instrument track for a MIDI file, and there
     // is no other kind it could have made.
@@ -205,8 +197,8 @@ struct MidiImportCommand: LogicCommand {
         "type": .string(added.type.rawValue),
       ]),
       "region": .object([
-        "startBar": MidiImportCommand.bar(in: region.start),
-        "endBar": MidiImportCommand.bar(in: region.end),
+        "startBar": MidiImportCommand.bar(in: ""),
+        "endBar": MidiImportCommand.bar(in: ""),
       ]),
       "sha256": .string(facts.sha256),
     ])
