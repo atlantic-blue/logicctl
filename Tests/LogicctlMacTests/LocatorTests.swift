@@ -18,6 +18,13 @@ private let tracksWindows = ["empty.json", "one-track.json", "region.json"]
 /// The trees of that window that hold a track.
 private let windowsWithATrack = ["one-track.json", "region.json"]
 
+/// The tree of the window Logic shows while no project is open.
+private let chooserWindows = ["project-chooser.json"]
+
+/// The trees of a project that has no tracks. Logic puts the sheet that asks for a track on a
+/// project it has just made, and on a project whose last track was deleted.
+private let emptyProjects = ["new-project-sheet.json", "empty.json"]
+
 /// A locator, the recorded trees it is put to, and what the element it names reads as in them.
 private struct ProvedLocator {
   /// The locator under test.
@@ -71,6 +78,31 @@ private func provedLocators() -> [ProvedLocator] {
       trees: tracksWindows,
       names: "the record button of the Control Bar",
       holds: { $0.role == "AXCheckBox" && $0.title == "Record" }),
+    ProvedLocator(
+      locator: Locators.chooserWindow,
+      trees: chooserWindows,
+      names: "the window Logic shows while no project is open",
+      holds: { $0.role == "AXWindow" && $0.title == "Choose a Project" }),
+    ProvedLocator(
+      locator: Locators.chooserEmptyProject,
+      trees: chooserWindows,
+      names: "the name of the first template the chooser offers",
+      holds: { $0.role == "AXStaticText" && $0.value == "Empty Project" }),
+    ProvedLocator(
+      locator: Locators.chooserEmptyProjectTile,
+      trees: chooserWindows,
+      names: "the first template tile, which a press selects",
+      holds: { $0.role == "AXButton" && $0.actions.contains("AXPress") }),
+    ProvedLocator(
+      locator: Locators.chooserChooseButton,
+      trees: chooserWindows,
+      names: "the button that opens the template the chooser has selected",
+      holds: { $0.role == "AXButton" && $0.title == "Choose" }),
+    ProvedLocator(
+      locator: Locators.newTrackSheet,
+      trees: emptyProjects,
+      names: "the sheet Logic puts on a project that has no tracks",
+      holds: { $0.role == "AXSheet" && $0.description == "New Track" }),
   ]
 }
 
