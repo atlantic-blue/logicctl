@@ -139,6 +139,18 @@ extension TrackActions {
     try pressInWindow(Locators.trackMuteButton(number: number))
   }
 
+  /// Presses the solo button in the header of one track.
+  ///
+  /// The button is a check box, so the press turns the solo on when it is off and off when it is
+  /// on. Nothing here says which of the two happened. The caller decides whether to press at all,
+  /// and reads the track again afterwards.
+  ///
+  /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
+  /// types `--index`.
+  public func solo(trackNumber number: Int) throws {
+    try pressInWindow(Locators.trackSoloButton(number: number))
+  }
+
   /// The item of the Track menu that makes one track of this type.
   public static func menuItem(for type: NewTrackType) -> Locator {
     switch type {
