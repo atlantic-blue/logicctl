@@ -211,7 +211,7 @@ struct MidiVelocityCommand: LogicCommand {
     // two reads.
     let rows = try EventList.rows(in: window)
     let asked = note.note.value
-    guard let row = rows.first(where: { $0.place == asked }) else {
+    guard let row = rows.first(where: { $0.note == asked }) else {
       throw NoNote(
         track: target.track.value,
         region: region.index,
