@@ -316,6 +316,38 @@ public enum Locators {
     name: "save.saveButton",
     path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
 
+  /// The window Logic opens for File, Import, "MIDI File...".
+  ///
+  /// It is a window of its own and not a sheet on the project, and it carries the identifier
+  /// `open-panel`, which the window Logic opens to save does not. So the presence of the window is
+  /// how logicctl knows that Logic is ready to be told which file to import.
+  public static let importWindow = Locator(
+    name: "import.window",
+    path: [LocatorStep(role: "AXWindow", identifier: "open-panel")])
+
+  /// The popup that says which folder the panel is in.
+  ///
+  /// The panel of Logic 12.3.1 carries no field for a path, so this popup is how the route moves
+  /// the panel to the start up disk, and its value is how the route reads which folder the panel
+  /// reached after each open.
+  public static let importWherePopup = Locator(
+    name: "import.wherePopup",
+    path: toTheImportPanel + [LocatorStep(role: "AXPopUpButton", identifier: "where popup")])
+
+  /// The button that imports the file the panel has selected. Logic titles it Import.
+  public static let importButton = Locator(
+    name: "import.importButton",
+    path: toTheImportPanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
+
+  /// The button that closes the panel and imports nothing.
+  ///
+  /// logicctl never presses it. It is here because a command that failed inside the panel leaves
+  /// the panel open, and a person reading the failure needs the name of the control that closes
+  /// it.
+  public static let importCancelButton = Locator(
+    name: "import.cancelButton",
+    path: toTheImportPanel + [LocatorStep(role: "AXButton", identifier: "CancelButton")])
+
   /// Every locator a recorded tree proves. A test resolves each one in the trees it was read from.
   ///
   /// The menu locators are not here. A menu bar sits beside the windows of an application rather
@@ -342,11 +374,20 @@ public enum Locators {
     saveWindow,
     saveNameField,
     saveButton,
+    importWindow,
+    importWherePopup,
+    importButton,
+    importCancelButton,
   ]
 
   /// The walk from the window Logic opens for File, "Save As...".
   private static let toTheSavePanel: [LocatorStep] = [
     LocatorStep(role: "AXWindow", identifier: "save-panel")
+  ]
+
+  /// The walk from the window Logic opens for File, Import, "MIDI File...".
+  private static let toTheImportPanel: [LocatorStep] = [
+    LocatorStep(role: "AXWindow", identifier: "open-panel")
   ]
 
   /// The walk from the window of the chooser to the panel that holds the templates and the

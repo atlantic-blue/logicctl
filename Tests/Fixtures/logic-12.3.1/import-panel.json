@@ -1,0 +1,57 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXPress"
+        ],
+        "identifier": "where popup",
+        "role": "AXPopUpButton",
+        "title": "Where:",
+        "value": "Desktop"
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXConfirm"
+        ],
+        "children": [
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "search",
+            "role": "AXButton",
+            "title": ""
+          }
+        ],
+        "identifier": "Search",
+        "role": "AXTextField"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "identifier": "CancelButton",
+        "role": "AXButton",
+        "title": "Cancel"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "identifier": "OKButton",
+        "role": "AXButton",
+        "title": "Import"
+      }
+    ],
+    "identifier": "open-panel",
+    "role": "AXWindow",
+    "title": "Import"
+  }
+}
