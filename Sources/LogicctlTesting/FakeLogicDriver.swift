@@ -33,6 +33,27 @@ public final class FakeLogicDriver: LogicDriver, LogicStatusReader {
     self.path = path
   }
 
+  /// A Mac where Logic runs with a project that holds these tracks.
+  ///
+  /// A test of a command that reads the tracks says what Logic shows and nothing else. The rest
+  /// of the state is the smallest project that carries them, so that a row in the answer can
+  /// only have come from this list.
+  public convenience init(
+    tracks: [Track],
+    project: String = "Untitled",
+    logic: String = "12.3.1",
+    tempo: Double = 120,
+    path: String? = nil
+  ) {
+    self.init(
+      state: State(
+        logic: LogicVersion(version: logic),
+        project: Project(name: project),
+        transport: Transport(tempo: tempo),
+        tracks: tracks),
+      path: path)
+  }
+
   /// A Mac where Logic is not running. Every read refuses.
   public init() {
     self.state = nil
