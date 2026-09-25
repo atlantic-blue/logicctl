@@ -239,7 +239,8 @@ private func midiVelocity(_ arguments: [String], against logic: AFakeLogic) thro
   #expect(answer.err == "", "standard error stays empty when a command worked")
 
   let after = try EventList.notes(in: try #require(EventList.window(of: logic.tree)))
-  #expect(after.map(\.velocity) == [100, 90, 100, 64], "note 2 carries 90, and no other note moved")
+  #expect(
+    after.map(\.velocity) == [100, 90, 100, 64], "note 2 carries 90, and no other note moved")
   #expect(after.map(\.pitch) == before.map(\.pitch), "every pitch is the one it was")
   #expect(after.map(\.position) == before.map(\.position), "every note starts where it did")
   #expect(after.map(\.length) == before.map(\.length), "every note is as long as it was")
@@ -268,7 +269,8 @@ private func midiVelocity(_ arguments: [String], against logic: AFakeLogic) thro
     "the sentence names the region and the number that was asked for")
   let details = failure["details"] as? [String: Any] ?? [:]
   #expect(details["notes"] as? Int == 4, "the count of the notes the region holds")
-  #expect(details.keys.sorted() == ["notes"], "the count is the whole of what the refusal carries")
+  #expect(
+    details.keys.sorted() == ["notes"], "the count is the whole of what the refusal carries")
   #expect(try refused.printed()["data"] is NSNull, "a failure carries no data")
   #expect(
     refused.err.hasPrefix("logicctl: note_not_found: "),

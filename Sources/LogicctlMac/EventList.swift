@@ -288,7 +288,8 @@ extension EventList {
     let answered = AXUIElementSetAttributeValue(live, kAXSelectedAttribute as CFString, carried)
     guard answered == .success else {
       throw Trouble(
-        reason: "Logic refused the write into a row of the Event List, error \(answered.rawValue).")
+        reason: "Logic refused the write into a row of the Event List, error "
+          + "\(answered.rawValue).")
     }
   }
 
@@ -321,7 +322,8 @@ extension EventList {
   private static func liveElement(of node: any AXNode) throws -> AXUIElement {
     guard let live = node as? LiveAXNode else {
       throw Trouble(
-        reason: "a row of the Event List was read from a recorded tree, which nothing can change.")
+        reason: "a row of the Event List was read from a recorded tree, which nothing can "
+          + "change.")
     }
     return live.element
   }

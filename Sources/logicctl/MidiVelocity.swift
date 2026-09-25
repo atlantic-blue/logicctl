@@ -39,7 +39,9 @@ extension Midi {
 
     func run() throws {
       let status = answer(
-        driver: Midi.SetVelocity.liveDriver(), of: LogicTree.ofRunningLogic, format: output.format)
+        driver: Midi.SetVelocity.liveDriver(),
+        of: LogicTree.ofRunningLogic,
+        format: output.format)
       guard status == 0 else {
         // The envelope is written already. The number goes out through the root command, which
         // prints nothing more for it.
