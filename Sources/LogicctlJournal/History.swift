@@ -68,10 +68,25 @@ public enum History {
 
   /// The steps of one session, newest first.
   ///
-  /// The reader arrives in the next commit. This one answers no steps at all, so the scenario
-  /// runs and fails on the history it reads back rather than on a build.
+  /// A commit whose record cannot be read stops the whole read. The steps of a session are its
+  /// history, and a history with one step quietly left out reads exactly like a history that never
+  /// held it.
   public static func rows(of repository: SessionRepository) throws -> [HistoryRow] {
-    []
+    let printed = try repository.git.run(["log", "--format=%H %s"], in: repository.folder)
+    var rows: [HistoryRow] = []
+    for line in printed.split(separator: "\n") {
+      let fields = line.split(separator: " ", maxSplits: 1)
+      // The subject of a step starts with its number. The first commit of a session names the
+      // session and carries no number, because it started the work and did nothing to Logic.
+      guard fields.count == 2, let sequence = Int(fields[1].prefix(while: \.isNumber)) else {
+        continue
+      }
+      guard let row = row(ofSequence: sequence, commit: String(fields[0]), in: repository) else {
+        throw Refusal.unreadableStep(sequence: sequence)
+      }
+      rows.append(row)
+    }
+    return rows
   }
 
   /// The session logicctl worked in last, or nothing when no session was ever started.
