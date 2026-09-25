@@ -209,9 +209,12 @@ private func plugins(ofTrack number: Int, in state: State) throws -> [Plugin] {
   #expect(noWindow.failure.code == .elementNotFound, "the code a caller reads")
   #expect(noWindow.failure.code.exitCode == 5, "the number the process exits with")
 
+  let aWindowOfTracks = try recorded("region.json").root.children
   let unnamed = #expect(throws: StateReader.Refusal.self) {
-    try reader(over: application(showing: [Element(role: "AXWindow", title: "Logic Pro")]))
-      .state(after: nil)
+    try reader(
+      over: application(
+        showing: [Element(role: "AXWindow", title: "Logic Pro", children: aWindowOfTracks)])
+    ).state(after: nil)
   }
   let noProject = try #require(unnamed)
 

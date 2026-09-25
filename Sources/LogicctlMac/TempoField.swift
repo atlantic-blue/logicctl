@@ -148,10 +148,12 @@ extension TempoField {
 
   /// The tempo display of the Logic that runs, as an element of the tree.
   private static func sliderOfThisMac() throws -> any AXNode {
-    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
-      throw Refusal(reason: "Logic shows no window, so its tempo display is not there to reach.")
+    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window with the tracks of a project in it, so "
+          + "\(Locators.mainWindow.name) reached nothing to read the tempo from.")
     }
-    return try LocatorResolver.element(of: TempoField.tempoSlider, in: front.root)
+    return try LocatorResolver.element(of: TempoField.tempoSlider, in: project.root)
   }
 
   /// The tempo display of the Logic that runs, as something this Mac can write into.

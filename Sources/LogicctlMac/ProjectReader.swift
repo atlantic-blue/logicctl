@@ -188,16 +188,20 @@ extension ProjectReader {
     return ProjectReader.text(ofDocument: carried)
   }
 
-  /// The title of the main window of this Mac, or nothing when Logic shows no window.
+  /// The title of the main window of this Mac, or nothing when Logic shows no project window.
   public static func titleOfThisMac() throws -> String? {
     try ProjectReader.mainWindowOfThisMac()?.title
   }
 
   /// The main window of the Logic that runs, or nothing when Logic shows none.
+  ///
+  /// The name of the project is in the title of the window the tracks sit in. The Mixer and the
+  /// Event List carry the name too, and they carry the view after it, so a read of the window in
+  /// front would name the project from whichever window a person opened last.
   private static func mainWindowOfThisMac() throws -> (any AXNode)? {
-    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
+    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
       return nil
     }
-    return try LocatorResolver.element(of: Locators.mainWindow, in: front.root)
+    return try LocatorResolver.element(of: Locators.mainWindow, in: project.root)
   }
 }

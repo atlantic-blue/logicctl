@@ -20,14 +20,20 @@ public struct StateReader {
     /// The code a caller reads and exits with.
     public let code: ErrorCode
 
-    public init(reason: String, code: ErrorCode = .elementNotFound) {
+    /// The locator the read asked for, or nothing where the refusal names none.
+    public let locator: String?
+
+    public init(reason: String, code: ErrorCode = .elementNotFound, locator: String? = nil) {
       self.reason = reason
       self.code = code
+      self.locator = locator
     }
 
     /// The failure the caller prints and exits with.
     public var failure: Failure {
-      Failure(code: code, message: reason)
+      Failure(
+        code: code, message: reason,
+        details: locator.map { JSONValue.object(["locator": .string($0)]) })
     }
   }
 
@@ -83,18 +89,21 @@ public struct StateReader {
     guard let version = try readStatus().version else {
       throw DriverRefusal.logicNotRunning
     }
-    guard let front = tree.atTheFrontWindow() else {
-      throw Refusal(reason: "Logic shows no window, so there is no project to read.")
+    guard let project = tree.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window with the tracks of a project in it, so there is no "
+          + "project to read. Open the Tracks window.",
+        locator: Locators.mainWindow.name)
     }
     guard let name = try readName() else {
       throw Refusal(reason: "The window of Logic names no project, so there is no state to read.")
     }
     let savedAt = try readPath().flatMap(readSaveTime)
-    let transport = try TransportReader.transport(in: front.root, tempo: readTempo)
+    let transport = try TransportReader.transport(in: project.root, tempo: readTempo)
     let mixer = ChannelStrip.window(of: tree)
-    let tracks = try TrackReader.tracks(in: front.root).map { track -> Track in
+    let tracks = try TrackReader.tracks(in: project.root).map { track -> Track in
       var read = track
-      read.regions = RegionReader.regions(ofTrack: track.index, in: front.root)
+      read.regions = RegionReader.regions(ofTrack: track.index, in: project.root)
       read.plugins = plugins(of: track, in: mixer, after: previous)
       return read
     }
