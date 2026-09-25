@@ -105,7 +105,7 @@ extension Launch {
     var seen: RunningLogic?
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       seen = try control.read()
-      return seen?.showsAWindow == true
+      return seen != nil
     }
     guard let ready = seen, ready.showsAWindow else {
       // The wait returns only when the read said yes, and the read keeps what it saw on the way.
