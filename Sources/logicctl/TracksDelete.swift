@@ -142,6 +142,7 @@ struct TracksDeleteCommand: LogicCommand {
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try driver.readState().tracks.count == before.count - 1
     }
-    return .object(["tracks": .array(before.map(TracksListCommand.row(of:)))])
+    let after = try driver.readState().tracks
+    return .object(["tracks": .array(after.map(TracksListCommand.row(of:)))])
   }
 }
