@@ -23,7 +23,9 @@ struct Logicctl: ParsableCommand {
 
       Example: logicctl --help
       """,
-    subcommands: [Permissions.self, Inspect.self, Log.self, Show.self, Launch.self, Status.self])
+    subcommands: [
+      Permissions.self, Inspect.self, Log.self, Sessions.self, Show.self, Launch.self, Status.self,
+    ])
 
   /// Reads the arguments of the process, answers on both channels, and exits with the number the
   /// design system gives what happened.
