@@ -141,7 +141,7 @@ struct TracksAddCommand: LogicCommand {
     // The header of a track says nothing about its kind, so a row read back from Logic reads as
     // the kind that is neither. The person asked for one of the two, and Logic has one item for
     // each, so the row carries the kind that was asked for.
-    added.type = added.type
+    added.type = .other
     return .object(["track": TracksListCommand.row(of: added)])
   }
 
