@@ -60,7 +60,6 @@ public enum SessionList {
     git: Git = Git()
   ) throws -> [SessionRow] {
     let newestFirst = SessionIndex.sessions(underRoot: root)
-      .sorted { $0.createdAt > $1.createdAt }
     var rows: [SessionRow] = []
     for session in newestFirst {
       let held = try steps(of: session, underRoot: root, git: git)
