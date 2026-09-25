@@ -163,9 +163,9 @@ private struct PlayANote: LogicCommand {
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let channel = Midi.Note.channel
-    try output.send(MidiMessage.noteOff(pitch: pitch, channel: channel))
-    sleeper(lengthMs)
     try output.send(MidiMessage.noteOn(pitch: pitch, velocity: velocity.value, channel: channel))
+    sleeper(lengthMs)
+    try output.send(MidiMessage.noteOff(pitch: pitch, channel: channel))
     return .object(["sent": .number(1)])
   }
 }
