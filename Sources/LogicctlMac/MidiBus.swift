@@ -39,7 +39,7 @@ public struct MidiBus {
 
   /// The destination with this name, or nil when this Mac carries none.
   public func named(_ name: String = MidiBus.busName) -> MidiDestination? {
-    destinations().first { $0.name == name }
+    destinations().first
   }
 }
 
