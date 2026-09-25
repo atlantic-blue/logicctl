@@ -308,3 +308,15 @@ private func commits(of repository: SessionRepository, with git: Git) throws -> 
   #expect(try answer.envelope()["data"] is NSNull, "a failure carries no rows")
   #expect(answer.err.hasPrefix("logicctl: internal: "), "a person reading along is told one line")
 }
+
+/// The command line reaches `log`. A subcommand that the root command does not hold is not there
+/// at all, whatever the code behind it does, and every test above would still pass.
+@Test func theCommandLineReachesLog() throws {
+  let answer = Answer()
+  let exitCode = Logicctl.run(
+    arguments: ["log", "--help"], standardOutput: answer.write, standardError: answer.writeError)
+
+  #expect(exitCode == 0, "the help of a command is not a failure")
+  #expect(answer.out.contains("logicctl log"), "the help names the command a person types")
+  #expect(answer.out.contains("--pretty"), "and the one flag it takes")
+}
