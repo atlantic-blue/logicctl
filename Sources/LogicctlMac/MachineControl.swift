@@ -13,10 +13,14 @@ public struct MachineControlMessage: Sendable, Equatable {
     /// Start playing from where the playhead sits.
     case play
 
+    /// Stop the transport where it is.
+    case stop
+
     /// The byte the Machine Control command set gives this command.
     var command: UInt8 {
       switch self {
       case .play: return 0x02
+      case .stop: return 0x01
       }
     }
   }
@@ -50,6 +54,9 @@ public struct MachineControlMessage: Sendable, Equatable {
 
   /// Start playing.
   public static let play = MachineControlMessage(kind: .play)
+
+  /// Stop the transport.
+  public static let stop = MachineControlMessage(kind: .stop)
 
   /// The six bytes of the message.
   public var bytes: [UInt8] {
