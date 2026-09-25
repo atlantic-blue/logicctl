@@ -81,13 +81,15 @@ public enum SessionList {
   /// step and it is not counted.
   static func steps(of session: Session, underRoot root: URL, git: Git) throws -> Int {
     let folder = SessionRepository.sessionFolder(of: session, underRoot: root)
+    let printed: String
     do {
-      _ = try git.run(["log", "--format=%s"], in: folder)
+      printed = try git.run(["log", "--format=%s"], in: folder)
     } catch {
       throw Refusal.unreadableHistory(session: session.id)
     }
-    // The count arrives in the next commit. This one answers none, so the scenario runs and fails
-    // on the counts it reads back rather than on a build.
-    return 0
+    return printed
+      .split(separator: "\n")
+      .filter { Int($0.prefix(while: \.isNumber)) != nil }
+      .count
   }
 }
