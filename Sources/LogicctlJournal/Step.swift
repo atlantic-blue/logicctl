@@ -216,10 +216,12 @@ extension SessionRepository {
     _ step: Step,
     state: State?,
     screenshot: Data? = nil,
-    inputs: [InputFile] = []
+    inputs: [InputFile] = [],
+    session moved: Session? = nil
   ) throws -> String {
     try lock.holding(folder) { () throws -> String in
-      try writeUnderTheLock(step, state: state, screenshot: screenshot, inputs: inputs)
+      try writeUnderTheLock(
+        step, state: state, screenshot: screenshot, inputs: inputs, session: moved)
     }
   }
 
@@ -233,12 +235,17 @@ extension SessionRepository {
   ///
   /// The record of the picture and of the inputs is taken from the files that are written here, so
   /// `step.json` cannot claim a file the commit does not carry.
+  ///
+  /// A session given here is written into `session.json` in the same commit. `save` is what needs
+  /// that: it gives the project its first path, and a path written in a commit of its own would
+  /// leave one commit where the session says the project sits somewhere the step did not put it.
   @discardableResult
   public func writeUnderTheLock(
     _ step: Step,
     state: State?,
     screenshot: Data? = nil,
-    inputs: [InputFile] = []
+    inputs: [InputFile] = [],
+    session moved: Session? = nil
   ) throws -> String {
     var recorded = step
     recorded.inputs = inputs.map(\.record)
@@ -246,6 +253,10 @@ extension SessionRepository {
     let stepFolder = "steps/" + SessionRepository.stepFolderName(ofSequence: recorded.seq)
 
     var staged: [String] = []
+    if let moved {
+      try writeText(CanonicalJSON.text(of: moved.json, indent: 2), to: "session.json")
+      staged.append("session.json")
+    }
     if let state {
       try writeText(CanonicalJSON.text(of: state, indent: 2), to: "state.json")
       staged.append("state.json")

@@ -143,6 +143,29 @@ public enum Locators {
     name: "newTrackSheet.sheet",
     path: [LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet")])
 
+  /// The window Logic opens for File, "Save As...".
+  ///
+  /// It is a window of its own and not a sheet on the project, and it carries an identifier that
+  /// no window of Logic carries, so the presence of the window is how logicctl knows that Logic is
+  /// ready to be told where the project goes.
+  public static let saveWindow = Locator(
+    name: "save.window",
+    path: [LocatorStep(role: "AXWindow", identifier: "save-panel")])
+
+  /// The field that holds where the project goes.
+  ///
+  /// Logic puts the name of the project in it. logicctl writes the whole path there instead,
+  /// because a panel takes a path in that field and the alternative is driving the Where popup and
+  /// the folder browser under it, neither of which names a folder a person typed.
+  public static let saveNameField = Locator(
+    name: "save.nameField",
+    path: toTheSavePanel + [LocatorStep(role: "AXTextField", identifier: "saveAsNameTextField")])
+
+  /// The button that writes the project where the field says.
+  public static let saveButton = Locator(
+    name: "save.saveButton",
+    path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
+
   /// Every locator this file holds. A test resolves each one in the trees it was read from.
   public static let all: [Locator] = [
     mainWindow,
@@ -157,6 +180,14 @@ public enum Locators {
     chooserEmptyProjectTile,
     chooserChooseButton,
     newTrackSheet,
+    saveWindow,
+    saveNameField,
+    saveButton,
+  ]
+
+  /// The walk from the window Logic opens for File, "Save As...".
+  private static let toTheSavePanel: [LocatorStep] = [
+    LocatorStep(role: "AXWindow", identifier: "save-panel")
   ]
 
   /// The walk from the window of the chooser to the panel that holds the templates and the
