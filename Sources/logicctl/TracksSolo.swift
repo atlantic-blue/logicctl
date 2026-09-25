@@ -146,7 +146,24 @@ struct TracksSoloCommand: LogicCommand {
     }
     if target.solo != soloed {
       try actions.solo(trackNumber: index - 1)
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        guard let shown = try TracksSoloCommand.track(numbered: index, through: driver) else {
+          return false
+        }
+        return shown.solo == soloed
+      }
     }
-    return .object(["track": TracksListCommand.row(of: target)])
+    guard let track = try TracksSoloCommand.track(numbered: index, through: driver) else {
+      throw TrackActions.Refusal(
+        reason: "Logic answered no track at index \(index) once the solo button was pressed.")
+    }
+    return .object(["track": TracksListCommand.row(of: track)])
+  }
+
+  /// The track at one number as Logic answers it now, or nothing when it answers none there.
+  private static func track(
+    numbered index: Int, through driver: any LogicDriver
+  ) throws -> Track? {
+    try driver.readState().tracks.first { $0.index == index }
   }
 }
