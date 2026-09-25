@@ -87,9 +87,9 @@ public enum LocatorResolver {
     guard let index = step.index else {
       return ofTheRole
     }
-    guard index >= 0, index < nodes.count else {
+    guard index >= 0, index < ofTheRole.count else {
       return []
     }
-    return [nodes[index]]
+    return [ofTheRole[index]]
   }
 }
