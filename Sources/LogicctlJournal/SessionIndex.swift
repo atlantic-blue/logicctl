@@ -92,6 +92,29 @@ public enum SessionIndex {
       .max { $0.createdAt < $1.createdAt }
   }
 
+  /// The repository of the session of the project at one path, or nothing when no session carries
+  /// that path.
+  ///
+  /// The watcher reads this one. A command that finds no session starts one, because it is about
+  /// to act on the project Logic has open and every step belongs to a session. A save of a project
+  /// that no session carries is a save of a project logicctl never worked on, and a watcher that
+  /// started a session for it would follow a project nobody asked it to follow.
+  public static func repository(
+    ofProjectAt path: String,
+    root: URL = SessionRepository.defaultRoot,
+    git: Git = Git(),
+    lock: Lock = Lock()
+  ) -> SessionRepository? {
+    guard let found = session(atProjectPath: path, root: root) else {
+      return nil
+    }
+    return SessionRepository(
+      folder: SessionRepository.sessionFolder(of: found, underRoot: root),
+      session: found,
+      git: git,
+      lock: lock)
+  }
+
   /// The repository of that session, or nothing when there is none.
   public static func repository(
     ofAProjectWithNoPathNamed name: String,

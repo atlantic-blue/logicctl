@@ -20,7 +20,7 @@ struct Watch: ParsableCommand {
     discussion: """
       Example: logicctl watch start
       """,
-    subcommands: [Start.self, Stop.self])
+    subcommands: [Start.self, Stop.self, WatchRun.self])
 }
 
 extension Watch {
