@@ -154,7 +154,7 @@ extension NewProject {
   ) -> Session {
     Session(
       createdAt: startedAt,
-      project: Session.Project(name: state.project.name, path: path, createdByLogicctl: false),
+      project: Session.Project(name: state.project.name, path: path, createdByLogicctl: true),
       versions: Session.Versions(
         logicctl: version, logic: state.logic.version, macos: Run.macosVersion()))
   }
