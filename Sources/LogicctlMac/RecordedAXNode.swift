@@ -59,6 +59,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
     description = try read.decodeIfPresent(String.self, forKey: .description)
     help = try read.decodeIfPresent(String.self, forKey: .help)
     actions = try read.decodeIfPresent([String].self, forKey: .actions) ?? []
-    recordedChildren = []
+    recordedChildren =
+      try read.decodeIfPresent([RecordedAXNode].self, forKey: .recordedChildren) ?? []
   }
 }
