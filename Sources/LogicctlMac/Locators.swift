@@ -91,6 +91,44 @@ public enum Locators {
     name: "tracks.header.soloButton",
     path: toTheFirstTrack + [LocatorStep(role: "AXCheckBox", index: 1)])
 
+  /// The header of one track, counted from 0 among the headers Logic shows.
+  ///
+  /// A track header carries no identifier and no title, so its place among the layout items is
+  /// the whole of what a path can name here.
+  public static func trackHeader(number: Int) -> Locator {
+    Locator(
+      name: "tracks.header.track\(number + 1)",
+      path: toTheTracksHeader + [LocatorStep(role: "AXLayoutItem", index: number)])
+  }
+
+  /// The mute button in the header of one track.
+  public static func trackMuteButton(number: Int) -> Locator {
+    Locator(
+      name: "tracks.header.track\(number + 1).muteButton",
+      path: trackHeader(number: number).path + [LocatorStep(role: "AXCheckBox", index: 0)])
+  }
+
+  /// The solo button in the header of one track.
+  public static func trackSoloButton(number: Int) -> Locator {
+    Locator(
+      name: "tracks.header.track\(number + 1).soloButton",
+      path: trackHeader(number: number).path + [LocatorStep(role: "AXCheckBox", index: 1)])
+  }
+
+  /// The record enable button in the header of one track, which says whether the track is armed.
+  public static func trackRecordEnableButton(number: Int) -> Locator {
+    Locator(
+      name: "tracks.header.track\(number + 1).recordEnableButton",
+      path: trackHeader(number: number).path + [LocatorStep(role: "AXCheckBox", index: 2)])
+  }
+
+  /// The name field in the header of one track, which carries the name in its description.
+  public static func trackNameField(number: Int) -> Locator {
+    Locator(
+      name: "tracks.header.track\(number + 1).nameField",
+      path: trackHeader(number: number).path + [LocatorStep(role: "AXTextField", index: 0)])
+  }
+
   /// The play button of the Control Bar.
   public static let transportPlayButton = Locator(
     name: "transport.playButton",
