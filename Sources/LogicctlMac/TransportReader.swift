@@ -70,10 +70,6 @@ public enum TransportReader {
     _ locator: Locator, describedAs wanted: String, in root: any AXNode
   ) throws -> Bool {
     let button = try LocatorResolver.element(of: locator, in: root)
-    guard button.description == wanted else {
-      throw Refusal(
-        locator: locator.name, wanted: "the \(wanted) button", found: button.description)
-    }
     return button.value == TransportReader.on
   }
 }
