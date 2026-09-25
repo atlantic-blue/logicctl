@@ -129,7 +129,17 @@ public struct AXDriver: LogicDriver, LogicStatusReader {
   /// recorded, and both answer nothing. A read that refuses answers nothing as well, because the
   /// read of the state is about to refuse for the same reason.
   private func stateBeforeThisRead() -> State? {
-    nil
+    if let read = held.state {
+      return read
+    }
+    do {
+      guard let path = try readProjectPath() else {
+        return nil
+      }
+      return readRecordedState(path)
+    } catch {
+      return nil
+    }
   }
 }
 
