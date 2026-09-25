@@ -103,7 +103,7 @@ public enum TreeWriter {
     if !node.actions.isEmpty {
       written["actions"] = .array(node.actions.map(JSONValue.string))
     }
-    let children = depth > 1 ? node.children : []
+    let children = node.children
     if !children.isEmpty {
       written["children"] = .array(children.map { json(of: $0, depth: depth - 1) })
     }
