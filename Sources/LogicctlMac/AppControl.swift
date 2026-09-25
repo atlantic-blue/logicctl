@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Foundation
 import LogicctlCore
 
@@ -50,16 +51,39 @@ public struct AppControl {
   /// Reads the Logic that runs.
   public let read: Read
 
-  public init(start: @escaping Start, read: @escaping Read) {
+  /// Asks Logic to close. Logic refuses while the project has unsaved changes.
+  public let close: Ask
+
+  /// Ends Logic and everything it has not written to disk.
+  public let end: Ask
+
+  /// Writes the project where it already sits.
+  public let save: Ask
+
+  public init(
+    start: @escaping Start,
+    read: @escaping Read,
+    close: @escaping Ask = AppControl.noWay(to: "close Logic"),
+    end: @escaping Ask = AppControl.noWay(to: "end Logic"),
+    save: @escaping Ask = AppControl.noWay(to: "save the project")
+  ) {
     self.start = start
     self.read = read
+    self.close = close
+    self.end = end
+    self.save = save
   }
 }
 
 extension AppControl {
   /// The Logic of this Mac, started and read through macOS.
   public static func live() -> AppControl {
-    AppControl(start: AppControl.startTheLogicOfThisMac, read: AppControl.readTheLogicOfThisMac)
+    AppControl(
+      start: AppControl.startTheLogicOfThisMac,
+      read: AppControl.readTheLogicOfThisMac,
+      close: AppControl.askTheLogicOfThisMacToClose,
+      end: AppControl.endTheLogicOfThisMac,
+      save: AppControl.askTheLogicOfThisMacToSave)
   }
 
   /// Asks macOS to start Logic, and refuses when macOS will not.
@@ -93,5 +117,102 @@ extension AppControl {
     let tree = try AXDriver.treeOfRunningLogic()
     return RunningLogic(
       processID: logic.processIdentifier, showsAWindow: tree?.atTheFrontWindow() != nil)
+  }
+}
+
+extension AppControl {
+  /// Asks macOS or Logic to do one thing. It answers nothing, because what came of it is read
+  /// back afterwards.
+  public typealias Ask = () throws -> Void
+
+  /// What a control that carries no way to close Logic refuses with.
+  ///
+  /// The two closes and the save are given by the caller, so a control built for another command
+  /// answers here rather than closing something nobody asked it to close.
+  public static func noWay(to thing: String) -> Ask {
+    { throw Refusal(reason: "This control carries no way to \(thing).") }
+  }
+
+  /// Asks Logic to close, which Logic can refuse.
+  ///
+  /// A project with unsaved changes holds the request and asks the person what to do, so Logic is
+  /// still running when the read after it says so. That refusal is the whole of `quit`.
+  public static func askTheLogicOfThisMacToClose() throws {
+    guard let logic = AppControl.theLogicOfThisMac() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard logic.terminate() else {
+      throw Refusal(reason: "macOS refused to close Logic.")
+    }
+  }
+
+  /// Ends Logic, whatever it has open. Every change since the last save goes with it.
+  ///
+  /// This asks no question and takes no answer, which is why the command that reaches it needs
+  /// `--confirm` from the person who typed it.
+  public static func endTheLogicOfThisMac() throws {
+    guard let logic = AppControl.theLogicOfThisMac() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard logic.forceTerminate() else {
+      throw Refusal(reason: "macOS refused to end Logic.")
+    }
+  }
+
+  /// Presses File, Save in the menu bar of Logic, which writes the project where it already sits.
+  ///
+  /// Save As opens a panel and needs a path. Save writes in place and opens nothing, so a project
+  /// that has a path is on disk when this answers. A project that has none would bring the panel
+  /// up instead, and the command stops before it reaches here for exactly that reason.
+  public static func askTheLogicOfThisMacToSave() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    let item = try AppControl.saveMenuItem(in: logic.root)
+    guard let live = item as? LiveAXNode else {
+      throw Refusal(reason: "\(AppControl.saveItemTitle) was found in a tree nothing can press.")
+    }
+    let answered = AXUIElementPerformAction(live.element, kAXPressAction as CFString)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused the press of \(AppControl.saveItemTitle), "
+          + "error \(answered.rawValue).")
+    }
+  }
+
+  /// The menu that holds the item, as Logic titles it.
+  public static let saveMenuTitle = "File"
+
+  /// The item that writes the project where it already sits, as Logic titles it.
+  public static let saveItemTitle = "Save"
+
+  /// The menu item File, Save of one tree.
+  ///
+  /// The menu bar of an application is not part of any window, so this walk starts at the
+  /// application rather than at a locator: a locator walks a window, and a recorded tree of a
+  /// window cannot hold this one. The walk takes the item whose title is exactly `Save`, so
+  /// `Save As...` and `Save a Copy As...`, which both start with the same word, are not it.
+  public static func saveMenuItem(in application: any AXNode) throws -> any AXNode {
+    guard let bar = application.children.first(where: { $0.role == "AXMenuBar" }) else {
+      throw Refusal(reason: "Logic shows no menu bar, so \(saveItemTitle) could not be pressed.")
+    }
+    let file = bar.children.first { $0.role == "AXMenuBarItem" && $0.title == saveMenuTitle }
+    guard let menu = file?.children.first(where: { $0.role == "AXMenu" }) else {
+      throw Refusal(
+        reason: "Logic shows no \(saveMenuTitle) menu, so \(saveItemTitle) is not there.")
+    }
+    let found = menu.children.filter { $0.title == saveItemTitle }
+    guard found.count == 1, let item = found.first else {
+      throw Refusal(
+        reason: "the \(saveMenuTitle) menu of Logic carries \(found.count) items called "
+          + saveItemTitle + ".")
+    }
+    return item
+  }
+
+  /// The Logic that macOS has open, or nothing when none runs.
+  static func theLogicOfThisMac() -> NSRunningApplication? {
+    NSRunningApplication.runningApplications(withBundleIdentifier: LogicTree.bundleIdentifier)
+      .first
   }
 }
