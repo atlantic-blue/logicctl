@@ -52,11 +52,34 @@ public struct TrackActions {
   /// Presses the one element a locator names.
   public typealias Press = (Locator) throws -> Void
 
+  /// Writes one text into the field a locator names, in place of what is in it.
+  public typealias Write = (Locator, String) throws -> Void
+
   /// Presses one item of the menu bar of Logic.
   public let press: Press
 
+  /// Writes into one field of a track header.
+  public let write: Write
+
   public init(press: @escaping Press) {
     self.press = press
+    self.write = TrackActions.noWriteWasGiven
+  }
+
+  public init(press: @escaping Press, write: @escaping Write) {
+    self.press = press
+    self.write = write
+  }
+
+  /// What a caller that asked for a press alone gets when something asks it to write.
+  ///
+  /// It refuses rather than doing nothing. A write that quietly went nowhere would leave the
+  /// rename reading the old name back, and the command would report a timeout that names Logic
+  /// for a wire that was never joined here.
+  private static func noWriteWasGiven(_ locator: Locator, _ text: String) throws {
+    throw Refusal(
+      reason: "No write was given for \(locator.name), so nothing could be written into it.",
+      code: .internalFailure)
   }
 }
 
@@ -67,6 +90,15 @@ extension TrackActions {
   /// press is the whole of the action, and the caller reads the project again to see what it did.
   public func add(_ type: NewTrackType) throws {
     try press(TrackActions.menuItem(for: type))
+  }
+
+  /// Gives one track another name, by writing into the name field of its header.
+  ///
+  /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
+  /// types `--index`. The caller reads the tracks again afterwards, because a write that Logic
+  /// refused answers the same as one it took.
+  public func rename(trackNumber number: Int, to name: String) throws {
+    try write(Locators.trackNameField(number: number), name)
   }
 
   /// The item of the Track menu that makes one track of this type.
@@ -81,9 +113,11 @@ extension TrackActions {
 }
 
 extension TrackActions {
-  /// The Logic of this Mac, pressed through its menu bar.
+  /// The Logic of this Mac, pressed through its menu bar and written into through its window.
   public static func live() -> TrackActions {
-    TrackActions(press: TrackActions.pressInTheMenuBarOfThisMac)
+    TrackActions(
+      press: TrackActions.pressInTheMenuBarOfThisMac,
+      write: TrackActions.writeIntoTheLogicOfThisMac)
   }
 
   /// Presses the element one locator names, in the menu bar of the Logic that runs.
@@ -104,6 +138,36 @@ extension TrackActions {
     guard answered == .success else {
       throw Refusal(
         reason: "Logic refused the press of \(locator.name), error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+}
+
+extension TrackActions {
+  /// Writes one text into the field a locator names, in the window Logic shows in front.
+  ///
+  /// In the tree recorded from Logic 12.3.1, the name field of a track header carries one action,
+  /// `AXPress`, its value reads `0` rather than the name, and its help text reads "Name field.
+  /// Double-click to rename the track." So Logic may refuse a write of the value attribute here,
+  /// where it takes the same write into the name field of the save panel. A refusal comes back as
+  /// the error the Mac gave, and the command that asked for it reads the tracks again and answers
+  /// `timeout` rather than a rename that nothing did. The live acceptance of phase 2 is what says
+  /// which of the two happens.
+  public static func writeIntoTheLogicOfThisMac(_ locator: Locator, _ text: String) throws {
+    guard let front = try AXDriver.treeOfRunningLogic()?.atTheFrontWindow() else {
+      throw Refusal(reason: "Logic shows no window, so nothing in it could be written into.")
+    }
+    let element = try LocatorResolver.element(of: locator, in: front.root)
+    guard let live = element as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which nothing can write into.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      live.element, kAXValueAttribute as CFString, text as CFTypeRef)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused the write into \(locator.name), error \(answered.rawValue).",
         code: .internalFailure)
     }
   }
