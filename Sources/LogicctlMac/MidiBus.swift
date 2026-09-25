@@ -104,6 +104,10 @@ extension MidiBus {
 ///
 /// A note is two messages and not one. Note on starts it and note off stops it, and a note that
 /// never gets its note off holds the key down for as long as Logic stays open.
+///
+/// Every message here carries two numbers after its status byte. A note reads them as the key and
+/// how hard it was struck. A control change reads the same two as the controller it moves and where
+/// that controller lands.
 public struct MidiMessage: Sendable, Equatable {
   /// What the message does.
   public enum Kind: String, Sendable, Equatable {
@@ -112,6 +116,9 @@ public struct MidiMessage: Sendable, Equatable {
 
     /// Stop a note.
     case noteOff = "note_off"
+
+    /// Move one controller of the instrument.
+    case controlChange = "control_change"
   }
 
   public let kind: Kind
@@ -142,10 +149,27 @@ public struct MidiMessage: Sendable, Equatable {
     MidiMessage(kind: .noteOff, pitch: pitch, velocity: 0, channel: channel)
   }
 
+  /// One controller moved to one place. This is how everything that is not a note reaches an
+  /// instrument: the modulation wheel, the sustain pedal, the level of a send.
+  public static func controlChange(number: Int, value: Int, channel: Int = 1) -> MidiMessage {
+    MidiMessage(kind: .controlChange, pitch: number, velocity: value, channel: channel)
+  }
+
+  /// The controller this message moves, for a control change.
+  public var controller: Int { pitch }
+
+  /// Where that controller lands, for a control change.
+  public var amount: Int { velocity }
+
   /// The three bytes of the message. MIDI carries seven bits of each value and counts channels
   /// from 0, so the numbers a person reads are cut to the wire here and nowhere else.
   public var bytes: [UInt8] {
-    let status: UInt8 = kind == .noteOn ? 0x90 : 0x80
+    let status: UInt8
+    switch kind {
+    case .noteOn: status = 0x90
+    case .noteOff: status = 0x80
+    case .controlChange: status = 0xB0
+    }
     return [
       status | (UInt8(truncatingIfNeeded: channel - 1) & 0x0F),
       UInt8(truncatingIfNeeded: pitch) & 0x7F,
