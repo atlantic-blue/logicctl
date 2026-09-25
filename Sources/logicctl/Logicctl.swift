@@ -26,7 +26,7 @@ struct Logicctl: ParsableCommand {
     subcommands: [
       Permissions.self, Inspect.self, Log.self, Sessions.self, Show.self, Launch.self,
       Status.self, NewProject.self, Save.self, Quit.self, Midi.self, Tracks.self,
-      Replay.self, Watch.self,
+      TransportCommand.self, Replay.self, Watch.self,
     ])
 
   /// Reads the arguments of the process, answers on both channels, and exits with the number the
