@@ -97,7 +97,7 @@ public enum ProjectData {
           name: name(in: chunk),
           offset: start,
           length: length,
-          stateHash: InputFile.sha256(of: Data(chunk))))
+          stateHash: InputFile.sha256(of: contents)))
       from = start + length
     }
     return chunks
