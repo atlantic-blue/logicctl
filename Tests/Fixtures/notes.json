@@ -1,0 +1,14 @@
+{
+  "tempo": 120,
+  "ppq": 480,
+  "notes": [
+    { "pitch": 67, "velocity": 96, "start": 0, "length": 1 },
+    { "pitch": 60, "velocity": 100, "start": 0, "length": 1 },
+    { "pitch": 64, "velocity": 98, "start": 0, "length": 1 },
+    { "pitch": 72, "velocity": 110, "start": 3, "length": 1, "channel": 2 },
+    { "pitch": 65, "velocity": 90, "start": 1.5, "length": 0.5 },
+    { "pitch": 62, "velocity": 88, "start": 1, "length": 0.5 },
+    { "pitch": 69, "velocity": 92, "start": 2, "length": 0.75 },
+    { "pitch": 71, "velocity": 94, "start": 2.75, "length": 0.25 }
+  ]
+}
