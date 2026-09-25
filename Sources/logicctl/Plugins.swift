@@ -15,7 +15,7 @@ struct Plugins: ParsableCommand {
     discussion: """
       Example: logicctl plugins list --track 1
       """,
-    subcommands: [List.self])
+    subcommands: [List.self, Insert.self])
 }
 
 extension Plugins {
