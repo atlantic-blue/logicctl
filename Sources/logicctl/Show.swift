@@ -98,9 +98,8 @@ extension Show {
       case .array(let argv) = record["argv"] ?? .null,
       case .string(let startedAt) = record["startedAt"] ?? .null,
       case .string(let finishedAt) = record["finishedAt"] ?? .null,
-      case .object(let neighbour) = SaveLookup.record(ofSequence: row.seq + 1, in: repository),
-      let before = Show.hash("stateBefore", in: neighbour),
-      let after = Show.hash("stateAfter", in: neighbour)
+      let before = Show.hash("stateBefore", in: record),
+      let after = Show.hash("stateAfter", in: record)
     else {
       return nil
     }
