@@ -47,7 +47,65 @@ public enum TrackReader {
   /// A project with no track answers an empty list. Logic puts a sheet on a project that has no
   /// track, and the header behind it holds no row, which is the same answer read from the tree.
   public static func tracks(in root: any AXNode) throws -> [Track] {
-    throw Refusal(
-      locator: Locators.tracksHeader.name, wanted: "a reader of the track headers", found: nil)
+    let header = try LocatorResolver.element(of: Locators.tracksHeader, in: root)
+    let rows = header.children.filter { $0.role == TrackReader.headerRole }.count
+    var tracks: [Track] = []
+    for number in 0..<rows {
+      tracks.append(try TrackReader.track(number: number, in: root))
+    }
+    return tracks
+  }
+
+  /// The role of one track header, under the group that holds them all.
+  private static let headerRole = "AXLayoutItem"
+
+  /// What the value of a button reads as while it is on.
+  private static let on = "1"
+
+  /// The first words of the help text of the name field. The description of that field is the
+  /// name of the track, so the help text is what says which field it is.
+  private static let nameFieldHelp = "Name field"
+
+  /// One track, read from its header.
+  private static func track(number: Int, in root: any AXNode) throws -> Track {
+    let name = try TrackReader.name(ofTrackNumber: number, in: root)
+    let mute = try TrackReader.isOn(
+      Locators.trackMuteButton(number: number), describedAs: "Mute", in: root)
+    let solo = try TrackReader.isOn(
+      Locators.trackSoloButton(number: number), describedAs: "Solo", in: root)
+    let arm = try TrackReader.isOn(
+      Locators.trackRecordEnableButton(number: number), describedAs: "Record Enable", in: root)
+    // The header of an audio track and the header of a software instrument track carry the same
+    // nine controls, and neither says which kind the track is. Only a mixer strip says it, and
+    // nothing here opens the mixer, so every row reads as the kind that is neither.
+    return Track(index: number + 1, name: name, type: .other, mute: mute, solo: solo, arm: arm)
+  }
+
+  /// The name Logic shows in the header of one track.
+  private static func name(ofTrackNumber number: Int, in root: any AXNode) throws -> String {
+    let locator = Locators.trackNameField(number: number)
+    let field = try LocatorResolver.element(of: locator, in: root)
+    guard (field.help ?? "").hasPrefix(TrackReader.nameFieldHelp) else {
+      throw Refusal(
+        locator: locator.name, wanted: "the name field of the track header", found: field.help)
+    }
+    guard let name = field.description else {
+      throw Refusal(
+        locator: locator.name, wanted: "a name field that carries the name of the track",
+        found: nil)
+    }
+    return name
+  }
+
+  /// Whether one button of a track header is on.
+  private static func isOn(
+    _ locator: Locator, describedAs wanted: String, in root: any AXNode
+  ) throws -> Bool {
+    let button = try LocatorResolver.element(of: locator, in: root)
+    guard button.description == wanted else {
+      throw Refusal(
+        locator: locator.name, wanted: "the \(wanted) button", found: button.description)
+    }
+    return button.value == TrackReader.on
   }
 }
