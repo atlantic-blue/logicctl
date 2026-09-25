@@ -104,6 +104,9 @@ private final class Mac {
   /// The tracks the project has when Logic opens it.
   let tracksOnOpening: [Track]
 
+  /// The process this Logic runs as, which is the Logic the picture is taken of.
+  let processID: Int32 = 981
+
   init(tracksOnOpening: [Track] = []) {
     self.tracksOnOpening = tracksOnOpening
   }
@@ -122,6 +125,7 @@ private final class Mac {
           project: Project(name: "Untitled"),
           transport: Transport(tempo: 120),
           tracks: self.tracksOnOpening)
+        self.driver.runningProcessID = self.processID
         self.showing = .emptyProject
       })
   }
