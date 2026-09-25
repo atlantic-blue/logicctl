@@ -95,8 +95,6 @@ extension SessionRepository {
       var moved = session
       moved.project.path = path
       try writeText(CanonicalJSON.text(of: moved.json, indent: 2), to: "session.json")
-      try git.run(["add", "--", "session.json"], in: folder)
-      try commit(subject: "relink " + session.shortId, trailers: [])
       return try head()
     }
   }
