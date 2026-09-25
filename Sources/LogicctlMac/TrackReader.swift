@@ -89,7 +89,7 @@ public enum TrackReader {
       throw Refusal(
         locator: locator.name, wanted: "the name field of the track header", found: field.help)
     }
-    guard let name = field.value else {
+    guard let name = field.description else {
       throw Refusal(
         locator: locator.name, wanted: "a name field that carries the name of the track",
         found: nil)
