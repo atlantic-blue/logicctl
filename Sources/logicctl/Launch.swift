@@ -93,17 +93,25 @@ extension Launch {
   }
 
   /// The Logic that shows a window, read again until it does.
+  ///
+  /// The wait goes through the one helper every wait of logicctl goes through, so it ends: with the
+  /// window there, or with `timeout` and the milliseconds Logic got.
   static func logicShowingAWindow(
     through control: AppControl,
     limitMs: Int,
     clock: @escaping Wait.Clock,
     sleeper: @escaping Wait.Sleeper
   ) throws -> RunningLogic {
-    // The wait arrives in the next commit. This one reads Logic once, so the scenario runs and
-    // fails on what it read back rather than on a build.
-    guard let seen = try control.read() else {
+    var seen: RunningLogic?
+    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+      seen = try control.read()
+      return seen?.showsAWindow == true
+    }
+    guard let ready = seen, ready.showsAWindow else {
+      // The wait returns only when the read said yes, and the read keeps what it saw on the way.
+      // A Logic missing here never showed a window, which is what running out says.
       throw Wait.RanOut(waitedMs: limitMs)
     }
-    return seen
+    return ready
   }
 }
