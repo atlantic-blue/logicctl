@@ -129,6 +129,27 @@ public enum Locators {
       path: trackHeader(number: number).path + [LocatorStep(role: "AXTextField", index: 0)])
   }
 
+  /// The item of the menu bar that carries what Logic does to a track.
+  ///
+  /// The walk starts at the application, because the menu bar of an application sits beside its
+  /// windows and not under one. So `inspect --window main`, which writes the window in front, does
+  /// not reach it, and no recorded tree holds a menu bar. The live suite of phase 2 is what proves
+  /// this walk against Logic itself.
+  public static let trackMenu = Locator(
+    name: "menu.track",
+    path: toTheMenuBar + [LocatorStep(role: "AXMenuBarItem", title: "Track")])
+
+  /// The item of the Track menu that makes one audio track.
+  public static let newAudioTrack = Locator(
+    name: "menu.track.newAudioTrack",
+    path: toTheTrackMenu + [LocatorStep(role: "AXMenuItem", title: "New Audio Track")])
+
+  /// The item of the Track menu that makes one software instrument track.
+  public static let newSoftwareInstrumentTrack = Locator(
+    name: "menu.track.newSoftwareInstrumentTrack",
+    path: toTheTrackMenu
+      + [LocatorStep(role: "AXMenuItem", title: "New Software Instrument Track")])
+
   /// The play button of the Control Bar.
   public static let transportPlayButton = Locator(
     name: "transport.playButton",
@@ -204,7 +225,11 @@ public enum Locators {
     name: "save.saveButton",
     path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
 
-  /// Every locator this file holds. A test resolves each one in the trees it was read from.
+  /// Every locator a recorded tree proves. A test resolves each one in the trees it was read from.
+  ///
+  /// The three menu locators are not here. A menu bar sits beside the windows of an application
+  /// rather than under one, so no recorded tree holds it, and a walk of it can only be proved
+  /// against the Logic of this Mac. The live suite of phase 2 does that.
   public static let all: [Locator] = [
     mainWindow,
     tracksHeader,
@@ -248,6 +273,19 @@ public enum Locators {
   /// The walk from the window to the header of the first track.
   private static let toTheFirstTrack: [LocatorStep] =
     toTheTracksHeader + [LocatorStep(role: "AXLayoutItem", index: 0)]
+
+  /// The walk from the application of Logic to its menu bar.
+  private static let toTheMenuBar: [LocatorStep] = [
+    LocatorStep(role: "AXApplication"),
+    LocatorStep(role: "AXMenuBar"),
+  ]
+
+  /// The walk from the application of Logic to the items of its Track menu.
+  private static let toTheTrackMenu: [LocatorStep] =
+    toTheMenuBar + [
+      LocatorStep(role: "AXMenuBarItem", title: "Track"),
+      LocatorStep(role: "AXMenu"),
+    ]
 
   /// The walk from the window to the Control Bar, which holds the transport.
   private static let toTheControlBar: [LocatorStep] = [
