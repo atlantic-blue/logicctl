@@ -70,7 +70,7 @@ extension Permissions {
     let printer = EnvelopePrinter(
       format: format, standardOutput: standardOutput, standardError: standardError)
     let meta = AnswerMeta.refusal(version: Logicctl.version, from: started, to: now())
-    guard accessibility, screenRecording else {
+    guard accessibility || screenRecording else {
       return printer.write(
         Envelope.failure(
           Failure(
