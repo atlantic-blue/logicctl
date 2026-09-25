@@ -21,6 +21,9 @@ private let windowsWithATrack = ["one-track.json", "region.json"]
 /// The tree of the window Logic shows while no project is open.
 private let chooserWindows = ["project-chooser.json"]
 
+/// The tree of the window Logic opens for File, "Save As...".
+private let savePanels = ["save-as-window.json"]
+
 /// The trees of a project that has no tracks. Logic puts the sheet that asks for a track on a
 /// project it has just made, and on a project whose last track was deleted.
 private let emptyProjects = ["new-project-sheet.json", "empty.json"]
@@ -98,6 +101,21 @@ private func provedLocators() -> [ProvedLocator] {
       trees: chooserWindows,
       names: "the button that opens the template the chooser has selected",
       holds: { $0.role == "AXButton" && $0.title == "Choose" }),
+    ProvedLocator(
+      locator: Locators.saveWindow,
+      trees: savePanels,
+      names: "the window Logic opens for File, Save As",
+      holds: { $0.role == "AXWindow" && $0.title == "Save" }),
+    ProvedLocator(
+      locator: Locators.saveNameField,
+      trees: savePanels,
+      names: "the field that holds where the project goes",
+      holds: { $0.role == "AXTextField" && $0.identifier == "saveAsNameTextField" }),
+    ProvedLocator(
+      locator: Locators.saveButton,
+      trees: savePanels,
+      names: "the button that writes the project where the field says",
+      holds: { $0.role == "AXButton" && $0.title == "Save" }),
     ProvedLocator(
       locator: Locators.newTrackSheet,
       trees: emptyProjects,

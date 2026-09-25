@@ -15,7 +15,7 @@ public enum Wait {
   public static let defaultPollMs = 50
 
   /// The limit passed before the condition held.
-  public struct RanOut: Error, Equatable {
+  public struct RanOut: FailureCarrying, Equatable {
     /// How long the wait lasted, from its first read to its last.
     public let waitedMs: Int
 

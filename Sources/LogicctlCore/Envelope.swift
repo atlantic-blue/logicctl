@@ -35,6 +35,17 @@ public struct Failure: Sendable, Equatable {
   }
 }
 
+/// An error that already knows the failure it becomes.
+///
+/// A wait that ran out, a walk that found nothing, a panel that Logic refused: each one carries
+/// the code and the sentence a person reads, so the run of a command joins them to the envelope
+/// rather than deciding a second time what each one meant. An error that carries none is a
+/// failure logicctl has no code for, and it goes out as `internal`.
+public protocol FailureCarrying: Error {
+  /// The failure the caller prints and exits with.
+  var failure: Failure { get }
+}
+
 /// What every command says about itself, beside its answer.
 ///
 /// The fields are here from this step. The run of a command fills them.

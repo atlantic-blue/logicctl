@@ -13,7 +13,7 @@ public enum LocatorResolver {
   /// The name of the locator goes out with the failure, because that is the whole address a
   /// caller has: a person reading `element_not_found` needs to know which walk Logic refused,
   /// and a path that moves in a later Logic is found by that name in `Locators.swift`.
-  public struct Refusal: Error, Equatable, Sendable {
+  public struct Refusal: FailureCarrying, Equatable, Sendable {
     /// The name of the locator the walk was following.
     public let locator: String
 
