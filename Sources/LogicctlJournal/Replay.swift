@@ -284,7 +284,8 @@ public enum SessionReplay {
         continue
       }
       ran += 1
-      let differences = StateDiff.between(held.json, after.json)
+      let recorded = try recordedState(ofCommit: step.commit, in: source)
+      let differences = StateDiff.between(recorded, after.json)
       if !differences.isEmpty {
         found.append(StepDifferences(seq: step.seq, differences: differences))
       }
