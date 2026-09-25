@@ -87,9 +87,7 @@ public enum SessionList {
     } catch {
       throw Refusal.unreadableHistory(session: session.id)
     }
-    return printed
-      .split(separator: "\n")
-      .filter { Int($0.prefix(while: \.isNumber)) != nil }
-      .count
+    let subjects = printed.split(separator: "\n")
+    return subjects.filter { Int($0.prefix(while: \.isNumber)) != nil }.count
   }
 }
