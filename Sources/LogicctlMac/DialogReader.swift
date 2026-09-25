@@ -42,7 +42,7 @@ public struct DialogReader {
   /// It answers the first modal window, with or without a title: the question about the tempo of a
   /// MIDI file carries no title at all.
   public func dialog(in root: any AXNode) -> ModalDialog? {
-    guard let window = DialogReader.windows(of: root).first(where: isModal) else {
+    guard let window = DialogReader.windows(of: root).first else {
       return nil
     }
     let parts = DialogReader.elements(under: window)
