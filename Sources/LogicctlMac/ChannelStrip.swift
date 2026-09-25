@@ -87,10 +87,32 @@ public enum ChannelStrip {
 
   /// The plugins one strip holds, in slot order.
   ///
-  /// The reader arrives in the next commit. It answers no plugin until then, so the scenario fails
-  /// on the rows it reads back rather than on the build.
+  /// Logic keeps a button for every slot a person can still fill, so an empty slot is in the tree
+  /// beside an occupied one and no row is printed for it. The slot number counts the plugins that
+  /// are there. `stateHash` is nil in every row: a hash is read from a saved file, and this is a
+  /// window.
   static func plugins(of strip: any AXNode) -> [Plugin] {
-    []
+    let occupied = Array(strip.children.reversed()).filter(isOccupied)
+    return occupied.enumerated().compactMap { place, slot in
+      guard let name = slot.description else {
+        return nil
+      }
+      return Plugin(slot: place + 1, name: name, stateHash: nil)
+    }
+  }
+
+  /// Whether one child of a strip is a slot with a plugin in it.
+  ///
+  /// The automation group of the strip carries a check box and a button named `list`, in the shape a
+  /// plugin slot carries them, and Logic writes its name in the same place. The check box described
+  /// `bypass` is what tells the two apart: only a plugin can be bypassed.
+  private static func isOccupied(_ node: any AXNode) -> Bool {
+    guard node.role == "AXGroup", node.description != nil else {
+      return false
+    }
+    return node.children.contains {
+      $0.role == "AXCheckBox" && $0.description == bypassDescription
+    }
   }
 
   /// The name Logic shows on a strip, or nil when the strip carries no name field.
