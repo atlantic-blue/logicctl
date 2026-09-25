@@ -11,11 +11,11 @@ import LogicctlMac
 struct Automation: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "automation",
-    abstract: "Make and read the volume automation of one region.",
+    abstract: "Make, read and change the volume automation of one region.",
     discussion: """
       Example: logicctl automation add --track 3 --region 1
       """,
-    subcommands: [Add.self, List.self])
+    subcommands: [Add.self, List.self, Set.self])
 }
 
 extension Automation {
