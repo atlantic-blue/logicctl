@@ -37,7 +37,7 @@ private let fixtureFolder = URL(fileURLWithPath: #filePath)
 /// fails too: a run that reads nothing reports success in the same words as a run that read them
 /// all.
 @Test func everyFixtureIsFromLogic1231() throws {
-  let recorded = try treesInTheFixtureFolder()
+  let recorded = treesInTheFixtureFolder()
   try #require(!recorded.isEmpty, "the fixture folder carries no tree, so this run proves nothing")
   for state in recordedStates {
     #expect(recorded.contains(state), "\(state) is one of the states Setup recorded")
@@ -53,8 +53,12 @@ private let fixtureFolder = URL(fileURLWithPath: #filePath)
 }
 
 /// The trees the folder carries, by name, in one order, so a failure names the same file every run.
-private func treesInTheFixtureFolder() throws -> [String] {
-  let read = try FileManager.default.contentsOfDirectory(atPath: fixtureFolder.path)
+///
+/// A folder that is not there answers no tree, the same as a folder with nothing in it. Both mean
+/// one thing to a step that reads a tree, which is that there is nothing to read, and the test says
+/// so in one place.
+private func treesInTheFixtureFolder() -> [String] {
+  let read = (try? FileManager.default.contentsOfDirectory(atPath: fixtureFolder.path)) ?? []
   return read.filter { $0.hasSuffix(".json") }.sorted()
 }
 
