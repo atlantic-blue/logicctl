@@ -40,7 +40,7 @@ public struct LaunchAgent {
   public static let fileName = LaunchAgent.label + ".plist"
 
   /// The subcommand the agent runs. It is hidden from the help, and only launchd types it.
-  public static let arguments = ["watch", "run"]
+  public static let arguments: [String] = []
 
   /// Where macOS keeps the launch agents of the person using the Mac.
   public static var defaultFolder: URL {
