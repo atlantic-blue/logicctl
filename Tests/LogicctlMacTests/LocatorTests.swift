@@ -28,6 +28,14 @@ private let eventLists = ["event-list-notes.json", "event-list-automation.json"]
 /// The tree of the window Logic opens for File, "Save As...".
 private let savePanels = ["save-as-window.json"]
 
+/// The tree of the window Logic opens for File, Import, "MIDI File...".
+///
+/// It carries the controls of the panel and nothing else: the sidebar and the file list were left
+/// out of the recording, because their deeper levels name the folders of this Mac. So the outline
+/// the route walks, its rows and its selection are not here, and the live suite of phase 3 is what
+/// proves those against Logic itself.
+private let importPanels = ["import-panel.json"]
+
 /// The tree of the window Logic shows the channel strips in. It holds one track strip, then the
 /// output strip and the master strip.
 private let mixers = ["mixer.json"]
@@ -124,6 +132,26 @@ private func provedLocators() -> [ProvedLocator] {
       trees: savePanels,
       names: "the button that writes the project where the field says",
       holds: { $0.role == "AXButton" && $0.title == "Save" }),
+    ProvedLocator(
+      locator: Locators.importWindow,
+      trees: importPanels,
+      names: "the window Logic opens for File, Import, MIDI File",
+      holds: { $0.role == "AXWindow" && $0.title == "Import" }),
+    ProvedLocator(
+      locator: Locators.importWherePopup,
+      trees: importPanels,
+      names: "the popup that says which folder the panel is in",
+      holds: { $0.role == "AXPopUpButton" && $0.actions.contains("AXShowMenu") }),
+    ProvedLocator(
+      locator: Locators.importButton,
+      trees: importPanels,
+      names: "the button that imports the file the panel has selected",
+      holds: { $0.role == "AXButton" && $0.title == "Import" }),
+    ProvedLocator(
+      locator: Locators.importCancelButton,
+      trees: importPanels,
+      names: "the button that closes the panel and imports nothing",
+      holds: { $0.role == "AXButton" && $0.title == "Cancel" }),
     ProvedLocator(
       locator: Locators.eventListWindow,
       trees: eventLists,
