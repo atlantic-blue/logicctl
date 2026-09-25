@@ -41,6 +41,9 @@ extension Midi {
       guard Midi.ControlChange.range.contains(number) else {
         throw ValidationError("--number is a controller of 0 to 127, and \(number) is not one.")
       }
+      guard Midi.ControlChange.range.contains(value) else {
+        throw ValidationError("--value is a place of 0 to 127, and \(value) is not one.")
+      }
     }
 
     func run() throws {
