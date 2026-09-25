@@ -100,7 +100,8 @@ public enum EventList {
   /// One row read as a note, or nothing when the row is not a note or does not read.
   private static func note(of row: any AXNode) -> Note? {
     let cells = row.children.filter { $0.role == "AXCell" }
-    guard let position = text(of: cells, at: .position),
+    guard text(of: cells, at: .status) == noteStatus,
+      let position = text(of: cells, at: .position),
       let length = text(of: cells, at: .length),
       let pitch = number(of: cells, at: .pitch, from: { $0.value }),
       let velocity = number(of: cells, at: .velocity, from: { $0.valueDescription }),
