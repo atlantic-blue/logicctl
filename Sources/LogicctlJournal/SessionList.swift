@@ -89,6 +89,7 @@ public enum SessionList {
     }
     return printed
       .split(separator: "\n")
+      .filter { Int($0.prefix(while: \.isNumber)) != nil }
       .count
   }
 }
