@@ -5,7 +5,7 @@
 # granted. That name is never written into the repository. It lives in LOGICCTL_SIGN_IDENTITY, in
 # the environment of this Mac.
 
-.PHONY: sign
+.PHONY: sign accept
 
 sign:
 	@if [ -z "$$LOGICCTL_SIGN_IDENTITY" ]; then \
@@ -17,3 +17,56 @@ sign:
 	codesign --force --sign "$$LOGICCTL_SIGN_IDENTITY" "$$binary" \
 	  && codesign --verify --verbose "$$binary" \
 	  && codesign -dv "$$binary"
+
+# `make accept PART=<n>` runs the live acceptance of one phase of the stories against the Logic on
+# this Mac. It is the only run that drives the real application, so it carries the guards the
+# pipeline cannot. The live suite is off unless this target turns it on. The binary it drives is
+# the signed one, and this target builds nothing and signs nothing, because both grants key on the
+# signature and a fresh build would carry neither.
+#
+# It counts the scenarios itself, from a line each scenario prints as it starts, and not from the
+# summary of the test runner. The summary counts a scenario that was left out as a test that ran:
+# adding the two live scenarios of phase 0 took a green pipeline from 92 tests to 97 while both of
+# them were skipped. A phase where every scenario was left out would read there as a phase that
+# passed against Logic.
+
+accept:
+	@if [ -z "$(PART)" ]; then \
+	  echo "logicctl: name the phase to accept, for example make accept PART=0"; \
+	  exit 1; \
+	fi
+	@case "$(PART)" in \
+	  0|1|2|3|4) ;; \
+	  *) echo "logicctl: PART is a phase of the stories, 0 to 4, and $(PART) is not one of them"; \
+	     exit 1;; \
+	esac
+	@binary="$$(swift build --configuration release --show-bin-path)/logicctl"; \
+	if [ ! -x "$$binary" ]; then \
+	  echo "logicctl: $$binary is not there, so run make sign and then run this again"; \
+	  exit 1; \
+	fi; \
+	if ! codesign --verify "$$binary" >/dev/null 2>&1; then \
+	  echo "logicctl: $$binary carries no signature, so run make sign and then run this again"; \
+	  exit 1; \
+	fi; \
+	mkdir -p .build; \
+	output=".build/accept-$(PART).txt"; \
+	status=0; \
+	LOGICCTL_LIVE=1 LOGICCTL_BINARY="$$binary" \
+	  swift test --filter "Phase$(PART)LiveScenarios" > "$$output" 2>&1 || status=$$?; \
+	cat "$$output"; \
+	ran=$$(grep -c '^live scenario: ' "$$output" || true); \
+	left=$$(grep -c ' skipped' "$$output" || true); \
+	echo "scenarios: $$ran"; \
+	if [ "$$ran" -eq 0 ]; then \
+	  echo "logicctl: no live scenario ran for phase $(PART), so this run proves nothing"; \
+	  exit 1; \
+	fi; \
+	if [ "$$left" -ne 0 ]; then \
+	  echo "logicctl: phase $(PART) left $$left scenario out, so it is not accepted"; \
+	  exit 1; \
+	fi; \
+	if [ "$$status" -ne 0 ]; then \
+	  echo "logicctl: the live scenarios of phase $(PART) ran and the run went red"; \
+	  exit "$$status"; \
+	fi

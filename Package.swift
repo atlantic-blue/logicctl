@@ -35,6 +35,9 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
     .testTarget(
+      name: "LiveTests",
+      dependencies: ["LogicctlCore", "LogicctlMac"]),
+    .testTarget(
       name: "LogicctlCoreTests",
       dependencies: [
         "LogicctlCore",
