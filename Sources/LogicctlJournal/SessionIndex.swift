@@ -73,6 +73,42 @@ public enum SessionIndex {
       .max { $0.createdAt < $1.createdAt }
   }
 
+  /// The newest session of a project that was never saved, by the name Logic shows in its
+  /// window title, or nothing when no session carries that name with no path.
+  ///
+  /// A project that was never saved sits at no path, so the lookup by path cannot find its
+  /// session. It is the project `new-project` made, and `save` is the command that gives it its
+  /// first path, so the one command that needs this lookup is the one that ends it.
+  ///
+  /// The name alone is a weak address: two projects of a person can both be called Untitled. So
+  /// the newest session wins, which is the session of the project a person is working on now, and
+  /// the path written at the end of the save makes every later lookup the strong one.
+  public static func session(
+    ofAProjectWithNoPathNamed name: String,
+    root: URL = SessionRepository.defaultRoot
+  ) -> Session? {
+    sessions(underRoot: root)
+      .filter { $0.project.path == nil && $0.project.name == name }
+      .max { $0.createdAt < $1.createdAt }
+  }
+
+  /// The repository of that session, or nothing when there is none.
+  public static func repository(
+    ofAProjectWithNoPathNamed name: String,
+    root: URL = SessionRepository.defaultRoot,
+    git: Git = Git(),
+    lock: Lock = Lock()
+  ) -> SessionRepository? {
+    guard let found = session(ofAProjectWithNoPathNamed: name, root: root) else {
+      return nil
+    }
+    return SessionRepository(
+      folder: SessionRepository.sessionFolder(of: found, underRoot: root),
+      session: found,
+      git: git,
+      lock: lock)
+  }
+
   /// Every session under one root, read from the `session.json` of each folder.
   ///
   /// A folder with nothing readable in it is passed over and not reported, because a folder a

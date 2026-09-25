@@ -17,6 +17,21 @@ protocol LogicCommand {
 
   /// What the command does to Logic, and what its answer carries when it worked.
   func act(through driver: any LogicDriver) throws -> JSONValue?
+
+  /// Where the project sits once this command has worked, when this command is what puts it
+  /// there. Nothing for every command that leaves the project where it was.
+  ///
+  /// A command that answers a path here is recorded into the session of a project that has no
+  /// path yet, because it is the command that gives that project its first path, and the path it
+  /// answers is written into `session.json` in the commit of its own step.
+  var projectPathAfterActing: String? { get }
+}
+
+extension LogicCommand {
+  /// Most commands leave the project where it was.
+  var projectPathAfterActing: String? {
+    nil
+  }
 }
 
 /// What the run takes the picture of the window of Logic through.
@@ -94,10 +109,8 @@ struct Run {
 
   /// Runs one command and records it in the session of the project Logic has open.
   private func record(_ command: any LogicCommand, from started: Date) throws -> Envelope {
-    guard let path = try driver.projectPath() else {
-      // A project that was never saved has no path, and a session is found by the path of its
-      // project. So there is nothing to write into yet, and the answer says so with a session of
-      // null. `new-project` gives a project its session.
+    guard let repository = try sessionRecording(command) else {
+      // There is no session to write into, so the answer says so with a session of null.
       let running = try? driver.processID()
       let done = outcome(of: command, whileLogicRunsAs: running, in: nil)
       return envelope(
@@ -107,7 +120,6 @@ struct Run {
           to: now()))
     }
 
-    let repository = try session(ofProjectAt: path)
     return try repository.lock.holding(repository.folder) { () throws -> Envelope in
       let before = try driver.readState()
       let change = try changeMadeByHand(before: before, in: repository)
@@ -140,7 +152,9 @@ struct Run {
         envelope: answer.json,
         stateBefore: CanonicalJSON.sha256(of: before),
         stateAfter: after.map { CanonicalJSON.sha256(of: $0) })
-      let commit = try repository.writeUnderTheLock(step, state: after, screenshot: taken.bytes)
+      let moved = Run.session(repository.session, movedBy: command, whenItWorked: done.failure)
+      let commit = try repository.writeUnderTheLock(
+        step, state: after, screenshot: taken.bytes, session: moved)
 
       return envelope(
         of: done,
@@ -214,6 +228,40 @@ struct Run {
       stateAfter: CanonicalJSON.sha256(of: before),
       differences: differences)
     return try repository.writeUnderTheLock(step, state: before)
+  }
+
+  /// The session this command is recorded in, or nothing when there is none to write into.
+  ///
+  /// A project that sits somewhere is found by where it sits. A project that was never saved sits
+  /// nowhere, so the lookup by path cannot find it, and only the command that gives the project
+  /// its first path is recorded into the session of one: for every other command there is nothing
+  /// yet that says which project of that name this is.
+  private func sessionRecording(_ command: any LogicCommand) throws -> SessionRepository? {
+    if let path = try driver.projectPath() {
+      return try session(ofProjectAt: path)
+    }
+    guard command.projectPathAfterActing != nil else {
+      return nil
+    }
+    let named = try driver.readState().project.name
+    return SessionIndex.repository(
+      ofAProjectWithNoPathNamed: named, root: root, git: git, lock: lock)
+  }
+
+  /// The session with the new path of its project, or nothing when nothing moved.
+  ///
+  /// A command that failed moved nothing, whatever it was asked to do, so the session keeps the
+  /// path it had and a person reads the project where it still is.
+  static func session(
+    _ session: Session, movedBy command: any LogicCommand, whenItWorked failure: Failure?
+  ) -> Session? {
+    guard failure == nil, let path = command.projectPathAfterActing, session.project.path != path
+    else {
+      return nil
+    }
+    var moved = session
+    moved.project.path = path
+    return moved
   }
 
   /// The session of the project at one path. It starts one when no session carries that path.
@@ -318,6 +366,9 @@ struct Run {
   /// A driver names its refusal with the word the design system uses, so the two join here and a
   /// driver carries no code of its own.
   static func failure(for error: Error) -> Failure {
+    if let carrying = error as? FailureCarrying {
+      return carrying.failure
+    }
     if let refusal = error as? DriverRefusal, let code = ErrorCode(rawValue: refusal.rawValue) {
       return Failure(code: code, message: sentence(of: code))
     }
