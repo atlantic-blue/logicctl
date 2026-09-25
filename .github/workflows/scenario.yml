@@ -26,6 +26,14 @@ jobs:
       - name: Print the toolchain
         run: swift --version
 
+      # A scenario can drive a script of the repository, and the smoke run is one. The main
+      # pipeline installs Node for the same reason. A scenario that needs Node and finds none
+      # fails, because a run that asked nothing is not a run that answered everything.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Run the scenario and count what ran
         run: |
           set -uo pipefail
