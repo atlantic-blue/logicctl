@@ -201,6 +201,12 @@ enum LiveHarness {
     let destination = resolved(folder)
     let copy = destination.appending(path: project.lastPathComponent)
 
+    guard !isUnder(musicFolder, project) else {
+      throw Refusal.theProjectIsUnderTheMusicFolder(project.path)
+    }
+    guard !isUnder(musicFolder, copy) else {
+      throw Refusal.theCopyWouldBeUnderTheMusicFolder(copy.path)
+    }
     guard fileManager.fileExists(atPath: project.path) else {
       throw Refusal.theProjectIsNotThere(project.path)
     }
