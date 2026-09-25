@@ -133,7 +133,19 @@ extension Quit {
         try control.close()
       }
 
-      _ = named
+      do {
+        try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+          try control.read() == nil
+        }
+      } catch let ranOut as Wait.RanOut {
+        // Logic is still there. A close it was free to refuse was refused, and a project with
+        // unsaved changes is the one thing that refuses it. A forced close refuses nothing, so a
+        // Logic that outlived one is a Logic that did not answer in time.
+        guard discarding else {
+          return printer.write(Envelope.failure(Quit.unsavedChanges(of: named), meta: meta()))
+        }
+        return printer.write(Envelope.failure(ranOut.failure, meta: meta()))
+      }
 
       return printer.write(
         Envelope.success(data: .object(["running": .bool(false)]), meta: meta()))
