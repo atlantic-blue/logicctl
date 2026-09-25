@@ -65,7 +65,7 @@ extension WatchStatus {
     let data = JSONValue.object([
       "running": .bool(running),
       "label": .string(LaunchAgent.label),
-      "projects": .array(projects.map(JSONValue.string)),
+      "projects": .number(Double(projects.count)),
     ])
     // This command reads no Logic, so it carries no session and no step in `meta`.
     let meta = AnswerMeta.refusal(version: Logicctl.version, from: started, to: now())
