@@ -119,9 +119,6 @@ struct Run {
       let crashed = done.failure?.code == .logicCrashed
       let after = crashed ? nil : try? driver.readState()
       let taken = picture(ofLogicRunningAs: running, afterACrash: crashed)
-      guard taken.bytes != nil else {
-        throw WindowCapture.Refusal(reason: "no picture of the window was taken")
-      }
       let finished = now()
 
       // The record holds the envelope that was printed, so both carry one duration, measured
