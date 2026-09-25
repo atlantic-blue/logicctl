@@ -199,9 +199,7 @@ private struct PlayAChord: LogicCommand {
     let channel = Midi.Chord.channel
     for pitch in pitches {
       try output.send(MidiMessage.noteOn(pitch: pitch, velocity: velocity, channel: channel))
-    }
-    sleeper(lengthMs)
-    for pitch in pitches {
+      sleeper(lengthMs)
       try output.send(MidiMessage.noteOff(pitch: pitch, channel: channel))
     }
     return .object(["sent": .number(Double(pitches.count))])
