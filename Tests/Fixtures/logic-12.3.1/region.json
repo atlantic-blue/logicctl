@@ -1,0 +1,2500 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXZoomWindow",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "this button also has an action to zoom the window",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "help": "",
+        "role": "AXImage",
+        "title": "F-T3b.logicx"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "F-T3b.logicx - Tracks"
+      },
+      {
+        "actions": [
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "Display Mode, Display Mode pop-up menu. Switch the ruler display between bars and beats, or hours, minutes, and seconds, or a combination of both. You can also open giant displays. ",
+                "role": "AXPopUpButton",
+                "value": "Beats & Project"
+              },
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "description": "bar",
+                    "role": "AXSlider",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXIncrement",
+                      "AXDecrement"
+                    ],
+                    "description": "beat",
+                    "role": "AXSlider",
+                    "value": "1"
+                  }
+                ],
+                "description": "Playhead Position",
+                "help": "Playhead Position (Bars), Playhead Position display. Indicates the playhead position in bars and beats. Drag each element vertically to edit it, or double-click and enter a new value. ",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "description": "Tempo",
+                "help": "Tempo, Tempo display. Indicates the playback or recording speed. Drag vertically to speed up or slow down the tempo, or double-click and enter a new value. ",
+                "role": "AXSlider",
+                "value": "120"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "",
+                "help": "Project Tempo menu, Project Tempo pop-up menu. Choose whether the project tempo is maintained, adapts to the tempo of audio recordings and imported audio files, or if Logic Pro determines the project tempo behavior. ",
+                "role": "AXPopUpButton"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Time Signature",
+                "help": "Time Signature, Time Signature display. Indicates the number of beats in a bar and the note value for one beat. Drag vertically to edit the value, or double-click and enter a new value. ",
+                "role": "AXPopUpButton",
+                "value": "4/4"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Key Signature",
+                "help": "Key Signature, Key Signature display. Indicates the key signature of the project. Choose a major or minor key signature from the pop-up menu. ",
+                "role": "AXPopUpButton",
+                "value": "C Major"
+              }
+            ],
+            "description": "Control Bar",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Cycle",
+            "help": "Cycle   C, Cycle button. Use Cycle to repeatedly play, or record over, the project section within the yellow cycle area that appears in the ruler. ",
+            "role": "AXCheckBox",
+            "title": "Cycle",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Flashback Capture",
+            "help": "Flashback Capture   ⇧R, Flashback Capture. Capture a recent MIDI or audio performance, even if Logic Pro wasn’t recording while you were playing. ",
+            "role": "AXButton",
+            "title": "Flashback Capture",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Free Tempo Recording",
+            "help": "Free Tempo Recording   ⌃⌥⌘R, Free Tempo Recording. Mutes all existing content during recording and performs a Smart Tempo analysis. ",
+            "role": "AXCheckBox",
+            "title": "Free Tempo Recording",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Record",
+            "help": "Record   R, Record button. Record to the selected track, or to multiple record-ready tracks. ",
+            "role": "AXCheckBox",
+            "title": "Record",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Play",
+            "help": "Play   ⌅, Play button. Start playback from the playhead position, or from the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXCheckBox",
+            "title": "Play",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Stop",
+            "help": "Stop   0, Stop button. Stop playback or recording. Click when stopped to move the playhead to the project start point, or to the left locator shown in the ruler when in Cycle mode. ",
+            "role": "AXButton",
+            "title": "Stop",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Replace",
+            "help": "Replace   /, Replace button. Replace an existing recording, or a portion of it, with a new recording. ",
+            "role": "AXCheckBox",
+            "title": "Replace",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "description": "Tuner",
+            "help": "This control is unavailable because no audio track is selected., Tuner button. Tune instruments connected to your system. ",
+            "role": "AXCheckBox",
+            "title": "Tuner",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Solo",
+            "help": "Solo, Solo button. Only hear selected regions during playback. ",
+            "role": "AXCheckBox",
+            "title": "Solo",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Count In",
+            "help": "Count In   ⇧K, Count-in button. Play a predefined count-in before recording starts. Control-click the button to open a menu where you can choose the count-in length. ",
+            "role": "AXCheckBox",
+            "title": "Count In",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXPress",
+              "AXShowMenu"
+            ],
+            "description": "Metronome Click",
+            "help": "Metronome Click   K, Metronome button. Hear a click at the project tempo during playback or recording. Click and hold for further options. ",
+            "role": "AXCheckBox",
+            "title": "Metronome Click",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Library",
+            "help": "Library   Y, Library button. Load patches and presets for the selected channel strip or plug-in type; start playing immediately. Loading a patch can affect multiple channel strips. ",
+            "role": "AXCheckBox",
+            "title": "Library",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Inspector",
+            "help": "Inspector   I, Inspector button. View and edit region and track settings, based on where you’re working and the item selected. You can also set channel strip pan and volume, or add effects. ",
+            "role": "AXCheckBox",
+            "title": "Inspector",
+            "value": "1"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Quick Help",
+            "help": "Quick Help button. Show the Quick Help area. If the inspector is closed, Quick Help opens as a separate window. ",
+            "role": "AXCheckBox",
+            "title": "Quick Help",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Toolbar",
+            "help": "Toolbar   ⌃⌥⌘T, Toolbar button. Show the toolbar, which contains buttons for key functions. ",
+            "role": "AXCheckBox",
+            "title": "Toolbar",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Smart Controls",
+            "help": "Smart Controls   B, Smart Controls button. Quickly modify the sound of the current patch without having to edit individual channel strips or plug-ins. ",
+            "role": "AXCheckBox",
+            "title": "Smart Controls",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Mixer",
+            "help": "Mixer   X, Mixer button. Open the Mixer, which shows channel strips for each track in the project. You can edit channel strip controls, add and edit plug-ins, and customize routing options. ",
+            "role": "AXCheckBox",
+            "title": "Mixer",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Editors",
+            "help": "Editors   E, Editors button. Access editors—Audio Track, Audio File, Session Players, Piano Roll, Score, or Step Editor—based on the selected track type. ",
+            "role": "AXCheckBox",
+            "title": "Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "List Editors",
+            "help": "List Editors   D, List Editors button. View and edit MIDI events, markers, tempo changes, and signature events. ",
+            "role": "AXCheckBox",
+            "title": "List Editors",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Note Pads",
+            "help": "Note Pads   ⌃⇧P, Note Pads button. Create, view, and edit project and track text notes. ",
+            "role": "AXCheckBox",
+            "title": "Note Pads",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Loop Browser",
+            "help": "Loop Browser   O, Loop Browser button. Add prerecorded loops to your project. ",
+            "role": "AXCheckBox",
+            "title": "Loop Browser",
+            "value": "0"
+          },
+          {
+            "actions": [
+              "AXShowMenu",
+              "AXPress"
+            ],
+            "description": "Browsers",
+            "help": "Browsers   F, Browsers button. Access audio and other media files. You can also import data and settings from other projects. ",
+            "role": "AXCheckBox",
+            "title": "Browsers",
+            "value": "0"
+          }
+        ],
+        "description": "Control Bar",
+        "help": "Control bar. Contains buttons and displays for key project and app functions. To customize, Control-click the control bar and choose Customize Control Bar and Display. ",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXScrollLeftByPage",
+                      "AXScrollRightByPage",
+                      "AXScrollUpByPage",
+                      "AXScrollDownByPage"
+                    ],
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Mute:"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXCheckBox",
+                                "title": "",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Loop:"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXCheckBox",
+                                "title": "",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Quantize"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Off"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Q-Swing:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "50"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Transpose:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Pitch Source:"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXPress"
+                                ],
+                                "help": "",
+                                "role": "AXPopUpButton",
+                                "value": "Off"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "-"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu",
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": "Velocity Offset:"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "",
+                                "help": "",
+                                "role": "AXSlider",
+                                "value": "0"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "actions": [
+                              "AXShowDefaultUI",
+                              "AXShowAlternateUI"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "role": "AXDisclosureTriangle",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXConfirm"
+                                    ],
+                                    "help": "",
+                                    "role": "AXTextField",
+                                    "value": " More"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "actions": [
+                                  "AXConfirm"
+                                ],
+                                "help": "",
+                                "role": "AXTextField",
+                                "value": " More"
+                              }
+                            ],
+                            "role": "AXRow"
+                          },
+                          {
+                            "identifier": "idLabel",
+                            "role": "AXColumn"
+                          },
+                          {
+                            "identifier": "idValue",
+                            "role": "AXColumn"
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:33",
+                        "role": "AXOutline"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:108",
+                    "role": "AXScrollArea"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:102",
+                    "role": "AXDisclosureTriangle",
+                    "title": "",
+                    "value": "1"
+                  },
+                  {
+                    "actions": [
+                      "AXShowMenu",
+                      "AXConfirm"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:141",
+                    "role": "AXTextField",
+                    "value": "MIDI Region"
+                  },
+                  {
+                    "help": "",
+                    "identifier": "_NS:137",
+                    "role": "AXStaticText",
+                    "value": "Region:"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:102",
+                    "role": "AXDisclosureTriangle",
+                    "title": "",
+                    "value": "0"
+                  },
+                  {
+                    "help": "",
+                    "identifier": "_NS:141",
+                    "role": "AXStaticText",
+                    "value": "Track:"
+                  },
+                  {
+                    "actions": [
+                      "AXShowMenu",
+                      "AXConfirm"
+                    ],
+                    "help": "",
+                    "identifier": "_NS:137",
+                    "role": "AXTextField",
+                    "value": "Deluxe Classic"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXShowMenu"
+                        ],
+                        "children": [
+                          {
+                            "description": "name",
+                            "help": "Name field. Double-click to rename the channel strip. ",
+                            "role": "AXTextField",
+                            "value": "Deluxe Classic"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "mute",
+                            "help": "Mute button. Silence a channel strip so it’s no longer audible. Use on an aux or output channel strip to silence that part of the mix, or on the master channel strip to mute the project. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "solo",
+                            "help": "Solo button. Isolate a channel strip’s signal so that it can be heard alone. Use on an aux or output channel strip to isolate that part of the mix. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXIncrement",
+                              "AXDecrement"
+                            ],
+                            "children": [
+                              {
+                                "description": "fader knob",
+                                "role": "AXValueIndicator"
+                              }
+                            ],
+                            "description": "volume fader",
+                            "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix. You can leave the Volume fader of the master channel strip at 0 dB in most cases. ",
+                            "role": "AXSlider",
+                            "value": "173"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "volume fader level",
+                            "help": "Volume display. Shows the position of the Volume fader referenced to the dB scale to the left of the Mixer. Positive values increase the signal level, negative values decrease it, and 0 dB leaves it unchanged. ",
+                            "role": "AXTextField",
+                            "title": "volume fader level, 0.0 dB"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "peak level meter",
+                            "help": "Peak Level display. Shows the signal peak during playback. Values above 0 dB turn red to indicate signal clipping. Orange values above 0 dB do not clip due to internal floating point calculations. ",
+                            "role": "AXButton",
+                            "title": "peak level meter",
+                            "value": "signal clipping off"
+                          },
+                          {
+                            "actions": [
+                              "AXIncrement",
+                              "AXDecrement"
+                            ],
+                            "children": [
+                              {
+                                "description": "knob readout",
+                                "role": "AXStaticText",
+                                "value": ""
+                              }
+                            ],
+                            "description": "pan",
+                            "help": "Pan/Balance knob. Drag vertically to position the channel strip signal in the stereo field. ",
+                            "role": "AXSlider",
+                            "value": "0"
+                          },
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "automation",
+                                "role": "AXCheckBox",
+                                "value": "true"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "list",
+                                "role": "AXButton"
+                              }
+                            ],
+                            "description": "Read, automation enabled",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "group",
+                            "help": "Group slot. Add the channel strip to a group. You can also define which channel strip controls can be edited for the entire group at the same time. ",
+                            "role": "AXPopUpButton",
+                            "title": "group, Group"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Stereo Output",
+                            "help": "Output slot. Click and hold to choose the channel strip output destination—where the channel strip signal is sent. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "send button",
+                            "help": "Send slot. Route the signal to an aux channel strip. Use sends to process or submix multiple track output signals. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress",
+                              "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                            ],
+                            "description": "audio plug-in",
+                            "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress",
+                              "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                            ],
+                            "description": "insert bar",
+                            "role": "AXButton"
+                          },
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "bypass",
+                                "role": "AXCheckBox",
+                                "value": "false"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "open",
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress",
+                                  "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                                ],
+                                "description": "list",
+                                "role": "AXButton"
+                              }
+                            ],
+                            "description": "Compressor",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "bypass",
+                                "role": "AXCheckBox",
+                                "value": "false"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "open",
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress",
+                                  "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                                ],
+                                "description": "list",
+                                "role": "AXButton"
+                              }
+                            ],
+                            "description": "E-Piano",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "MIDI plug-in",
+                            "help": "MIDI Effect slot. Insert a MIDI effect. Click an occupied slot to open the plug-in. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "EQ",
+                            "help": "EQ display. Click to add a Channel EQ or open an inserted Channel or Linear Phase EQ. Shift-click to add a Linear Phase EQ. Use EQ to shape an audio signal by adjusting the levels of specific frequency ranges. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "gain reduction meter",
+                            "help": "Gain reduction meter. Shows the gain reduction of the first Compressor plug-in. If no Compressor is inserted, it shows the gain reduction of an inserted Limiter or Adaptive Limiter plug-in. ",
+                            "role": "AXButton",
+                            "value": "on, 0 dB"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Deluxe Classic",
+                            "help": "Setting button. Load and save channel strip settings, which contain setup information for a channel strip, including plug-ins. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "library indicator, Deluxe Classic",
+                            "help": "Library Focus triangle. Click to view Library content for the highlighted slot. You can also use it to open or close the Library. ",
+                            "role": "AXButton",
+                            "value": "on"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "library indicator, E-Piano",
+                            "help": "Library Focus triangle. Click to view Library content for the highlighted slot. You can also use it to open or close the Library. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "library indicator, Compressor",
+                            "help": "Library Focus triangle. Click to view Library content for the highlighted slot. You can also use it to open or close the Library. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          }
+                        ],
+                        "description": "Deluxe Classic",
+                        "help": "Left inspector channel strip. Control the signal of the selected track without having to open the Mixer. ",
+                        "role": "AXLayoutItem"
+                      },
+                      {
+                        "actions": [
+                          "AXShowMenu"
+                        ],
+                        "children": [
+                          {
+                            "description": "name",
+                            "help": "Name field. Double-click to rename the channel strip. ",
+                            "role": "AXTextField",
+                            "value": "Stereo Out"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "mute",
+                            "help": "Mute button. Silence a channel strip so it’s no longer audible. Use on an aux or output channel strip to silence that part of the mix, or on the master channel strip to mute the project. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "bounce",
+                            "help": "Bounce button. Render the signal of one or more output channel strips to an audio file, or to multiple audio files. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXIncrement",
+                              "AXDecrement"
+                            ],
+                            "children": [
+                              {
+                                "description": "fader knob",
+                                "role": "AXValueIndicator"
+                              }
+                            ],
+                            "description": "volume fader",
+                            "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix. You can leave the Volume fader of the master channel strip at 0 dB in most cases. ",
+                            "role": "AXSlider",
+                            "value": "173"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "volume fader level",
+                            "help": "Volume display. Shows the position of the Volume fader referenced to the dB scale to the left of the Mixer. Positive values increase the signal level, negative values decrease it, and 0 dB leaves it unchanged. ",
+                            "role": "AXTextField",
+                            "title": "volume fader level, 0.0 dB"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "peak level meter",
+                            "help": "Peak Level display. Shows the signal peak during playback. Values above 0 dB turn red to indicate signal clipping. Orange values above 0 dB do not clip due to internal floating point calculations. ",
+                            "role": "AXButton",
+                            "title": "peak level meter",
+                            "value": "signal clipping off"
+                          },
+                          {
+                            "actions": [
+                              "AXIncrement",
+                              "AXDecrement"
+                            ],
+                            "children": [
+                              {
+                                "description": "knob readout",
+                                "role": "AXStaticText",
+                                "value": ""
+                              }
+                            ],
+                            "description": "pan",
+                            "help": "Pan/Balance knob. Drag vertically to position the channel strip signal in the stereo field. ",
+                            "role": "AXSlider",
+                            "value": "0"
+                          },
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "automation",
+                                "role": "AXCheckBox",
+                                "value": "true"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "list",
+                                "role": "AXButton"
+                              }
+                            ],
+                            "description": "Read, automation enabled",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "group",
+                            "help": "Group slot. Add the channel strip to a group. You can also define which channel strip controls can be edited for the entire group at the same time. ",
+                            "role": "AXPopUpButton",
+                            "title": "group, Group"
+                          },
+                          {
+                            "actions": [
+                              "AXPress",
+                              "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                            ],
+                            "description": "audio plug-in",
+                            "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress",
+                              "Name:Open plug-in menu with legacy plug-ins\nTarget:0x0\nSelector:(null)"
+                            ],
+                            "description": "audio plug-in",
+                            "help": "Audio Effect slot. Insert an audio effect. Click an occupied slot to open the plug-in. Use effects to alter signals in real time. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXShowMenu",
+                              "AXPress"
+                            ],
+                            "description": "channel mode",
+                            "help": "Output Channel Mode button. Switches a pair of linked outputs between one stereo channel strip and two mono channel strips. ",
+                            "role": "AXButton",
+                            "value": "Stereo"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "mastering assistant",
+                            "help": "Mastering Assistant. Click to insert Mastering Assistant. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "EQ",
+                            "help": "EQ display. Click to add a Channel EQ or open an inserted Channel or Linear Phase EQ. Shift-click to add a Linear Phase EQ. Use EQ to shape an audio signal by adjusting the levels of specific frequency ranges. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "gain reduction meter",
+                            "help": "Gain reduction meter. Shows the gain reduction of the first Compressor plug-in. If no Compressor is inserted, it shows the gain reduction of an inserted Limiter or Adaptive Limiter plug-in. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "setting",
+                            "help": "Setting button. Load and save channel strip settings, which contain setup information for a channel strip, including plug-ins. ",
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "library indicator, (null)",
+                            "help": "Library Focus triangle. Click to view Library content for the highlighted slot. You can also use it to open or close the Library. ",
+                            "role": "AXButton",
+                            "value": "off"
+                          }
+                        ],
+                        "description": "Stereo Out",
+                        "help": "Right inspector channel strip. Shows the output channel strip for the left inspector channel strip. Shift-click the Send slot on the left inspector channel strip to show the Send Return here, or Shift-click a VCA slot in the left inspector channel strip to show the VCA channel strip here. ",
+                        "role": "AXLayoutItem"
+                      }
+                    ],
+                    "description": "Mixer",
+                    "help": "",
+                    "role": "AXLayoutArea"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              }
+            ],
+            "help": "",
+            "role": "AXList"
+          }
+        ],
+        "description": "Inspector",
+        "help": "",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "help": "",
+                        "identifier": "_NS:16",
+                        "role": "AXStaticText",
+                        "value": "Library"
+                      },
+                      {
+                        "actions": [
+                          "AXShowMenu",
+                          "AXPress"
+                        ],
+                        "help": "Filter pop-up menu. Show all patches, or show patches for a particular sound pack. ",
+                        "identifier": "_NS:31",
+                        "role": "AXPopUpButton",
+                        "value": "All Sounds"
+                      }
+                    ],
+                    "help": "Library. Load and save patches, plug-in presets, or Sampler instruments, based on the selected channel strip slot. Loading a patch can affect multiple channel strips. ",
+                    "identifier": "_NS:10",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "help": "",
+                            "identifier": "_NS:137",
+                            "role": "AXStaticText",
+                            "value": "Deluxe Classic"
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:94",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "role": "AXSplitter",
+                        "value": "175"
+                      },
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu",
+                              "AXConfirm"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton",
+                                "title": ""
+                              }
+                            ],
+                            "help": "Search field. Search for patches and presets by name. Click the magnifying glass to view recent searches or to clear the search history. ",
+                            "identifier": "_NS:337",
+                            "role": "AXTextField",
+                            "value": ""
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:329",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu"
+                            ],
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXScrollLeftByPage",
+                                  "AXScrollRightByPage",
+                                  "AXScrollUpByPage",
+                                  "AXScrollDownByPage"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXScrollLeftByPage",
+                                      "AXScrollRightByPage",
+                                      "AXScrollUpByPage",
+                                      "AXScrollDownByPage"
+                                    ],
+                                    "children": [
+                                      {
+                                        "actions": [
+                                          "AXShowMenu"
+                                        ],
+                                        "children": [
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Bass"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Acoustic Drums"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Electronic Drums"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Percussion"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Guitar"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Acoustic Piano"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Clavinet"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Electric Piano"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Mellotron"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Organ"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Mallet"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Synthesizer"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Orchestral"
+                                          }
+                                        ],
+                                        "help": "",
+                                        "role": "AXList"
+                                      },
+                                      {
+                                        "help": "",
+                                        "role": "AXScrollBar",
+                                        "value": "0"
+                                      }
+                                    ],
+                                    "help": "",
+                                    "role": "AXScrollArea"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXScrollLeftByPage",
+                                      "AXScrollRightByPage",
+                                      "AXScrollUpByPage",
+                                      "AXScrollDownByPage"
+                                    ],
+                                    "children": [
+                                      {
+                                        "actions": [
+                                          "AXShowMenu"
+                                        ],
+                                        "children": [
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Bright Suitcase"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Classic Suitcase Mk IV"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Deluxe Classic"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Deluxe Modern"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Flying Circus Piano"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Phasing Bells"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Synthetic Wurli"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Wide Suitcase"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Wurlitzer Classic"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch. Load to the selected channel strip. You can start playing it immediately. ",
+                                            "role": "AXStaticText",
+                                            "value": "Wurlitzer Modern"
+                                          },
+                                          {
+                                            "actions": [
+                                              "AXPress"
+                                            ],
+                                            "help": "Patch category. Choose a category to reveal patches. ",
+                                            "role": "AXStaticText",
+                                            "value": "Processed"
+                                          }
+                                        ],
+                                        "help": "",
+                                        "role": "AXList"
+                                      },
+                                      {
+                                        "help": "",
+                                        "role": "AXScrollBar",
+                                        "value": "0"
+                                      }
+                                    ],
+                                    "help": "",
+                                    "role": "AXScrollArea"
+                                  },
+                                  {
+                                    "help": "",
+                                    "role": "AXScrollBar",
+                                    "value": "0"
+                                  }
+                                ],
+                                "help": "",
+                                "role": "AXScrollArea"
+                              }
+                            ],
+                            "description": "Library",
+                            "help": "",
+                            "identifier": "_NS:410",
+                            "role": "AXBrowser"
+                          }
+                        ],
+                        "help": "",
+                        "identifier": "_NS:406",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "help": "",
+                        "identifier": "_NS:400",
+                        "role": "AXGroup"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:88",
+                    "role": "AXSplitGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "help": "",
+                        "identifier": "_NS:568",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "Get More Sounds",
+                                "identifier": "getMoreSounds",
+                                "role": "AXButton"
+                              },
+                              {
+                                "description": "5 available sound packs",
+                                "role": "AXUnknown"
+                              }
+                            ],
+                            "role": "AXGroup"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXGroup"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:564",
+                    "role": "AXGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "description": "tools",
+                        "help": "Action pop-up menu. Access patch merging and user default commands. ",
+                        "identifier": "_NS:652",
+                        "role": "AXPopUpButton",
+                        "title": ""
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "help": "Revert button. Revert to the saved settings for the patch or plug-in preset. As this erases any changes you made, save with a different name before reverting. ",
+                        "identifier": "_NS:674",
+                        "role": "AXButton",
+                        "title": "Revert"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "help": "Delete button. Delete the selected patch or plug-in preset. This action can’t be undone. ",
+                        "identifier": "_NS:685",
+                        "role": "AXButton",
+                        "title": "Delete"
+                      },
+                      {
+                        "actions": [
+                          "AXPress"
+                        ],
+                        "help": "Save button. Save the patch or plug-in preset with its current settings as a new patch or plug-in preset. ",
+                        "identifier": "_NS:692",
+                        "role": "AXButton",
+                        "title": "Save…"
+                      }
+                    ],
+                    "help": "",
+                    "identifier": "_NS:646",
+                    "role": "AXGroup"
+                  }
+                ],
+                "help": "",
+                "identifier": "_NS:874",
+                "role": "AXGroup"
+              }
+            ],
+            "description": "Library",
+            "help": "Library. Load and save patches, plug-in presets, or Sampler instruments, based on the selected channel strip slot. Loading a patch can affect multiple channel strips. ",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Library",
+        "help": "",
+        "role": "AXGroup"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Leave Folder",
+                "help": "Leave Folder",
+                "role": "AXButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Edit",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Functions",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "View",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Live Loops Grid",
+                    "help": "Show/Hide Live Loops Grid",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Tracks area",
+                    "help": "Show/Hide Tracks area",
+                    "role": "AXCheckBox",
+                    "value": "1"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Automation",
+                    "help": "Show/Hide Automation   A",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Show/Hide Flex",
+                    "help": "Show/Hide Flex   ⌘F",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Catch Playhead",
+                "help": "Catch Playhead   `",
+                "role": "AXCheckBox",
+                "value": "true"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Left Click Tool, Pointer Tool",
+                    "help": "Left Click Tool",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Command-Click Tool, Marquee Tool",
+                    "help": "Command-Click Tool",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXMenuButton",
+                "title": ""
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Waveform Zoom",
+                "help": "Waveform Zoom",
+                "role": "AXCheckBox",
+                "title": "Waveform Zoom",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Vertical Auto Zoom",
+                    "help": "Vertical Auto Zoom",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "Horizontal Auto Zoom",
+                    "help": "Horizontal Auto Zoom",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.3797396421432495"
+                  }
+                ],
+                "description": "Vertical Zoom",
+                "help": "Vertical Zoom",
+                "role": "AXSlider",
+                "value": "0.3797396421432495"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.2312084436416626"
+                  }
+                ],
+                "description": "Horizontal Zoom",
+                "help": "Horizontal Zoom",
+                "role": "AXSlider",
+                "value": "0.2312084436416626"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Add Tracks   ⌥⌘N",
+                            "help": "Add Tracks button. Add audio and software instrument tracks. Use tracks for recording, editing, and arranging regions. ",
+                            "role": "AXButton",
+                            "value": "0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "New Track with Duplicate Settings   ⌘D",
+                            "help": "Duplicate Track button. Create an empty track with the same settings as the selected track. Option-click to create a track with the same settings and content. ",
+                            "role": "AXButton",
+                            "value": "0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "description": "Show/Hide Global Tracks   G",
+                            "help": "Global Tracks button. Work with global tracks to control various aspects of the overall project, such as arrangement and tempo. ",
+                            "role": "AXCheckBox",
+                            "value": "0"
+                          }
+                        ],
+                        "description": "Tracks legend",
+                        "help": "",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "cycle region",
+                                "help": "Cycle area. Repeatedly play or record over the project section within the yellow bar. Drag the bar to move the range, or the edges to edit the length. ",
+                                "role": "AXLayoutItem",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Playhead thumb",
+                                "help": "Playhead. Indicates the playback position. Move by dragging, clicking the lower part of the ruler, or using the LCD Position displays. ",
+                                "role": "AXValueIndicator",
+                                "value": "164926744166400"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Start Marker",
+                                "help": "Project Start marker. Indicates the project start point. Drag left to play upbeats or program change commands before the first downbeat. ",
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "End Marker",
+                                "help": "Project End marker. Indicates the project end point. When recording, the marker moves to fit the project length. Drag vertically to change position. ",
+                                "role": "AXValueIndicator",
+                                "value": "2111062325329920"
+                              }
+                            ],
+                            "description": "Tracks time ruler",
+                            "help": "",
+                            "role": "AXLayoutArea"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Has Focus",
+                                    "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                    "role": "AXRadioButton",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Individual Track Zoom",
+                                    "help": "Individual track zoom. Drag the track’s bottom divider line to adjust its vertical track zoom level. Command-drag to adjust all tracks of the same track type. Shift-click to reset all tracks to the default zoom level. ",
+                                    "role": "AXSplitter",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Mute",
+                                    "help": "Mute button. Silence a track’s signal, audibly removing it from project playback. Corresponds to the Mute button on the channel strip in the Mixer, so that changing one also changes the other. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Solo",
+                                    "help": "Solo button. Isolate a track’s signal so that it can be heard without other tracks. Use on an aux or output channel strip to isolate that part of the mix. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Record Enable",
+                                    "help": "Record Enable button. Prepare the track for recording, or deactivate a record-ready track. The button changes to indicate whether the track is inactive, record enabled, or currently recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Input Monitoring",
+                                    "help": "Input Monitoring button. Hear incoming signals on audio or software instrument tracks that aren’t record enabled. This is useful when setting levels or practicing parts before recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "0 Pan",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "",
+                                    "help": "Pan/Balance knob. Drag vertically to position the track signal in the stereo field. ",
+                                    "role": "AXSlider",
+                                    "value": "64"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "Volume",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "Volume",
+                                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix, or on the output channel strip to set the overall project volume. ",
+                                    "role": "AXSlider",
+                                    "value": "173"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Deluxe Classic",
+                                    "help": "Name field. Double-click to rename the track. ",
+                                    "role": "AXTextField",
+                                    "value": "0"
+                                  }
+                                ],
+                                "description": "Track 1 “Deluxe Classic”",
+                                "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                "role": "AXLayoutItem"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Has Focus",
+                                    "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                    "role": "AXRadioButton",
+                                    "value": "1"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Individual Track Zoom",
+                                    "help": "Individual track zoom. Drag the track’s bottom divider line to adjust its vertical track zoom level. Command-drag to adjust all tracks of the same track type. Shift-click to reset all tracks to the default zoom level. ",
+                                    "role": "AXSplitter",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Mute",
+                                    "help": "Mute button. Silence a track’s signal, audibly removing it from project playback. Corresponds to the Mute button on the channel strip in the Mixer, so that changing one also changes the other. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Solo",
+                                    "help": "Solo button. Isolate a track’s signal so that it can be heard without other tracks. Use on an aux or output channel strip to isolate that part of the mix. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Record Enable",
+                                    "help": "Record Enable button. Prepare the track for recording, or deactivate a record-ready track. The button changes to indicate whether the track is inactive, record enabled, or currently recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Input Monitoring",
+                                    "help": "Input Monitoring button. Hear incoming signals on audio or software instrument tracks that aren’t record enabled. This is useful when setting levels or practicing parts before recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "0 Pan",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "",
+                                    "help": "Pan/Balance knob. Drag vertically to position the track signal in the stereo field. ",
+                                    "role": "AXSlider",
+                                    "value": "64"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "Volume",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "Volume",
+                                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix, or on the output channel strip to set the overall project volume. ",
+                                    "role": "AXSlider",
+                                    "value": "173"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Deluxe Classic",
+                                    "help": "Name field. Double-click to rename the track. ",
+                                    "role": "AXTextField",
+                                    "value": "0"
+                                  }
+                                ],
+                                "description": "Track 2 “Deluxe Classic”",
+                                "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                "role": "AXLayoutItem"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Has Focus",
+                                    "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                    "role": "AXRadioButton",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Individual Track Zoom",
+                                    "help": "Individual track zoom. Drag the track’s bottom divider line to adjust its vertical track zoom level. Command-drag to adjust all tracks of the same track type. Shift-click to reset all tracks to the default zoom level. ",
+                                    "role": "AXSplitter",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Mute",
+                                    "help": "Mute button. Silence a track’s signal, audibly removing it from project playback. Corresponds to the Mute button on the channel strip in the Mixer, so that changing one also changes the other. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Solo",
+                                    "help": "Solo button. Isolate a track’s signal so that it can be heard without other tracks. Use on an aux or output channel strip to isolate that part of the mix. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Record Enable",
+                                    "help": "Record Enable button. Prepare the track for recording, or deactivate a record-ready track. The button changes to indicate whether the track is inactive, record enabled, or currently recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Input Monitoring",
+                                    "help": "Input Monitoring button. Hear incoming signals on audio or software instrument tracks that aren’t record enabled. This is useful when setting levels or practicing parts before recording. ",
+                                    "role": "AXCheckBox",
+                                    "value": "0"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "0 Pan",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "",
+                                    "help": "Pan/Balance knob. Drag vertically to position the track signal in the stereo field. ",
+                                    "role": "AXSlider",
+                                    "value": "64"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXDecrement",
+                                      "AXIncrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "description": "Volume",
+                                        "role": "AXValueIndicator"
+                                      }
+                                    ],
+                                    "description": "Volume",
+                                    "help": "Volume fader. Set a track’s playback volume. Use on an aux or output channel strip to adjust the volume of that part of the mix, or on the output channel strip to set the overall project volume. ",
+                                    "role": "AXSlider",
+                                    "value": "173"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Studio Grand",
+                                    "help": "Name field. Double-click to rename the track. ",
+                                    "role": "AXTextField",
+                                    "value": "0"
+                                  }
+                                ],
+                                "description": "Track 3 “Studio Grand”",
+                                "help": "Track header. Mute or solo the track’s channel strip signal, enable the track for recording, and adjust volume or pan. Control-click and choose Track Header Components to select which controls to show or hide. ",
+                                "role": "AXLayoutItem"
+                              }
+                            ],
+                            "description": "Tracks header",
+                            "help": "",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "description": "Track 1 “Deluxe Classic”",
+                                "help": "Workspace. The primary area for recording, editing, and arranging audio, MIDI, and Session Player regions, divided into different track types. ",
+                                "role": "AXLayoutArea",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "description": "Track 2 “Deluxe Classic”",
+                                "help": "Workspace. The primary area for recording, editing, and arranging audio, MIDI, and Session Player regions, divided into different track types. ",
+                                "role": "AXLayoutArea",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress",
+                                      "AXShowMenu"
+                                    ],
+                                    "children": [
+                                      {
+                                        "actions": [
+                                          "AXPress"
+                                        ],
+                                        "description": "MIDI Region",
+                                        "role": "AXTextField"
+                                      },
+                                      {
+                                        "description": "move left border",
+                                        "role": "AXHandle"
+                                      },
+                                      {
+                                        "description": "move right border",
+                                        "role": "AXHandle"
+                                      },
+                                      {
+                                        "description": "loop",
+                                        "role": "AXHandle"
+                                      }
+                                    ],
+                                    "description": "MIDI Region",
+                                    "help": "Region starts at 1 bar  and ends at 2 bars , MIDI region. Contains MIDI note and controller events. Drag the middle to move, the lower edges to resize, and the upper-right edge to loop. Use the tools to perform other edits. ",
+                                    "role": "AXLayoutItem"
+                                  }
+                                ],
+                                "description": "Track 3 “Studio Grand”",
+                                "help": "Workspace. The primary area for recording, editing, and arranging audio, MIDI, and Session Player regions, divided into different track types. ",
+                                "role": "AXLayoutArea",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXShowMenu"
+                                ],
+                                "help": "Workspace. The primary area for recording, editing, and arranging audio, MIDI, and Session Player regions, divided into different track types. ",
+                                "role": "AXLayoutArea",
+                                "value": "0"
+                              }
+                            ],
+                            "description": "Tracks contents",
+                            "help": "",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "children": [
+                              {
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  }
+                ],
+                "help": "",
+                "role": "AXSplitGroup"
+              }
+            ],
+            "description": "Tracks",
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Tracks",
+        "help": "",
+        "role": "AXGroup"
+      }
+    ],
+    "role": "AXWindow",
+    "title": "F-T3b.logicx - Tracks"
+  }
+}
