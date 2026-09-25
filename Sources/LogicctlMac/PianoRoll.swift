@@ -33,7 +33,7 @@ public struct PianoRoll {
   /// carry the description `Strength`, so a walk that read the description would find two elements
   /// and set the swing of the region where a person asked for the strength of the quantize. The
   /// Velocity slider is the same trap the other way round: its description reads `Transpose`.
-  public static let strengthSliderHelp = "Strength slider"
+  public static let strengthSliderHelp = "Swing slider"
 
   /// The walk found no element, or more than one, where it needs exactly one.
   ///
