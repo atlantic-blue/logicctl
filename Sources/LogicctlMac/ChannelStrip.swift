@@ -92,7 +92,7 @@ public enum ChannelStrip {
   /// are there. `stateHash` is nil in every row: a hash is read from a saved file, and this is a
   /// window.
   static func plugins(of strip: any AXNode) -> [Plugin] {
-    let occupied = Array(strip.children.reversed()).filter(isOccupied)
+    let occupied = strip.children.filter(isOccupied)
     return occupied.enumerated().compactMap { place, slot in
       guard let name = slot.description else {
         return nil
