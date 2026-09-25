@@ -13,7 +13,7 @@ struct Midi: ParsableCommand {
     discussion: """
       Example: logicctl midi write-file --in notes.json --out notes.mid
       """,
-    subcommands: [WriteFile.self])
+    subcommands: [Setup.self, WriteFile.self])
 }
 
 extension Midi {
