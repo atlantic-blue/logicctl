@@ -1,0 +1,1781 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXZoomWindow",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "this button also has an action to zoom the window",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "help": "",
+        "role": "AXImage",
+        "title": "F-T13.logicx"
+      },
+      {
+        "role": "AXStaticText",
+        "value": "F-T13.logicx - Piano Roll"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Edit",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Functions",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "View",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Collapse Mode",
+                "help": "Collapse Mode",
+                "role": "AXCheckBox",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Show/Hide Automation   A",
+                "help": "Show/Hide Automation   A",
+                "role": "AXCheckBox",
+                "value": "false"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "MIDI In (Step Record)",
+                    "help": "MIDI In (Step Record)   ⌥I",
+                    "role": "AXCheckBox",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "description": "MIDI Out (Note Preview)",
+                    "help": "MIDI Out (Note Preview)   ⌥O",
+                    "role": "AXCheckBox",
+                    "value": "1"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "description": "Catch Playhead",
+                "help": "Catch Playhead   `",
+                "role": "AXCheckBox",
+                "value": "true"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Link",
+                "help": "Link",
+                "role": "AXCheckBox",
+                "value": "true"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Left Click Tool, Pointer Tool",
+                    "help": "Left Click Tool",
+                    "role": "AXMenuButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress",
+                      "AXShowMenu"
+                    ],
+                    "description": "Command-Click Tool, Pencil Tool",
+                    "help": "Command-Click Tool",
+                    "role": "AXMenuButton"
+                  }
+                ],
+                "help": "",
+                "role": "AXGroup"
+              },
+              {
+                "help": "",
+                "role": "AXStaticText",
+                "value": "Snap:"
+              },
+              {
+                "actions": [
+                  "AXShowMenu",
+                  "AXPress"
+                ],
+                "help": "",
+                "role": "AXPopUpButton",
+                "value": "Smart"
+              },
+              {
+                "actions": [
+                  "AXPress"
+                ],
+                "description": "Horizontal Auto Zoom",
+                "help": "Horizontal Auto Zoom",
+                "role": "AXCheckBox",
+                "value": "true"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.6666666865348816"
+                  }
+                ],
+                "description": "Vertical Zoom",
+                "help": "Vertical Zoom",
+                "role": "AXSlider",
+                "value": "0.6666666865348816"
+              },
+              {
+                "actions": [
+                  "AXIncrement",
+                  "AXDecrement"
+                ],
+                "children": [
+                  {
+                    "role": "AXValueIndicator",
+                    "value": "0.77294921875"
+                  }
+                ],
+                "description": "Horizontal Zoom",
+                "help": "Horizontal Zoom",
+                "role": "AXSlider",
+                "value": "0.77294921875"
+              }
+            ],
+            "description": "Piano Roll",
+            "help": "",
+            "role": "AXGroup"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "description": "MIDI Region",
+                            "role": "AXStaticText"
+                          },
+                          {
+                            "description": "on Track Studio Grand",
+                            "role": "AXStaticText"
+                          }
+                        ],
+                        "description": "Piano Roll legend",
+                        "help": "",
+                        "role": "AXGroup"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "role": "AXButton",
+                                    "value": "0"
+                                  }
+                                ],
+                                "description": "cycle region",
+                                "help": "Cycle area. Repeatedly play or record over the project section within the yellow bar. Drag the bar to move the range, or the edges to edit the length. ",
+                                "role": "AXLayoutItem",
+                                "value": "0",
+                                "valueDescription": "off"
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Playhead thumb",
+                                "help": "Playhead. Indicates the playback position. Move by dragging, clicking the lower part of the ruler, or using the LCD Position displays. ",
+                                "role": "AXValueIndicator",
+                                "value": "164926744166400",
+                                "valueDescription": "1 bar "
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "Start Marker",
+                                "help": "Project Start marker. Indicates the project start point. Drag left to play upbeats or program change commands before the first downbeat. ",
+                                "role": "AXValueIndicator",
+                                "value": "0",
+                                "valueDescription": "1 bar "
+                              },
+                              {
+                                "actions": [
+                                  "AXIncrement",
+                                  "AXDecrement"
+                                ],
+                                "description": "End Marker",
+                                "help": "Project End marker. Indicates the project end point. When recording, the marker moves to fit the project length. Drag vertically to change position. ",
+                                "role": "AXValueIndicator",
+                                "value": "2111062325329920",
+                                "valueDescription": "128 bars "
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "description": "play",
+                                "role": "AXButton",
+                                "value": "0"
+                              }
+                            ],
+                            "description": "Piano Roll time ruler",
+                            "help": "",
+                            "role": "AXGroup"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  },
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "actions": [
+                              "AXScrollLeftByPage",
+                              "AXScrollRightByPage",
+                              "AXScrollUpByPage",
+                              "AXScrollDownByPage"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:37",
+                                    "role": "AXStaticText",
+                                    "value": "Time Quantize (classic)"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXIncrement",
+                                      "AXDecrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "role": "AXValueIndicator",
+                                        "value": "100"
+                                      }
+                                    ],
+                                    "description": "Strength",
+                                    "help": "Strength slider. Set the degree of quantization. ",
+                                    "identifier": "_NS:59",
+                                    "role": "AXSlider",
+                                    "value": "100"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:70",
+                                    "role": "AXStaticText",
+                                    "value": "Strength"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:81",
+                                    "role": "AXStaticText",
+                                    "value": "100"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:100",
+                                    "role": "AXGroup"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXIncrement",
+                                      "AXDecrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "role": "AXValueIndicator",
+                                        "value": "50"
+                                      }
+                                    ],
+                                    "description": "Strength",
+                                    "help": "Swing slider. Set the degree of swing. ",
+                                    "identifier": "_NS:111",
+                                    "role": "AXSlider",
+                                    "value": "50"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:117",
+                                    "role": "AXStaticText",
+                                    "value": "Swing"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:125",
+                                    "role": "AXStaticText",
+                                    "value": "50"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "description": "Time Quantize",
+                                    "help": "Time Quantize button. Correct the timing of selected notes, using the current value in the Time Quantize pop-up menu. ",
+                                    "identifier": "_NS:131",
+                                    "role": "AXButton",
+                                    "title": ""
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXShowMenu",
+                                      "AXPress"
+                                    ],
+                                    "help": "Time Quantize pop-up menu. Choose the value you want to use to correct the timing of notes, or click the Quantize button to use the current value. ",
+                                    "identifier": "_NS:143",
+                                    "role": "AXPopUpButton",
+                                    "value": "1/16 Note"
+                                  }
+                                ],
+                                "help": "",
+                                "identifier": "_NS:33",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "help": "Scale Quantize button. Correct the pitch of selected notes, using the current value in the Scale Quantize pop-up menu. ",
+                                    "identifier": "_NS:221",
+                                    "role": "AXButton",
+                                    "title": ""
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:227",
+                                    "role": "AXGroup"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:237",
+                                    "role": "AXStaticText",
+                                    "value": "Scale Quantize"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXShowMenu",
+                                      "AXPress"
+                                    ],
+                                    "help": "Scale Quantize pop-up menu. Limit the tuning adjustment to a particular scale and key, using the right and left pop-up menus respectively. ",
+                                    "identifier": "_NS:243",
+                                    "role": "AXPopUpButton",
+                                    "value": "Off"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXShowMenu",
+                                      "AXPress"
+                                    ],
+                                    "help": "Scale Quantize pop-up menu. Limit the tuning adjustment to a particular scale and key, using the right and left pop-up menus respectively. ",
+                                    "identifier": "_NS:260",
+                                    "role": "AXPopUpButton",
+                                    "value": "Major (Ionian)"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXPress"
+                                    ],
+                                    "help": "",
+                                    "identifier": "_NS:279",
+                                    "role": "AXCheckBox",
+                                    "title": "Snap To Scale",
+                                    "value": "0"
+                                  }
+                                ],
+                                "help": "",
+                                "identifier": "_NS:217",
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:370",
+                                    "role": "AXStaticText",
+                                    "value": "Velocity"
+                                  },
+                                  {
+                                    "help": "",
+                                    "identifier": "_NS:379",
+                                    "role": "AXStaticText",
+                                    "value": "100"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXIncrement",
+                                      "AXDecrement"
+                                    ],
+                                    "children": [
+                                      {
+                                        "role": "AXValueIndicator",
+                                        "value": "0.7819943428039551"
+                                      }
+                                    ],
+                                    "description": "Transpose",
+                                    "help": "Velocity slider. Change the velocity value of selected notes. ",
+                                    "identifier": "_NS:388",
+                                    "role": "AXSlider",
+                                    "value": "0.7819943428039551",
+                                    "valueDescription": "100"
+                                  }
+                                ],
+                                "help": "",
+                                "identifier": "_NS:366",
+                                "role": "AXGroup"
+                              }
+                            ],
+                            "help": "",
+                            "identifier": "_NS:766",
+                            "role": "AXScrollArea"
+                          }
+                        ],
+                        "description": "Inspector",
+                        "help": "",
+                        "identifier": "_NS:764",
+                        "role": "AXUnknown"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "B7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "E8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯18,446,744,073,709,551,614"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯18,446,744,073,709,551,615"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯0"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯2"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯3"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯4"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯5"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯6"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "G♯7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "A♯7"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "C♯8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "D♯8"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "help": "Piano Roll keyboard. Click a key to select all notes of that pitch. Drag across a range of keys to select all notes within that pitch range. ",
+                            "role": "AXButton",
+                            "title": "F♯8"
+                          },
+                          {
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "description": "Piano Roll keyboard",
+                        "help": "",
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [
+                                  {
+                                    "description": "move left border",
+                                    "role": "AXHandle"
+                                  },
+                                  {
+                                    "description": "move right border",
+                                    "role": "AXHandle"
+                                  }
+                                ],
+                                "description": "Note at 1 bar , C3",
+                                "help": "Represents a MIDI note or command, which you can edit the same way as regions. ",
+                                "role": "AXLayoutItem"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [
+                                  {
+                                    "description": "move left border",
+                                    "role": "AXHandle"
+                                  },
+                                  {
+                                    "description": "move right border",
+                                    "role": "AXHandle"
+                                  }
+                                ],
+                                "description": "Note at 1 bar 4 divisions , D3",
+                                "help": "Represents a MIDI note or command, which you can edit the same way as regions. ",
+                                "role": "AXLayoutItem"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [
+                                  {
+                                    "description": "move left border",
+                                    "role": "AXHandle"
+                                  },
+                                  {
+                                    "description": "move right border",
+                                    "role": "AXHandle"
+                                  }
+                                ],
+                                "description": "Note at 1 bar 3 beats , E3",
+                                "help": "Represents a MIDI note or command, which you can edit the same way as regions. ",
+                                "role": "AXLayoutItem"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [
+                                  {
+                                    "description": "move left border",
+                                    "role": "AXHandle"
+                                  },
+                                  {
+                                    "description": "move right border",
+                                    "role": "AXHandle"
+                                  }
+                                ],
+                                "description": "Note at 1 bar 3 beats 4 divisions , F3",
+                                "help": "Represents a MIDI note or command, which you can edit the same way as regions. ",
+                                "role": "AXLayoutItem"
+                              }
+                            ],
+                            "description": "Piano Roll",
+                            "help": "",
+                            "role": "AXLayoutArea"
+                          },
+                          {
+                            "children": [
+                              {
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          },
+                          {
+                            "children": [
+                              {
+                                "role": "AXValueIndicator",
+                                "value": "0.5287030474840539"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "help": "",
+                            "role": "AXScrollBar",
+                            "value": "0.5287030474840539"
+                          }
+                        ],
+                        "help": "",
+                        "role": "AXScrollArea"
+                      }
+                    ],
+                    "help": "",
+                    "role": "AXSplitGroup"
+                  }
+                ],
+                "help": "",
+                "role": "AXSplitGroup"
+              }
+            ],
+            "description": "Piano Roll",
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "description": "Piano Roll",
+        "help": "",
+        "role": "AXGroup"
+      }
+    ],
+    "role": "AXWindow",
+    "title": "F-T13.logicx - Piano Roll"
+  }
+}
