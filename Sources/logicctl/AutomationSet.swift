@@ -259,10 +259,7 @@ struct AutomationSetCommand: LogicCommand {
         track: track, region: region.index, rows: faders.count, points: points.count)
     }
     let asked = point.point.value
-    guard asked <= faders.count else {
-      throw NoPoint(track: track, region: region.index, point: asked, points: points.count)
-    }
-    let row = faders[asked - 1]
+    let row = faders[0]
 
     let names = AutomationSetCommand.names(of: rows, whoseFaderRowsAre: faders)
     try guarded(over: rows, called: names).selectOnly(names[row.place] ?? "point \(asked)")
