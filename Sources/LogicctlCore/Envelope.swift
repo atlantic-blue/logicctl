@@ -54,18 +54,24 @@ public struct Meta: Sendable, Equatable {
   /// How long the command took, from its start to its end.
   public let durationMs: Int
 
+  /// What else the answer has to say about itself, for example that no picture of the window was
+  /// taken and why. Null when there is nothing to add.
+  public let details: JSONValue?
+
   public init(
     version: String,
     session: String? = nil,
     step: String? = nil,
     externalChange: String? = nil,
-    durationMs: Int = 0
+    durationMs: Int = 0,
+    details: JSONValue? = nil
   ) {
     self.version = version
     self.session = session
     self.step = step
     self.externalChange = externalChange
     self.durationMs = durationMs
+    self.details = details
   }
 
   /// The meta as the JSON that goes out. A field nobody filled is null, never absent.
@@ -76,6 +82,7 @@ public struct Meta: Sendable, Equatable {
       "step": step.map(JSONValue.string) ?? .null,
       "externalChange": externalChange.map(JSONValue.string) ?? .null,
       "durationMs": .number(Double(durationMs)),
+      "details": details ?? .null,
     ])
   }
 }
