@@ -153,6 +153,7 @@ private struct StartPlayback: LogicCommand {
   /// command nothing. A transport that never starts ends at the limit with `timeout` and the
   /// milliseconds it was given, rather than a report of playback that did not happen.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
+    try output.send(MachineControlMessage.play)
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try driver.readState().transport.playing
     }
