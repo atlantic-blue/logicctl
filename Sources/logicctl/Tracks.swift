@@ -15,7 +15,7 @@ struct Tracks: ParsableCommand {
     discussion: """
       Example: logicctl tracks list
       """,
-    subcommands: [List.self, Add.self, Rename.self, Mute.self, Solo.self])
+    subcommands: [List.self, Add.self, Rename.self, Mute.self, Solo.self, Delete.self])
 }
 
 extension Tracks {
