@@ -154,9 +154,13 @@ private struct StartPlayback: LogicCommand {
   /// milliseconds it was given, rather than a report of playback that did not happen.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     try output.send(MachineControlMessage.play)
+    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+      try driver.readState().transport.playing
+    }
+    let transport = try driver.readState().transport
     return .object([
-      "playing": .bool(true),
-      "recording": .bool(false),
+      "playing": .bool(transport.playing),
+      "recording": .bool(transport.recording),
     ])
   }
 }
