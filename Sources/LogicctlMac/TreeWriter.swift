@@ -57,6 +57,14 @@ public struct LogicTree {
     return LogicTree(logicVersion: logicVersion, root: window)
   }
 
+  /// The same tree, starting at the window the project sits in, or nothing when Logic shows no
+  /// such window.
+  ///
+  /// It answers the first window of the list, which is what every read takes today.
+  public func atTheProjectWindow() -> LogicTree? {
+    atTheFrontWindow()
+  }
+
   /// The first element with the role of a window, looked for a level at a time so the windows of
   /// the application come before anything a window holds.
   private static func firstWindow(under node: any AXNode) -> (any AXNode)? {
