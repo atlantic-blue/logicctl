@@ -19,11 +19,6 @@
         ],
         "children": [
           {
-            "children": [
-              {
-                "role": "AXGroup"
-              }
-            ],
             "help": "",
             "role": "AXGroup"
           }
@@ -41,11 +36,11 @@
       {
         "help": "",
         "role": "AXImage",
-        "title": "F-T5.logicx"
+        "title": "F-T12.logicx"
       },
       {
         "role": "AXStaticText",
-        "value": "F-T5.logicx - MIDI Region - Event List"
+        "value": "F-T12.logicx - MIDI Region - Event List"
       },
       {
         "children": [
@@ -296,7 +291,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -305,7 +301,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -314,7 +311,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -323,7 +321,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "1 1 1 1 ",
@@ -358,7 +357,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -376,7 +376,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "7"
+                                "value": "7",
+                                "valueDescription": "7"
                               }
                             ],
                             "role": "AXCell"
@@ -394,7 +395,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "60"
+                                "value": "60",
+                                "valueDescription": "60"
                               }
                             ],
                             "role": "AXCell"
@@ -445,7 +447,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -454,7 +457,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -463,7 +467,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -472,7 +477,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "1 1 1 1 ",
@@ -507,7 +513,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -525,7 +532,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "60"
+                                "value": "60",
+                                "valueDescription": "C3"
                               }
                             ],
                             "role": "AXCell"
@@ -543,7 +551,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "3358588928"
+                                "value": "3358588928",
+                                "valueDescription": "100"
                               }
                             ],
                             "role": "AXCell"
@@ -562,7 +571,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -571,7 +581,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -580,7 +591,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -589,7 +601,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "160"
+                                    "value": "160",
+                                    "valueDescription": "160"
                                   }
                                 ],
                                 "description": "0 0 1 160",
@@ -633,7 +646,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -642,7 +656,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -651,7 +666,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "4"
+                                    "value": "4",
+                                    "valueDescription": "4"
                                   },
                                   {
                                     "actions": [
@@ -660,7 +676,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "1 1 4 1 ",
@@ -695,7 +712,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -713,7 +731,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "62"
+                                "value": "62",
+                                "valueDescription": "D3"
                               }
                             ],
                             "role": "AXCell"
@@ -731,7 +750,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "2348810240"
+                                "value": "2348810240",
+                                "valueDescription": "70"
                               }
                             ],
                             "role": "AXCell"
@@ -750,7 +770,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -759,7 +780,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -768,7 +790,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -777,7 +800,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "160"
+                                    "value": "160",
+                                    "valueDescription": "160"
                                   }
                                 ],
                                 "description": "0 0 1 160",
@@ -821,7 +845,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -830,7 +855,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "3"
+                                    "value": "3",
+                                    "valueDescription": "3"
                                   },
                                   {
                                     "actions": [
@@ -839,7 +865,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -848,7 +875,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "1 3 1 1 ",
@@ -883,7 +911,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -901,7 +930,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "64"
+                                "value": "64",
+                                "valueDescription": "E3"
                               }
                             ],
                             "role": "AXCell"
@@ -919,7 +949,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "3358588928"
+                                "value": "3358588928",
+                                "valueDescription": "100"
                               }
                             ],
                             "role": "AXCell"
@@ -938,7 +969,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -947,7 +979,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -956,7 +989,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -965,7 +999,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "160"
+                                    "value": "160",
+                                    "valueDescription": "160"
                                   }
                                 ],
                                 "description": "0 0 1 160",
@@ -1009,7 +1044,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -1018,7 +1054,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "3"
+                                    "value": "3",
+                                    "valueDescription": "3"
                                   },
                                   {
                                     "actions": [
@@ -1027,7 +1064,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "4"
+                                    "value": "4",
+                                    "valueDescription": "4"
                                   },
                                   {
                                     "actions": [
@@ -1036,7 +1074,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "1 3 4 1 ",
@@ -1071,7 +1110,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -1089,7 +1129,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "65"
+                                "value": "65",
+                                "valueDescription": "F3"
                               }
                             ],
                             "role": "AXCell"
@@ -1107,7 +1148,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "2147483648"
+                                "value": "2147483648",
+                                "valueDescription": "64"
                               }
                             ],
                             "role": "AXCell"
@@ -1126,7 +1168,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -1135,7 +1178,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "0"
+                                    "value": "0",
+                                    "valueDescription": "0"
                                   },
                                   {
                                     "actions": [
@@ -1144,7 +1188,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -1153,7 +1198,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "160"
+                                    "value": "160",
+                                    "valueDescription": "160"
                                   }
                                 ],
                                 "description": "0 0 1 160",
@@ -1197,7 +1243,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -1206,7 +1253,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "4"
+                                    "value": "4",
+                                    "valueDescription": "4"
                                   },
                                   {
                                     "actions": [
@@ -1215,7 +1263,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "4"
+                                    "value": "4",
+                                    "valueDescription": "4"
                                   },
                                   {
                                     "actions": [
@@ -1224,7 +1273,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "240"
+                                    "value": "240",
+                                    "valueDescription": "240"
                                   }
                                 ],
                                 "description": "1 4 4 240 ",
@@ -1259,7 +1309,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -1277,7 +1328,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "7"
+                                "value": "7",
+                                "valueDescription": "7"
                               }
                             ],
                             "role": "AXCell"
@@ -1295,7 +1347,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "90"
+                                "value": "90",
+                                "valueDescription": "90"
                               }
                             ],
                             "role": "AXCell"
@@ -1346,7 +1399,8 @@
                                     ],
                                     "description": "Segment 0",
                                     "role": "AXSlider",
-                                    "value": "2"
+                                    "value": "2",
+                                    "valueDescription": "2"
                                   },
                                   {
                                     "actions": [
@@ -1355,7 +1409,8 @@
                                     ],
                                     "description": "Segment 1",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -1364,7 +1419,8 @@
                                     ],
                                     "description": "Segment 2",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   },
                                   {
                                     "actions": [
@@ -1373,7 +1429,8 @@
                                     ],
                                     "description": "Segment 3",
                                     "role": "AXSlider",
-                                    "value": "1"
+                                    "value": "1",
+                                    "valueDescription": "1"
                                   }
                                 ],
                                 "description": "2 1 1 1 ",
@@ -1408,7 +1465,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "1"
+                                "value": "1",
+                                "valueDescription": "1"
                               }
                             ],
                             "role": "AXCell"
@@ -1426,7 +1484,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "7"
+                                "value": "7",
+                                "valueDescription": "7"
                               }
                             ],
                             "role": "AXCell"
@@ -1444,7 +1503,8 @@
                                 "description": "",
                                 "help": "",
                                 "role": "AXSlider",
-                                "value": "110"
+                                "value": "110",
+                                "valueDescription": "110"
                               }
                             ],
                             "role": "AXCell"
@@ -1586,6 +1646,6 @@
       }
     ],
     "role": "AXWindow",
-    "title": "F-T5.logicx - MIDI Region - Event List"
+    "title": "F-T12.logicx - MIDI Region - Event List"
   }
 }

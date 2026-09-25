@@ -39,6 +39,10 @@ public struct LiveAXNode: AXNode {
     text(kAXValueAttribute)
   }
 
+  public var valueDescription: String? {
+    text(kAXValueDescriptionAttribute)
+  }
+
   public var description: String? {
     text(kAXDescriptionAttribute)
   }
