@@ -4,8 +4,8 @@ import LogicctlCore
 
 /// What logicctl does with MIDI.
 ///
-/// The first thing under it writes a file and never opens Logic. The commands that send notes to
-/// the bus of Logic come later, under the same noun.
+/// One of them writes a file and never opens Logic. `note` plays one note into the bus of Logic,
+/// and the commands that send more than one note arrive under the same noun.
 struct Midi: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "midi",
@@ -13,7 +13,7 @@ struct Midi: ParsableCommand {
     discussion: """
       Example: logicctl midi write-file --in notes.json --out notes.mid
       """,
-    subcommands: [Setup.self, WriteFile.self])
+    subcommands: [Setup.self, Note.self, WriteFile.self])
 }
 
 extension Midi {

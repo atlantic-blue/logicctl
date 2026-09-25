@@ -83,3 +83,150 @@ extension MidiBus {
     return value
   }
 }
+
+extension MidiBus {
+  /// The endpoint of the destination with this name, or nil when this Mac carries none.
+  ///
+  /// CoreMIDI addresses a destination by its endpoint, and `MidiDestination` carries the name a
+  /// person reads instead, so the name is looked up again here when something is sent.
+  static func endpoint(named name: String) -> MIDIEndpointRef? {
+    for index in 0..<MIDIGetNumberOfDestinations() {
+      let endpoint = MIDIGetDestination(index)
+      if endpoint != 0, MidiBus.text(kMIDIPropertyName, of: endpoint) == name {
+        return endpoint
+      }
+    }
+    return nil
+  }
+}
+
+/// One MIDI message logicctl sends.
+///
+/// A note is two messages and not one. Note on starts it and note off stops it, and a note that
+/// never gets its note off holds the key down for as long as Logic stays open.
+public struct MidiMessage: Sendable, Equatable {
+  /// What the message does.
+  public enum Kind: String, Sendable, Equatable {
+    /// Start a note.
+    case noteOn = "note_on"
+
+    /// Stop a note.
+    case noteOff = "note_off"
+  }
+
+  public let kind: Kind
+
+  /// The key, 0 to 127, where 60 is middle C.
+  public let pitch: Int
+
+  /// How hard the key is struck for a note on, and how fast it is let go for a note off.
+  public let velocity: Int
+
+  /// The channel, 1 to 16, as Logic counts them.
+  public let channel: Int
+
+  public init(kind: Kind, pitch: Int, velocity: Int, channel: Int = 1) {
+    self.kind = kind
+    self.pitch = pitch
+    self.velocity = velocity
+    self.channel = channel
+  }
+
+  /// A key struck this hard.
+  public static func noteOn(pitch: Int, velocity: Int, channel: Int = 1) -> MidiMessage {
+    MidiMessage(kind: .noteOn, pitch: pitch, velocity: velocity, channel: channel)
+  }
+
+  /// A key let go. No flag sets the release velocity, so it is 0, which every instrument reads.
+  public static func noteOff(pitch: Int, channel: Int = 1) -> MidiMessage {
+    MidiMessage(kind: .noteOff, pitch: pitch, velocity: 0, channel: channel)
+  }
+
+  /// The three bytes of the message. MIDI carries seven bits of each value and counts channels
+  /// from 0, so the numbers a person reads are cut to the wire here and nowhere else.
+  public var bytes: [UInt8] {
+    let status: UInt8 = kind == .noteOn ? 0x90 : 0x80
+    return [
+      status | (UInt8(truncatingIfNeeded: channel - 1) & 0x0F),
+      UInt8(truncatingIfNeeded: pitch) & 0x7F,
+      UInt8(truncatingIfNeeded: velocity) & 0x7F,
+    ]
+  }
+}
+
+/// An open way out of this Mac to one MIDI destination.
+///
+/// The send is a closure the caller gives, so a test drives what goes out, and in which order, and
+/// this Mac is asked nothing. Opening it is the part that needs CoreMIDI, and a command opens it
+/// before it acts, so a Mac that cannot open a port says so before it plays anything.
+public struct MidiOutput {
+  /// Sends one message. It throws when this Mac refuses to take it.
+  public typealias Send = (MidiMessage) throws -> Void
+
+  /// Where the messages go.
+  public let destination: MidiDestination
+
+  /// Sends one message.
+  public let send: Send
+
+  public init(destination: MidiDestination, send: @escaping Send) {
+    self.destination = destination
+    self.send = send
+  }
+
+  /// Why this Mac took nothing.
+  public struct Refusal: Error, Equatable {
+    /// One sentence a person can act on.
+    public let reason: String
+
+    public init(reason: String) {
+      self.reason = reason
+    }
+  }
+}
+
+extension MidiOutput {
+  /// A way out to one destination of this Mac, over CoreMIDI.
+  ///
+  /// The client and the port are made once, here, and the closure holds them while the command
+  /// runs.
+  public static func live(to destination: MidiDestination) throws -> MidiOutput {
+    var client = MIDIClientRef()
+    guard MIDIClientCreate("logicctl" as CFString, nil, nil, &client) == noErr else {
+      throw Refusal(reason: "This Mac did not open a MIDI client for logicctl.")
+    }
+    var port = MIDIPortRef()
+    guard MIDIOutputPortCreate(client, "logicctl out" as CFString, &port) == noErr else {
+      throw Refusal(reason: "This Mac did not open a MIDI output port for logicctl.")
+    }
+    guard let endpoint = MidiBus.endpoint(named: destination.name) else {
+      throw Refusal(reason: "This Mac carries no MIDI destination named \(destination.name).")
+    }
+    return MidiOutput(destination: destination) { message in
+      try MidiOutput.send(message, through: port, to: endpoint)
+    }
+  }
+
+  /// Sends one message out of one port, as an event list carrying a single MIDI 1.0 message.
+  private static func send(
+    _ message: MidiMessage, through port: MIDIPortRef, to endpoint: MIDIEndpointRef
+  ) throws {
+    var list = MIDIEventList()
+    let packet = MIDIEventListInit(&list, ._1_0)
+    var word = MidiOutput.word(of: message)
+    _ = MIDIEventListAdd(
+      &list, MemoryLayout<MIDIEventList>.size, packet, 0, 1, &word)
+    let status = MIDISendEventList(port, endpoint, &list)
+    guard status == noErr else {
+      throw Refusal(reason: "This Mac refused the MIDI message, with the status \(status).")
+    }
+  }
+
+  /// One MIDI 1.0 channel message as the 32 bit word CoreMIDI takes: the message type 2, the
+  /// group 0, then the three bytes of the message.
+  static func word(of message: MidiMessage) -> UInt32 {
+    let bytes = message.bytes
+    return (UInt32(0x2) << 28) | (UInt32(bytes[0]) << 16) | (UInt32(bytes[1]) << 8)
+      | UInt32(bytes[2])
+  }
+}
