@@ -13,11 +13,11 @@ import Foundation
 extension State {
   /// The state one `state.json` holds, or nothing when the value is not a state logicctl wrote.
   public init?(json: JSONValue) {
-    guard let schema = number(member("schema", of: json)),
+    guard let schema = numberValue(member("schema", of: json)),
       let logic = member("logic", of: json).flatMap(LogicVersion.init(json:)),
       let project = member("project", of: json).flatMap(Project.init(json:)),
       let transport = member("transport", of: json).flatMap(Transport.init(json:)),
-      let written = items(member("tracks", of: json))
+      let written = arrayValue(member("tracks", of: json))
     else {
       return nil
     }
@@ -36,7 +36,7 @@ extension State {
 extension LogicVersion {
   /// The Logic one state was read from, or nothing when the value carries no version.
   public init?(json: JSONValue) {
-    guard let version = text(member("version", of: json)) else {
+    guard let version = stringValue(member("version", of: json)) else {
       return nil
     }
     self.init(version: version)
@@ -49,10 +49,11 @@ extension Project {
   /// A time that is not the form the writer writes reads as no time, because a project that was
   /// never saved carries none either and a guess there would name a save that never happened.
   public init?(json: JSONValue) {
-    guard let name = text(member("name", of: json)) else {
+    guard let name = stringValue(member("name", of: json)) else {
       return nil
     }
-    self.init(name: name, savedAt: text(member("savedAt", of: json)).flatMap(Project.time(of:)))
+    let written = stringValue(member("savedAt", of: json))
+    self.init(name: name, savedAt: written.flatMap(Project.time(of:)))
   }
 
   /// The moment one written time names, or nothing when the text is not the form the writer wrote.
@@ -64,9 +65,9 @@ extension Project {
 extension Transport {
   /// What the transport was doing, or nothing when the value carries less than the three fields.
   public init?(json: JSONValue) {
-    guard let playing = flag(member("playing", of: json)),
-      let recording = flag(member("recording", of: json)),
-      let tempo = number(member("tempo", of: json))
+    guard let playing = boolValue(member("playing", of: json)),
+      let recording = boolValue(member("recording", of: json)),
+      let tempo = numberValue(member("tempo", of: json))
     else {
       return nil
     }
@@ -77,14 +78,14 @@ extension Transport {
 extension Track {
   /// One track of a state, or nothing when the value carries less than a whole track.
   public init?(json: JSONValue) {
-    guard let index = number(member("index", of: json)),
-      let name = text(member("name", of: json)),
-      let kind = text(member("type", of: json)).flatMap(Kind.init(rawValue:)),
-      let mute = flag(member("mute", of: json)),
-      let solo = flag(member("solo", of: json)),
-      let arm = flag(member("arm", of: json)),
-      let written = items(member("regions", of: json)),
-      let strip = items(member("plugins", of: json))
+    guard let index = numberValue(member("index", of: json)),
+      let name = stringValue(member("name", of: json)),
+      let kind = stringValue(member("type", of: json)).flatMap(Kind.init(rawValue:)),
+      let mute = boolValue(member("mute", of: json)),
+      let solo = boolValue(member("solo", of: json)),
+      let arm = boolValue(member("arm", of: json)),
+      let written = arrayValue(member("regions", of: json)),
+      let strip = arrayValue(member("plugins", of: json))
     else {
       return nil
     }
@@ -111,10 +112,10 @@ extension Track {
 extension Region {
   /// One region of a track, or nothing when the value carries less than a whole region.
   public init?(json: JSONValue) {
-    guard let index = number(member("index", of: json)),
-      let name = text(member("name", of: json)),
-      let start = text(member("start", of: json)),
-      let end = text(member("end", of: json))
+    guard let index = numberValue(member("index", of: json)),
+      let name = stringValue(member("name", of: json)),
+      let start = stringValue(member("start", of: json)),
+      let end = stringValue(member("end", of: json))
     else {
       return nil
     }
@@ -125,12 +126,12 @@ extension Region {
 extension Plugin {
   /// One plugin of a channel strip, or nothing when the value carries no slot and no name.
   public init?(json: JSONValue) {
-    guard let slot = number(member("slot", of: json)),
-      let name = text(member("name", of: json))
+    guard let slot = numberValue(member("slot", of: json)),
+      let name = stringValue(member("name", of: json))
     else {
       return nil
     }
-    self.init(slot: Int(slot), name: name, stateHash: text(member("stateHash", of: json)))
+    self.init(slot: Int(slot), name: name, stateHash: stringValue(member("stateHash", of: json)))
   }
 }
 
@@ -144,7 +145,7 @@ private func member(_ name: String, of value: JSONValue) -> JSONValue? {
 
 /// The text one value carries, or nothing when it is no text. Null reads as nothing, which is how
 /// a state says that a project was never saved and that a plugin carries no hash.
-private func text(_ value: JSONValue?) -> String? {
+private func stringValue(_ value: JSONValue?) -> String? {
   guard let value, case .string(let written) = value else {
     return nil
   }
@@ -152,7 +153,7 @@ private func text(_ value: JSONValue?) -> String? {
 }
 
 /// The number one value carries, or nothing when it is no number.
-private func number(_ value: JSONValue?) -> Double? {
+private func numberValue(_ value: JSONValue?) -> Double? {
   guard let value, case .number(let read) = value else {
     return nil
   }
@@ -160,7 +161,7 @@ private func number(_ value: JSONValue?) -> Double? {
 }
 
 /// The true or false one value carries, or nothing when it is neither.
-private func flag(_ value: JSONValue?) -> Bool? {
+private func boolValue(_ value: JSONValue?) -> Bool? {
   guard let value, case .bool(let read) = value else {
     return nil
   }
@@ -168,7 +169,7 @@ private func flag(_ value: JSONValue?) -> Bool? {
 }
 
 /// The values one array carries, or nothing when the value is no array.
-private func items(_ value: JSONValue?) -> [JSONValue]? {
+private func arrayValue(_ value: JSONValue?) -> [JSONValue]? {
   guard let value, case .array(let read) = value else {
     return nil
   }
