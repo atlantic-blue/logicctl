@@ -97,7 +97,9 @@ extension Show {
     guard case .object(let record) = SaveLookup.record(ofSequence: row.seq, in: repository),
       case .array(let argv) = record["argv"] ?? .null,
       case .string(let startedAt) = record["startedAt"] ?? .null,
-      case .string(let finishedAt) = record["finishedAt"] ?? .null
+      case .string(let finishedAt) = record["finishedAt"] ?? .null,
+      let before = Show.hash("stateBefore", in: record),
+      let after = Show.hash("stateAfter", in: record)
     else {
       return nil
     }
@@ -108,10 +110,8 @@ extension Show {
     members["command"] = row.command.map(JSONValue.string) ?? .null
     members["argv"] = .array(argv)
     members["exitCode"] = .number(Double(row.exitCode))
-    // The hashes arrive in the next commit. This one answers none, so the scenario runs and
-    // fails on the pair it reads back rather than on a build.
-    members["stateBefore"] = .null
-    members["stateAfter"] = .null
+    members["stateBefore"] = before
+    members["stateAfter"] = after
     members["screenshot"] = Show.picture(ofSequence: row.seq, in: record)
     members["commit"] = .string(row.commit)
     members["startedAt"] = .string(startedAt)
@@ -119,6 +119,22 @@ extension Show {
     members["session"] = .string(repository.session.id)
     members["versions"] = repository.session.versions.json
     return .object(members)
+  }
+
+  /// One hash of a state the record holds, or null when no Logic was left to read it.
+  ///
+  /// The record carries the hash as a text, or as null after a crash. Anything else is a record
+  /// that cannot be read, and nothing answers a hash it made up, because the commit of the step
+  /// carries the same pair and a reader holds the two against each other.
+  static func hash(_ key: String, in record: [String: JSONValue]) -> JSONValue? {
+    guard let written = record[key] else {
+      return nil
+    }
+    switch written {
+    case .string(let text): return .string(text)
+    case .null: return .null
+    default: return nil
+    }
   }
 
   /// Where the picture of one step sits, inside the session repository, or null when the capture
