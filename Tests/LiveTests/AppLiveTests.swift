@@ -573,11 +573,13 @@ private final class FakeLogic {
 
     switch name {
     case "launch":
-      return success("""
+      return success(
+        """
         {"running":true,"pid":4321}
         """)
     case "status":
-      return success("""
+      return success(
+        """
         {"frontmost":true,"running":true,"version":"12.3.1","window":"Untitled - Tracks"}
         """)
     case "new-project":
@@ -604,7 +606,8 @@ private final class FakeLogic {
         session: FakeLogic.session,
         step: FakeLogic.firstCommit)
     case "quit":
-      return success("""
+      return success(
+        """
         {"running":false}
         """)
     default:
