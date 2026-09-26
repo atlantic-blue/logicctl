@@ -19,7 +19,7 @@ extension Midi {
         Logic quantizes what is selected in the Piano Roll, so the Piano Roll of the region is \
         open while this runs. The notes after the change are read from the Event List, so that \
         window is open too. A grid that Logic does not offer is refused before logicctl talks to \
-        Logic at all.
+        Logic at all. A project logicctl did not make needs --confirm.
 
         Example: logicctl midi quantize --track 4 --region 1 --value 1/16 --strength 100
         """)
@@ -32,11 +32,16 @@ extension Midi {
     @Option(help: "How far each note moves onto the grid, 0 to 100.")
     var strength: QuantizeStrength
 
+    @OptionGroup var guarded: ConfirmOption
+
     @OptionGroup var output: OutputOption
 
     func run() throws {
       let status = answer(
-        driver: Midi.Quantize.liveDriver(), of: LogicTree.ofRunningLogic, format: output.format)
+        driver: Midi.Quantize.liveDriver(),
+        of: LogicTree.ofRunningLogic,
+        confirmed: guarded.confirm,
+        format: output.format)
       guard status == 0 else {
         // The envelope is written already. The number goes out through the root command, which
         // prints nothing more for it.
@@ -55,6 +60,7 @@ extension Midi.Quantize {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    confirmed: Bool,
     pianoRoll: PianoRoll = PianoRoll.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
@@ -77,15 +83,14 @@ extension Midi.Quantize {
       git: git,
       lock: lock,
       capturer: capturer)
-    return printer.write(
-      run.run(
-        command: MidiQuantizeCommand(
-          target: region,
-          value: value,
-          strength: strength,
-          pianoRoll: pianoRoll,
-          source: source,
-          argv: argv)))
+    let command = MidiQuantizeCommand(
+      target: region,
+      value: value,
+      strength: strength,
+      pianoRoll: pianoRoll,
+      source: source,
+      argv: argv)
+    return printer.write(run.run(change: command, confirmed: confirmed))
   }
 
   /// What this command reads Logic through on this Mac.
@@ -97,8 +102,9 @@ extension Midi.Quantize {
 /// The quantize of one region, as the run of a command sees it.
 ///
 /// It asks the driver which region the two numbers name, quantizes in the Piano Roll, and reads
-/// the notes back out of the Event List. The run takes the lock, records the step and answers the
-/// envelope around it.
+/// the notes back out of the Event List. It moves the timing of every note of the region, so it
+/// goes through the guard: a project logicctl did not make is left alone until a person says
+/// `--confirm`. The run takes the lock, records the step and answers the envelope around it.
 struct MidiQuantizeCommand: LogicCommand {
   let name = "midi quantize"
 

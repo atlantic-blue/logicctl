@@ -1,5 +1,6 @@
 import Foundation
 import LogicctlCore
+import LogicctlJournal
 import LogicctlMac
 import LogicctlTesting
 import Testing
@@ -255,6 +256,62 @@ private func aProjectWithARegionOnTrack4() -> [Track] {
   ]
 }
 
+/// A git that signs, pointed at a configuration of its own.
+///
+/// The `--confirm` half of the guard writes a real session repository, and a session repository
+/// turns signing off for itself. So no test reads or writes the configuration of the operator.
+private func gitThatSigns(inside folder: URL) throws -> Git {
+  let configuration = folder.appendingPathComponent("gitconfig")
+  let written = """
+    [commit]
+    \tgpgsign = true
+    [gpg]
+    \tprogram = /usr/bin/false
+    """
+  try Data(written.utf8).write(to: configuration, options: .atomic)
+  return Git(environment: [
+    "GIT_CONFIG_GLOBAL": configuration.path,
+    "GIT_CONFIG_SYSTEM": "/dev/null",
+  ])
+}
+
+/// A Mac that takes no picture of the window, which is every Mac the pipeline runs on.
+private struct NoPictureOfTheWindow: WindowCapturer {
+  struct TookNone: Error {}
+
+  func picture(ofLogicRunningAs processID: Int32) throws -> Data {
+    throw TookNone()
+  }
+}
+
+/// Runs `logicctl midi quantize` against a Logic of this test.
+///
+/// The arguments go in as text, so `--confirm` reaches the command the way a person types it and
+/// not as a value a test handed over.
+private func midiQuantize(
+  _ arguments: [String],
+  logic: AFakeLogic,
+  path: String,
+  root: URL,
+  git: Git
+) throws -> Answer {
+  var out = ""
+  var err = ""
+  let typed = try Logicctl.parseAsRoot(["midi", "quantize"] + arguments)
+  let quantize = try #require(typed as? Midi.Quantize)
+  let status = quantize.answer(
+    driver: FakeLogicDriver(tracks: aProjectWithARegionOnTrack4(), path: path),
+    of: { logic.tree },
+    confirmed: quantize.guarded.confirm,
+    pianoRoll: logic.actions,
+    root: root,
+    git: git,
+    capturer: NoPictureOfTheWindow(),
+    standardOutput: { out += $0 },
+    standardError: { err += $0 })
+  return Answer(out: out, err: err, status: status)
+}
+
 /// A quantize is a change of timing, so it is the one thing about a note that may come back
 /// different.
 ///
@@ -289,6 +346,7 @@ private func aProjectWithARegionOnTrack4() -> [Track] {
   let status = quantize.answer(
     driver: FakeLogicDriver(tracks: aProjectWithARegionOnTrack4()),
     of: { logic.tree },
+    confirmed: quantize.guarded.confirm,
     pianoRoll: logic.actions,
     root: URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
     standardOutput: { out += $0 },
@@ -325,4 +383,69 @@ private func aProjectWithARegionOnTrack4() -> [Track] {
     "the press comes last, because Logic quantizes what the popup holds when it is pressed")
   #expect(status == 0, "the command exits 0")
   #expect(err == "", "standard error stays empty when a command worked")
+}
+
+/// A person opens a project they wrote themselves, and an agent asks logicctl to quantize a region
+/// of it.
+///
+/// The timing of that music is their work, and a quantize is the widest edit of the three this
+/// tool makes to a region: `midi note` and `midi velocity` each change one event, and this one
+/// moves every note that is selected at once. It cannot be read back afterwards either. Once the
+/// notes sit on the grid, no later read of the region says where they were, so a person who did
+/// not ask for it has lost the feel of the part and has nothing to compare against.
+///
+/// So logicctl does not quantize a project of a person on its own word. The agent reads
+/// `confirm_required` and exit 7, nothing is selected, nothing is written into the Time Quantize
+/// popup, the button is not pressed, and all four notes sit where the person left them. The person
+/// then says `--confirm`, and the same command moves the same four notes onto the grid.
+///
+/// Both halves are here against one project, because a refusal on its own also reads green on a
+/// logicctl that refuses every quantize. The second half says the guard is what stopped the first.
+@Test func quantizeNeedsConfirmOnAProjectLogicctlDidNotMake() throws {
+  let root = FileManager.default.temporaryDirectory
+    .appendingPathComponent("logicctl-quantize-\(UUID().uuidString)")
+  try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+  let theirProject = root.appending(path: "The Work Of A Person.logicx").path
+
+  let offGrid = ["1 1 1 38", "1 1 3 190", "1 3 1 45", "1 3 4 87"]
+  let events = try recorded("event-list-automation.json")
+  let arguments = ["--track", "4", "--region", "1", "--value", "1/16", "--strength", "100"]
+
+  let theirs = AFakeLogic(
+    pianoRoll: try recorded("piano-roll.json"),
+    before: offTheGrid(events, positions: offGrid),
+    after: events)
+
+  let refused = try midiQuantize(arguments, logic: theirs, path: theirProject, root: root, git: git)
+
+  #expect(refused.status == 7, "the number the design system gives confirm_required")
+  #expect(
+    try refused.failure()["code"] as? String == "confirm_required",
+    "logicctl did not make this project")
+  #expect(try refused.printed()["data"] is NSNull, "a command that stopped answers nothing")
+  #expect(
+    theirs.did.isEmpty,
+    "nothing was selected, nothing was written into the popup, and nothing was pressed")
+
+  let kept = try EventList.notes(in: try #require(EventList.window(of: theirs.tree)))
+  #expect(
+    kept.map(\.position) == offGrid, "every note of the person sits where they left it")
+
+  let allowed = AFakeLogic(
+    pianoRoll: try recorded("piano-roll.json"),
+    before: offTheGrid(events, positions: offGrid),
+    after: events)
+
+  let said = try midiQuantize(
+    arguments + ["--confirm"], logic: allowed, path: theirProject, root: root, git: git)
+
+  #expect(said.status == 0, "the person said --confirm, so the same command goes through")
+  let notes = try said.printed()["data"] as? [String: Any] ?? [:]
+  let rows = notes["notes"] as? [[String: Any]] ?? []
+  #expect(
+    rows.map { $0["position"] as? String } == ["1 1 1 1", "1 1 4 1", "1 3 1 1", "1 3 4 1"],
+    "the four notes moved onto the grid")
+  #expect(allowed.pressed == ["Time Quantize"], "the button that quantizes was pressed")
 }
