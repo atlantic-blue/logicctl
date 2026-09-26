@@ -35,12 +35,15 @@ extension Midi {
     @Option(help: "The velocity the note carries after the change, 1 to 127.")
     var value: Velocity
 
+    @OptionGroup var guarded: ConfirmOption
+
     @OptionGroup var output: OutputOption
 
     func run() throws {
       let status = answer(
         driver: Midi.SetVelocity.liveDriver(),
         of: LogicTree.ofRunningLogic,
+        confirmed: guarded.confirm,
         format: output.format)
       guard status == 0 else {
         // The envelope is written already. The number goes out through the root command, which
@@ -60,6 +63,7 @@ extension Midi.SetVelocity {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    confirmed: Bool,
     events: EventList.Actions = EventList.Actions.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
