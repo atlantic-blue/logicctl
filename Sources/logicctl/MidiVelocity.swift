@@ -23,7 +23,8 @@ extension Midi {
         Logic shows the velocity of a note in the Event List, so the Event List of the region is \
         open while this runs. A note number the region does not hold stops the command, and \
         nothing is selected and nothing moves. The velocity in the answer is the one the slider \
-        reads after the change, which is what the note carries.
+        reads after the change, which is what the note carries. A project logicctl did not make \
+        needs --confirm.
 
         Example: logicctl midi velocity --track 4 --region 1 --note 2 --value 90
         """)
@@ -86,15 +87,14 @@ extension Midi.SetVelocity {
       git: git,
       lock: lock,
       capturer: capturer)
-    return printer.write(
-      run.run(
-        command: MidiVelocityCommand(
-          target: region,
-          note: target,
-          value: value,
-          events: events,
-          source: source,
-          argv: argv)))
+    let command = MidiVelocityCommand(
+      target: region,
+      note: target,
+      value: value,
+      events: events,
+      source: source,
+      argv: argv)
+    return printer.write(run.run(change: command, confirmed: confirmed))
   }
 
   /// What this command reads Logic through on this Mac.
@@ -106,8 +106,9 @@ extension Midi.SetVelocity {
 /// The change of the velocity of one note, as the run of a command sees it.
 ///
 /// It asks the driver which region the two numbers name, finds the note in the Event List, holds
-/// that row alone, and moves the velocity slider of the row. The run takes the lock, records the
-/// step and answers the envelope around it.
+/// that row alone, and moves the velocity slider of the row. It changes the project, so it goes
+/// through the guard: a project logicctl did not make is left alone until a person says
+/// `--confirm`. The run takes the lock, records the step and answers the envelope around it.
 struct MidiVelocityCommand: LogicCommand {
   let name = "midi velocity"
 
