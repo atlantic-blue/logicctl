@@ -381,9 +381,8 @@ public enum Locators {
 
   /// The button that closes the panel and imports nothing.
   ///
-  /// logicctl never presses it. It is here because a command that failed inside the panel leaves
-  /// the panel open, and a person reading the failure needs the name of the control that closes
-  /// it.
+  /// A walk that stops inside the panel presses it, because the panel stays in front of the
+  /// project and a person is left with a window that the failure says nothing about.
   public static let importCancelButton = Locator(
     name: "import.cancelButton",
     path: toTheImportPanel + [LocatorStep(role: "AXButton", identifier: "CancelButton")])

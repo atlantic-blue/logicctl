@@ -345,14 +345,13 @@ extension ImportDialog {
     try press(Locators.importWherePopup)
     let disk = try startUpDisk()
     try pressItem(disk)
+    try readThePopup(
+      until: disk, onTheWayTo: path, limitMs: limitMs, clock: clock, sleeper: sleeper)
     for folder in path.folders {
+      try bringIntoView(folder)
       try openFolder(folder)
-      let shown = try folderShown()
-      guard shown == folder else {
-        throw Refusal(
-          reason: "The Import panel was asked for \(folder) and shows \(shown), so the walk to "
-            + "\(path.resolved) stopped and nothing was imported.")
-      }
+      try readThePopup(
+        until: folder, onTheWayTo: path, limitMs: limitMs, clock: clock, sleeper: sleeper)
     }
     try selection.selectOnly(path.name)
     guard try enabled(Locators.importButton) else {
@@ -361,6 +360,40 @@ extension ImportDialog {
           + "Logic would take no press. Bring Logic to the front and run the command again.")
     }
     try press(Locators.importButton)
+  }
+
+  /// Reads the Where popup until it shows one folder, and stops the walk when it never does.
+  ///
+  /// The answer of the open action says nothing about whether the panel moved, so the popup is
+  /// the only thing that does, and it catches up after the open answers. A walk that read it
+  /// one time therefore reported a folder that opened as a folder that did not.
+  private func readThePopup(
+    until folder: String,
+    onTheWayTo path: ImportPath,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws {
+    var shown = ""
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        shown = try folderShown()
+        return shown == folder
+      }
+    } catch let ranOut as Wait.RanOut {
+      // The panel stays in front of the project when the walk stops, so it is closed here. A
+      // press Logic refuses does not replace the reason the walk stopped.
+      try? press(Locators.importCancelButton)
+      throw Refusal(
+        reason: "The Import panel was asked for \(folder) and showed \(shown) "
+          + "\(ranOut.waitedMs)ms later, so the walk to \(path.resolved) stopped and nothing "
+          + "was imported.",
+        code: .timeout,
+        details: .object([
+          "folder": .string(folder),
+          "waitedMs": .number(Double(ranOut.waitedMs)),
+        ]))
+    }
   }
 }
 
@@ -391,7 +424,7 @@ extension ImportDialog {
       bringToFront: ImportDialog.bringTheLogicOfThisMacToTheFront,
       enabled: ImportDialog.isEnabledInTheLogicOfThisMac,
       pressItem: ImportDialog.pressTheOpenMenuItemOfThisMac,
-      bringIntoView: { _ in },
+      bringIntoView: ImportDialog.bringTheRowIntoViewInTheLogicOfThisMac,
       openFolder: ImportDialog.openTheFolderInTheLogicOfThisMac,
       folderShown: ImportDialog.theFolderTheLogicOfThisMacShows,
       startUpDisk: ImportFile.startUpDiskOfThisMac,
@@ -476,9 +509,42 @@ extension ImportDialog {
         code: .internalFailure)
     }
     let answered = AXUIElementPerformAction(live.element, ImportDialog.openAction as CFString)
+    if let refusal = ImportDialog.refusal(forOpenAnswer: answered.rawValue, folder: name) {
+      throw refusal
+    }
+  }
+
+  /// Scrolls the file list of this Mac until one row is in view.
+  ///
+  /// A row out of view takes the open action and does nothing with it, so the bar is set before
+  /// every open. A list of one row holds nothing to scroll, and it needs nothing.
+  static func bringTheRowIntoViewInTheLogicOfThisMac(_ name: String) throws {
+    let rows = try ImportDialog.fileList().children.filter { $0.role == "AXRow" }
+    let found = rows.indices.filter { ImportDialog.nameShown(by: rows[$0]) == name }
+    guard found.count == 1, let number = found.first else {
+      throw Refusal(
+        reason: "The Import panel shows \(found.count) rows called \(name) in this folder.")
+    }
+    guard let sits = ImportDialog.scrollValue(forRow: number + 1, of: rows.count) else {
+      return
+    }
+    let window = try ImportDialog.frontWindow()
+    guard let bar = ImportDialog.verticalScrollBarOfTheFileList(in: window) else {
+      throw Refusal(
+        reason: "The file list of the Import panel shows no vertical scroll bar, so \(name) "
+          + "cannot be brought into view.")
+    }
+    guard let live = bar as? LiveAXNode else {
+      throw Refusal(
+        reason: "The scroll bar was found in a recorded tree, which nothing can scroll.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      live.element, kAXValueAttribute as CFString, NSNumber(value: sits) as CFTypeRef)
     guard answered == .success else {
       throw Refusal(
-        reason: "Logic refused to open \(name) in the Import panel, error \(answered.rawValue).",
+        reason: "Logic refused to scroll the file list of the Import panel, error "
+          + "\(answered.rawValue).",
         code: .internalFailure)
     }
   }
@@ -623,8 +689,15 @@ extension ImportDialog {
   }
 
   /// What the answer of the open action means, or nothing when it stops nothing.
+  ///
+  /// Measured on this Mac at 14:40 on 2026-09-26 (Logic 12.3.1): the open action answers -25205
+  /// on a row of the file list that Logic does open, and the Where popup reads the new folder
+  /// afterwards. So that one answer stops nothing, and the popup decides. Every other answer
+  /// than success is a refusal, because a row that answered one of those did not open.
   public static func refusal(forOpenAnswer answered: Int32, folder: String) -> Refusal? {
-    guard answered != ImportDialog.answerOfASuccess else {
+    guard answered != ImportDialog.answerOfASuccess,
+      answered != ImportDialog.answerOfARowThatOpened
+    else {
       return nil
     }
     return Refusal(
@@ -632,18 +705,65 @@ extension ImportDialog {
       code: .internalFailure)
   }
 
-  /// Where the vertical bar of the file list sits for one row to be in view, from 0 to 1.
+  /// Where the vertical bar of the file list sits for one row to be in view, from 0 to 1, or
+  /// nothing when the list holds one row and there is nothing to scroll.
+  ///
+  /// Measured through AppleScript at 15:55 on 2026-09-26: row 23 of 23 of the home folder took
+  /// the open action and did nothing, and opened once the bar was set to (23 - 1) / (23 - 1).
   public static func scrollValue(forRow number: Int, of rows: Int) -> Double? {
-    nil
+    guard rows > 1 else {
+      return nil
+    }
+    return Double(number - 1) / Double(rows - 1)
   }
 
-  /// The bar that scrolls the file list of the panel up and down.
+  /// The bar that scrolls the file list of the panel up and down, or nothing when the panel
+  /// shows none.
+  ///
+  /// The scroll area of the list view holds a horizontal bar first and a vertical bar second,
+  /// and both carry the same role, so the orientation is the only thing that tells them apart.
   public static func verticalScrollBarOfTheFileList(in window: any AXNode) -> (any AXNode)? {
-    nil
+    guard let area = ImportDialog.scrollAreaOfTheFileList(in: window) else {
+      return nil
+    }
+    return area.children.first {
+      $0.role == ImportDialog.scrollBarRole && $0.orientation == ImportDialog.verticalOrientation
+    }
+  }
+
+  /// The scroll area the file list sits in, looked for a level at a time.
+  private static func scrollAreaOfTheFileList(in window: any AXNode) -> (any AXNode)? {
+    var level: [any AXNode] = [window]
+    while !level.isEmpty {
+      if let found = level.first(where: ImportDialog.holdsTheFileList) {
+        return found
+      }
+      level = level.flatMap { $0.children }
+    }
+    return nil
+  }
+
+  /// Whether one element is the scroll area that holds the file list.
+  private static func holdsTheFileList(_ node: any AXNode) -> Bool {
+    node.role == ImportDialog.scrollAreaRole
+      && node.children.contains(where: { $0.identifier == ImportDialog.fileListIdentifier })
   }
 
   /// What Accessibility answers when it took the action.
   static let answerOfASuccess: Int32 = 0
+
+  /// What the open action answers on a row of the file list that Logic does open. The number is
+  /// `kAXErrorAttributeUnsupported`, and it says nothing about the folder.
+  static let answerOfARowThatOpened: Int32 = -25205
+
+  /// The role of the area the file list scrolls in.
+  static let scrollAreaRole = "AXScrollArea"
+
+  /// The role both bars of that area carry.
+  static let scrollBarRole = "AXScrollBar"
+
+  /// What the vertical bar of that area says it is.
+  static let verticalOrientation = "AXVerticalOrientation"
 
   /// The action a row of the file list carries to move the panel into that folder.
   static let openAction = "AXOpen"

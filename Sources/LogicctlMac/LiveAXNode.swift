@@ -51,6 +51,10 @@ public struct LiveAXNode: AXNode {
     text(kAXHelpAttribute)
   }
 
+  public var orientation: String? {
+    text(kAXOrientationAttribute)
+  }
+
   public var actions: [String] {
     var names: CFArray?
     guard AXUIElementCopyActionNames(element, &names) == .success else {

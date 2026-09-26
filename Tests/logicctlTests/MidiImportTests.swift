@@ -395,9 +395,9 @@ private func midiImport(
     panel.moves == [
       .menu, .broughtToTheFront, .pressed(Locators.importWherePopup.name), .wherePopup(theDisk),
     ]
-      + folders(of: theFile).map(Move.opened)
+      + folders(of: theFile).flatMap { [Move.broughtIntoView($0), Move.opened($0)] }
       + [.selected([theFile.lastPathComponent]), .pressed(Locators.importButton.name)],
-    "the panel was walked to the file where the file is, and then Import was pressed")
+    "each folder was scrolled to and then opened, and then Import was pressed")
 
   #expect(logic.driver.state?.tracks.count == 2, "the project holds the track Logic made")
 
