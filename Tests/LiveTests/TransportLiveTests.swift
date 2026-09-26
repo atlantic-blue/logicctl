@@ -227,7 +227,7 @@ struct Phase3LiveScenarios {
   /// The project belongs to a person, so the change goes through `--confirm`. The step keeps the
   /// picture of the window the tempo field sits in, and the line this prints says where that
   /// picture went, or why this Mac took none.
-  @Test func tempoSetsTheTempoOfTheProject() throws {
+  @Test func tempoIsLeftToAPerson() throws {
     LiveHarness.liveScenario("tempoSetsTheTempoOfTheProject")
     _ = try ScratchCopy.open()
 
