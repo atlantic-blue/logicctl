@@ -395,6 +395,21 @@ public enum Locators {
     return Locator(name: "save.column\(number + 1)", path: toTheSaveColumnView + column)
   }
 
+  /// The scroll bar of one column of that browser, which puts the rows of it in view.
+  ///
+  /// A column scrolls its own rows, and `AXOpen` reaches a row only while that row is in view.
+  /// Measured on Logic 12.3.1 on 2026-09-26 at 15:30: the folder at row 14 of the 22 in the home
+  /// folder did not open until this bar was set to (14 - 1) / (22 - 1). The bar carries no
+  /// identifier either, and it is the one element of its role inside the column.
+  public static func saveColumnScrollBar(number: Int) -> Locator {
+    let bar = [
+      LocatorStep(role: "AXScrollArea"),
+      LocatorStep(role: "AXScrollArea", index: number),
+      LocatorStep(role: "AXScrollBar"),
+    ]
+    return Locator(name: "save.column\(number + 1).scrollBar", path: toTheSaveColumnView + bar)
+  }
+
   /// The window Logic opens for File, Import, "MIDI File...".
   ///
   /// It is a window of its own and not a sheet on the project, and it carries the identifier

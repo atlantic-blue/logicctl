@@ -59,6 +59,15 @@ public struct SaveDialog {
   /// The folder the panel is in, as the Where popup shows it.
   public typealias ReadFolder = () throws -> String
 
+  /// Presses the item of the open menu whose title is this.
+  public typealias PressItem = (String) throws -> Void
+
+  /// The name of the start up disk of this Mac.
+  public typealias ReadDisk = () throws -> String
+
+  /// Puts the rows of the column at this number in view, at a place from 0 to 1.
+  public typealias Scroll = (Int, Double) throws -> Void
+
   /// Asks Logic for File, "Save As...".
   public let openTheMenuItem: OpenTheMenuItem
 
@@ -83,6 +92,15 @@ public struct SaveDialog {
   /// Reads which folder the panel reached.
   public let folderShown: ReadFolder
 
+  /// Presses an item of the menu the Where popup opens.
+  public let pressItem: PressItem
+
+  /// Reads what the start up disk is called.
+  public let startUpDisk: ReadDisk
+
+  /// Puts the rows of one column in view.
+  public let scroll: Scroll
+
   public init(
     openTheMenuItem: @escaping OpenTheMenuItem,
     showsThePanel: @escaping Read,
@@ -91,7 +109,10 @@ public struct SaveDialog {
     resolve: @escaping Resolve,
     namesInColumn: @escaping ReadNames,
     openFolder: @escaping OpenFolder,
-    folderShown: @escaping ReadFolder
+    folderShown: @escaping ReadFolder,
+    pressItem: @escaping PressItem,
+    startUpDisk: @escaping ReadDisk,
+    scroll: @escaping Scroll
   ) {
     self.openTheMenuItem = openTheMenuItem
     self.showsThePanel = showsThePanel
@@ -101,6 +122,9 @@ public struct SaveDialog {
     self.namesInColumn = namesInColumn
     self.openFolder = openFolder
     self.folderShown = folderShown
+    self.pressItem = pressItem
+    self.startUpDisk = startUpDisk
+    self.scroll = scroll
   }
 }
 
@@ -149,6 +173,13 @@ extension SaveDialog {
   /// that landed somewhere else would leave the project in that folder under the right name, and no
   /// read of the name afterwards would catch it.
   ///
+  /// Measured on this Mac at 15:30 on 2026-09-26, and this is what shapes the walk. The panel opens
+  /// wherever it likes, and `AXOpen` on a row of an earlier column does nothing, so the route moves
+  /// the panel to the start up disk first, which leaves exactly one column. `AXOpen` reaches a row
+  /// of the last column, and only while that row is in view, so the place of the row goes into the
+  /// scroll bar of that column first. Setting `AXSelected` on a row is refused, and setting
+  /// `AXSelectedChildren` of the list of a column changes nothing, so neither is a way in.
+  ///
   /// A folder the column does not list stops the route before it writes anything. The route closes
   /// the panel and names that folder. The project stays where it is.
   public func save(
@@ -163,12 +194,18 @@ extension SaveDialog {
       try showsThePanel()
     }
     do {
+      try press(Locators.saveWherePopup)
+      try pressItem(startUpDisk())
       for (number, folder) in destination.folders.enumerated() {
-        guard try namesInColumn(number).contains(folder) else {
+        let listed = try namesInColumn(number)
+        guard let row = listed.firstIndex(of: folder) else {
           throw Refusal(
             reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
               + "\(path) stopped, and nothing was written.",
             code: .invalidArgument)
+        }
+        if let place = SaveDialog.place(ofRow: row, of: listed.count) {
+          try scroll(number, place)
         }
         try openFolder(number, folder)
         try reach(folder, ofPath: path, limitMs: limitMs, clock: clock, sleeper: sleeper)
@@ -183,6 +220,21 @@ extension SaveDialog {
       closeThePanel()
       throw error
     }
+  }
+
+  /// Where the scroll bar of a column has to sit for one row of that column to be in view.
+  ///
+  /// Measured on this Mac at 15:30 on 2026-09-26: the folder at row 14 of the 22 in the home folder
+  /// did not open until the scroll bar of its column was set to (14 - 1) / (22 - 1). The rows are
+  /// counted from 0 here, so the first row is 0 and the last is 1.
+  ///
+  /// A column of one row needs no scroll, and the division has nothing to divide by, so it answers
+  /// nothing. A row that is not in the column answers nothing either.
+  public static func place(ofRow row: Int, of count: Int) -> Double? {
+    guard count > 1, row >= 0, row < count else {
+      return nil
+    }
+    return Double(row) / Double(count - 1)
   }
 
   /// Waits for the Where popup to show one folder, and fails with `timeout` when it never does.
@@ -232,7 +284,10 @@ extension SaveDialog {
       resolve: SaveDialog.resolveOnThisMac,
       namesInColumn: SaveDialog.theNamesInTheColumnOfThisMac,
       openFolder: SaveDialog.openTheFolderInTheLogicOfThisMac,
-      folderShown: SaveDialog.theFolderTheLogicOfThisMacShows)
+      folderShown: SaveDialog.theFolderTheLogicOfThisMacShows,
+      pressItem: SaveDialog.pressTheOpenMenuItemOfThisMac,
+      startUpDisk: SaveDialog.theStartUpDiskOfThisMac,
+      scroll: SaveDialog.scrollTheColumnOfThisMac)
   }
 
   /// What the menu item of Logic is called, under the File menu.
@@ -428,6 +483,58 @@ extension SaveDialog {
   /// where the panel got to, and this one answer is not a refusal. Every other one is.
   public static func opensAnyway(_ code: Int32) -> Bool {
     code == AXError.attributeUnsupported.rawValue
+  }
+
+  /// Presses the item of the menu the Where popup opened, by its title.
+  ///
+  /// The menu of macOS exists only while the process that opened it holds it open, so the press of
+  /// the popup and this walk run in one process.
+  static func pressTheOpenMenuItemOfThisMac(_ title: String) throws {
+    let popup = try LocatorResolver.element(
+      of: Locators.saveWherePopup, in: SaveDialog.frontWindow())
+    guard let menu = popup.children.first(where: { $0.role == "AXMenu" }) else {
+      throw Refusal(reason: "The Where popup of the Save panel opened no menu.")
+    }
+    let found = menu.children.filter { $0.title == title }
+    guard found.count == 1, let item = found.first else {
+      throw Refusal(
+        reason: "The Where popup of the Save panel offers \(found.count) items called \(title).")
+    }
+    try SaveDialog.askToPress(item, named: title)
+  }
+
+  /// What the start up disk of this Mac is called, which is what the Where popup calls its root.
+  ///
+  /// It is read rather than written down, because the name belongs to the Mac: a disk called
+  /// something else would leave the route pressing an item the menu does not carry.
+  static func theStartUpDiskOfThisMac() throws -> String {
+    let values = try URL(fileURLWithPath: "/").resourceValues(forKeys: [.volumeLocalizedNameKey])
+    guard let name = values.volumeLocalizedName else {
+      throw Refusal(
+        reason: "This Mac does not say what its start up disk is called, so the Save panel could "
+          + "not be moved to it.")
+    }
+    return name
+  }
+
+  /// Puts the rows of one column of this Mac in view, at a place from 0 at the top to 1 at the end.
+  static func scrollTheColumnOfThisMac(_ number: Int, _ place: Double) throws {
+    let bar = try LocatorResolver.element(
+      of: Locators.saveColumnScrollBar(number: number), in: SaveDialog.frontWindow())
+    guard let live = bar as? LiveAXNode else {
+      throw Refusal(
+        reason: "The scroll bar of column \(number + 1) was read from a recorded tree, which "
+          + "nothing can scroll.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      live.element, kAXValueAttribute as CFString, place as CFTypeRef)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused to scroll column \(number + 1) of the Save panel to \(place), error "
+          + "\(answered.rawValue).",
+        code: .internalFailure)
+    }
   }
 
   /// Which folder the panel of this Mac reached, as the Where popup shows it.

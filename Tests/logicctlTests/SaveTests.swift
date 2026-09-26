@@ -176,7 +176,16 @@ private final class Mac {
         self.asked.append("open " + name)
         self.walked = Array(self.walked.prefix(number)) + [name]
       },
-      folderShown: { self.walked.last ?? "" })
+      folderShown: { self.walked.last ?? "" },
+      pressItem: { title in
+        // Choosing the disk in the Where popup leaves one column, the root of that disk.
+        self.asked.append("choose " + title)
+        self.walked = []
+      },
+      startUpDisk: { "A Disk Of Its Own" },
+      scroll: { number, place in
+        self.asked.append("scroll column \(number + 1) to \(place)")
+      })
   }
 
   /// The folder the walk reached, cut to the first folders of it.
@@ -389,8 +398,14 @@ private func commits(of session: Session, underRoot root: URL, git: Git) throws 
     ],
     "then it wrote the name and pressed Save")
   #expect(
-    logic.asked.filter { $0.hasPrefix("press ") } == ["press " + Locators.saveButton.name],
-    "and it pressed nothing else, so the panel was never cancelled")
+    logic.asked.filter { $0.hasPrefix("press ") } == [
+      "press " + Locators.saveWherePopup.name,
+      "press " + Locators.saveButton.name,
+    ],
+    "it opened the Where popup and pressed Save, so the panel was never cancelled")
+  #expect(
+    logic.asked.filter { $0.hasPrefix("choose ") } == ["choose A Disk Of Its Own"],
+    "and the walk started at the start up disk")
   let typed = try #require(logic.written[Locators.saveNameField.name])
   #expect(typed == "Free.logicx", "the name of the project went into the field, and not the path")
   #expect(!typed.contains("/"), "a path in that field is read as a name")
