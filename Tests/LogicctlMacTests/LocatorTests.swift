@@ -41,8 +41,11 @@ private let importPanels = ["import-panel.json"]
 private let mixers = ["mixer.json"]
 
 /// The trees of a project that has no tracks. Logic puts the sheet that asks for a track on a
-/// project it has just made, and on a project whose last track was deleted.
-private let emptyProjects = ["new-project-sheet.json", "empty.json"]
+/// project it has just made, and on a project whose last track was deleted. The third one was
+/// recorded with the Library closed, which is how Logic opens a project it has just made.
+private let emptyProjects = [
+  "new-project-sheet.json", "empty.json", "empty-project-new-track-sheet.json",
+]
 
 /// A locator, the recorded trees it is put to, and what the element it names reads as in them.
 private struct ProvedLocator {
@@ -181,6 +184,11 @@ private func provedLocators() -> [ProvedLocator] {
       trees: emptyProjects,
       names: "the sheet Logic puts on a project that has no tracks",
       holds: { $0.role == "AXSheet" && $0.description == "New Track" }),
+    ProvedLocator(
+      locator: Locators.newTrackCreateButton,
+      trees: emptyProjects,
+      names: "the button of the sheet that makes the first track",
+      holds: { $0.role == "AXButton" && $0.title == "Create" }),
   ]
 }
 

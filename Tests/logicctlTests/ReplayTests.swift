@@ -93,7 +93,20 @@ private final class Answer {
 /// When the session these tests replay was recorded.
 private let aMoment = Date(timeIntervalSince1970: 1_700_000_000)
 
-/// The project Logic opens for a replay: no tracks, as `new-project` leaves it.
+/// The project a replay starts in: one track, as `new-project` leaves it.
+///
+/// `new-project` answers the sheet that asks for the first track, so the project it makes holds
+/// that track, and a replay starts in the same place. The steps of the recorded session are what
+/// put the rest of the work back.
+private func theProjectAReplayStartsIn() -> State {
+  State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: "Untitled"),
+    transport: Transport(tempo: 120),
+    tracks: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
+}
+
+/// The project Logic has open before the sheet is answered, which holds no track at all.
 private func anEmptyProject() -> State {
   State(
     logic: LogicVersion(version: "12.3.1"),
@@ -133,17 +146,23 @@ private final class Mac {
   /// The process this Logic runs as.
   let processID: Int32 = 981
 
-  /// The chooser the command drives. Choosing the template opens the project, as Logic does.
+  /// The chooser the command drives. Choosing the template opens the project and Logic asks for the
+  /// first track of it, and Create answers that sheet, as Logic does.
   func chooser() -> ProjectChooser {
     ProjectChooser(
       read: { self.showing },
       press: { locator in
-        guard locator.name == Locators.chooserChooseButton.name else {
+        if locator.name == Locators.chooserChooseButton.name {
+          self.driver.state = anEmptyProject()
+          self.driver.runningProcessID = self.processID
+          self.showing = .emptyProject
           return
         }
-        self.driver.state = anEmptyProject()
-        self.driver.runningProcessID = self.processID
-        self.showing = .emptyProject
+        guard locator.name == Locators.newTrackCreateButton.name else {
+          return
+        }
+        self.driver.state = theProjectAReplayStartsIn()
+        self.showing = .project
       })
   }
 }

@@ -298,11 +298,21 @@ public enum Locators {
   /// The sheet Logic puts on a project that has no tracks, which asks for the first track.
   ///
   /// Logic shows it on a project it has just made, and again when the last track of a project is
-  /// deleted. So the sheet is how logicctl reads that the project in front has no tracks. logicctl
-  /// presses no button in it: Create would make a track, and Cancel closes a project Logic made.
+  /// deleted. So the sheet is how logicctl reads that the project in front has no tracks.
   public static let newTrackSheet = Locator(
     name: "newTrackSheet.sheet",
-    path: [LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet")])
+    path: toTheNewTrackSheet)
+
+  /// The button of the sheet that makes the first track of the project.
+  ///
+  /// Logic refuses Save while this sheet is open, so a project under it cannot be kept, and the
+  /// other button of the sheet closes the project Logic has just made. The step names the title and
+  /// not the identifier: the identifier of this button reads `_NS:618`, and Logic gives it another
+  /// number on another launch.
+  public static let newTrackCreateButton = Locator(
+    name: "newTrackSheet.createButton",
+    path: toTheNewTrackSheet
+      + [LocatorStep(role: "AXGroup"), LocatorStep(role: "AXButton", title: "Create")])
 
   /// The window Logic opens for File, "Save As...".
   ///
@@ -378,6 +388,7 @@ public enum Locators {
     chooserEmptyProjectTile,
     chooserChooseButton,
     newTrackSheet,
+    newTrackCreateButton,
     eventListWindow,
     eventListTable,
     mixerWindow,
@@ -389,6 +400,11 @@ public enum Locators {
     importWherePopup,
     importButton,
     importCancelButton,
+  ]
+
+  /// The walk from the project window to the sheet that asks for the first track.
+  private static let toTheNewTrackSheet: [LocatorStep] = [
+    LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet"),
   ]
 
   /// The walk from the window Logic opens for File, "Save As...".
