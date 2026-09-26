@@ -144,7 +144,7 @@ struct Phase3LiveScenarios {
   /// It plays first, because a transport that was never moving reads as stopped whatever the stop
   /// message did.
   @Test func stopStopsTheTransport() throws {
-    LiveHarness.liveScenario("stopStopsTheTransport")
+    LiveHarness.liveScenario("playStartsTheTransport")
     _ = try ScratchCopy.open()
 
     let moving = try answered(TransportAnswer.self, from: ["transport", "play"])
