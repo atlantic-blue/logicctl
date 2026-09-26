@@ -32,11 +32,16 @@ extension Midi {
     @Option(help: "How far each note moves onto the grid, 0 to 100.")
     var strength: QuantizeStrength
 
+    @OptionGroup var guarded: ConfirmOption
+
     @OptionGroup var output: OutputOption
 
     func run() throws {
       let status = answer(
-        driver: Midi.Quantize.liveDriver(), of: LogicTree.ofRunningLogic, format: output.format)
+        driver: Midi.Quantize.liveDriver(),
+        of: LogicTree.ofRunningLogic,
+        confirmed: guarded.confirm,
+        format: output.format)
       guard status == 0 else {
         // The envelope is written already. The number goes out through the root command, which
         // prints nothing more for it.
@@ -55,6 +60,7 @@ extension Midi.Quantize {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    confirmed: Bool,
     pianoRoll: PianoRoll = PianoRoll.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
