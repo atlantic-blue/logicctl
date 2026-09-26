@@ -80,6 +80,9 @@ private enum Move: Equatable {
   /// Logic was brought to the front and the panel was raised.
   case broughtToTheFront
 
+  /// The file list was scrolled until a row was in view, by the name it shows.
+  case broughtIntoView(String)
+
   /// A folder row was opened, by the name it shows.
   case opened(String)
 
@@ -159,6 +162,7 @@ private final class APanel {
         self.moves.append(.wherePopup(title))
         self.folder = title
       },
+      bringIntoView: { name in self.moves.append(.broughtIntoView(name)) },
       openFolder: { name in
         self.moves.append(.opened(name))
         self.folder = self.landsIn ?? name
@@ -574,7 +578,9 @@ private func midiImport(
 /// The panel opened a folder and landed somewhere else, so nothing is imported.
 ///
 /// A file of the same name sits in more than one folder on any Mac. A route that pressed Import
-/// here would put somebody else's notes in the project and report the path the person typed.
+/// here would put somebody else's notes in the project and report the path the person typed. The
+/// Where popup is the only thing that says where the panel is, so a popup that never shows the
+/// folder ends the walk, and the panel it left open is closed.
 @Test func aPanelThatLandsInTheWrongFolderImportsNothing() throws {
   let logic = try aLogic()
   defer { try? FileManager.default.removeItem(at: logic.root) }
@@ -582,13 +588,19 @@ private func midiImport(
   let panel = APanel(
     carriedBy: logic.driver, landsIn: "Somewhere Else", onImport: anImportThatLands)
   let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
+  let asked = try ImportFile.live().facts(of: theFile.path).path.folders.first
 
-  #expect(status == 5, "the walk stopped")
-  #expect(try answer.failureCode() == "element_not_found")
+  #expect(status == 6, "the walk stopped")
+  #expect(try answer.failureCode() == "timeout")
   #expect(try answer.failureMessage().contains("Somewhere Else"), "the message says where it is")
+  #expect(try answer.failureDetails()["folder"] as? String == asked, "the folder it asked for")
+  #expect(try answer.failureDetails()["waitedMs"] as? Int == theLimit, "and what it was given")
   #expect(
     !panel.moves.contains(.pressed(Locators.importButton.name)),
     "and Import was never pressed")
+  #expect(
+    panel.moves.contains(.pressed(Locators.importCancelButton.name)),
+    "the panel it left open is closed")
   #expect(logic.driver.state?.tracks.count == 1, "so the project did not change")
 }
 

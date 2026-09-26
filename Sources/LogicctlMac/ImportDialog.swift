@@ -219,14 +219,18 @@ public struct ImportDialog {
     /// The code a caller reads and exits with.
     public let code: ErrorCode
 
-    public init(reason: String, code: ErrorCode = .elementNotFound) {
+    /// What else the caller needs beside the sentence, or nil when the reason says everything.
+    public let details: JSONValue?
+
+    public init(reason: String, code: ErrorCode = .elementNotFound, details: JSONValue? = nil) {
       self.reason = reason
       self.code = code
+      self.details = details
     }
 
     /// The failure the caller prints and exits with.
     public var failure: Failure {
-      Failure(code: code, message: reason)
+      Failure(code: code, message: reason, details: details)
     }
   }
 
@@ -248,6 +252,9 @@ public struct ImportDialog {
 
   /// Presses the item of the open menu whose title is this.
   public typealias PressItem = (String) throws -> Void
+
+  /// Scrolls the file list until the row of this name is in view.
+  public typealias BringIntoView = (String) throws -> Void
 
   /// Opens the folder of this name in the file list, through the `AXOpen` action of its row.
   public typealias OpenFolder = (String) throws -> Void
@@ -276,6 +283,9 @@ public struct ImportDialog {
   /// Presses an item of the menu the Where popup opens.
   public let pressItem: PressItem
 
+  /// Brings one row of the file list into view.
+  public let bringIntoView: BringIntoView
+
   /// Opens one folder of the file list.
   public let openFolder: OpenFolder
 
@@ -295,6 +305,7 @@ public struct ImportDialog {
     bringToFront: @escaping BringToFront,
     enabled: @escaping ReadEnabled,
     pressItem: @escaping PressItem,
+    bringIntoView: @escaping BringIntoView,
     openFolder: @escaping OpenFolder,
     folderShown: @escaping ReadFolder,
     startUpDisk: @escaping ReadDisk,
@@ -306,6 +317,7 @@ public struct ImportDialog {
     self.bringToFront = bringToFront
     self.enabled = enabled
     self.pressItem = pressItem
+    self.bringIntoView = bringIntoView
     self.openFolder = openFolder
     self.folderShown = folderShown
     self.startUpDisk = startUpDisk
@@ -379,6 +391,7 @@ extension ImportDialog {
       bringToFront: ImportDialog.bringTheLogicOfThisMacToTheFront,
       enabled: ImportDialog.isEnabledInTheLogicOfThisMac,
       pressItem: ImportDialog.pressTheOpenMenuItemOfThisMac,
+      bringIntoView: { _ in },
       openFolder: ImportDialog.openTheFolderInTheLogicOfThisMac,
       folderShown: ImportDialog.theFolderTheLogicOfThisMacShows,
       startUpDisk: ImportFile.startUpDiskOfThisMac,
@@ -608,6 +621,29 @@ extension ImportDialog {
         code: .internalFailure)
     }
   }
+
+  /// What the answer of the open action means, or nothing when it stops nothing.
+  public static func refusal(forOpenAnswer answered: Int32, folder: String) -> Refusal? {
+    guard answered != ImportDialog.answerOfASuccess else {
+      return nil
+    }
+    return Refusal(
+      reason: "Logic refused to open \(folder) in the Import panel, error \(answered).",
+      code: .internalFailure)
+  }
+
+  /// Where the vertical bar of the file list sits for one row to be in view, from 0 to 1.
+  public static func scrollValue(forRow number: Int, of rows: Int) -> Double? {
+    nil
+  }
+
+  /// The bar that scrolls the file list of the panel up and down.
+  public static func verticalScrollBarOfTheFileList(in window: any AXNode) -> (any AXNode)? {
+    nil
+  }
+
+  /// What Accessibility answers when it took the action.
+  static let answerOfASuccess: Int32 = 0
 
   /// The action a row of the file list carries to move the panel into that folder.
   static let openAction = "AXOpen"
