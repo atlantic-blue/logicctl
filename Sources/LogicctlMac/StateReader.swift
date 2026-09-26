@@ -77,8 +77,8 @@ public struct StateReader {
     path: @escaping PathRead,
     tempo: @escaping TempoRead = TempoField.readTheLogicOfThisMac,
     saveTime: @escaping SaveTimeRead = StateReader.saveTime(ofProjectAt:),
-    openMixer: @escaping MixerOpen = StateReader.noMixerOpenWasGiven,
-    closeMixer: @escaping MixerClose = StateReader.noMixerCloseWasGiven
+    openMixer: MixerOpen? = nil,
+    closeMixer: MixerClose? = nil
   ) {
     readTree = tree
     readStatus = status
@@ -86,8 +86,8 @@ public struct StateReader {
     readPath = path
     readTempo = tempo
     readSaveTime = saveTime
-    self.openMixer = openMixer
-    self.closeMixer = closeMixer
+    self.openMixer = openMixer ?? StateReader.noMixerOpenWasGiven
+    self.closeMixer = closeMixer ?? StateReader.noMixerCloseWasGiven
   }
 
   /// What a caller that gave no way to open the Mixer gets when the reader asks for one.
