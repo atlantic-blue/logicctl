@@ -44,6 +44,13 @@ private enum PhaseFour {
   static let byHandLimitMs = 180_000
   static let byHandPollMs = 2_000
 
+  /// How long the run leaves between two reads while it waits for a selection of two rows.
+  ///
+  /// Every read of that wait is a change command that the run records as a step, so it asks less
+  /// often than the other wait does: a person selecting two rows in a table takes seconds, and the
+  /// project keeps a shorter journal of a change that changed nothing.
+  static let selectionPollMs = 5_000
+
   /// One note of the file the run imports.
   struct KnownNote: Equatable, Sendable {
     let pitch: Int
@@ -273,6 +280,11 @@ extension PhaseFour {
     return "{\"tempo\": \(tempo), \"notes\": [" + rows.joined(separator: ", ") + "]}\n"
   }
 
+  /// The words that put the MIDI file on a new track.
+  static func importOf(file: URL) -> [String] {
+    ["midi", "import", "--file", file.path, "--confirm"]
+  }
+
   /// The words that read the notes of the region.
   static func notesOf(track: Int) -> [String] {
     ["midi", "notes", "--track", "\(track)", "--region", region]
@@ -280,13 +292,14 @@ extension PhaseFour {
 
   /// The words that quantize the region onto the grid.
   ///
-  /// There is no `--confirm` here, and none on `midi velocity` either. Both change the project
-  /// and neither one goes through the guard that `RUN-4` describes, which the other three writes
-  /// of this phase do go through. The run calls them as they are.
+  /// Every one of the five writes of this phase carries `--confirm`, for one reason: the copy is
+  /// a project logicctl did not make, and `RUN-4` stops a change to one of those. A write here
+  /// without the flag would answer `confirm_required` and touch nothing, and the scenario would
+  /// read that as Logic refusing the edit.
   static func quantizeOf(track: Int) -> [String] {
     [
       "midi", "quantize", "--track", "\(track)", "--region", region, "--value", grid,
-      "--strength", "100",
+      "--strength", "100", "--confirm",
     ]
   }
 
@@ -294,7 +307,7 @@ extension PhaseFour {
   static func velocityOf(track: Int, note: Int, value: Int) -> [String] {
     [
       "midi", "velocity", "--track", "\(track)", "--region", region, "--note", "\(note)",
-      "--value", "\(value)",
+      "--value", "\(value)", "--confirm",
     ]
   }
 
@@ -583,7 +596,7 @@ private final class AcceptanceRun: @unchecked Sendable {
 
     let imported = try LiveHarness.read(
       PhaseFour.ImportedAnswer.self,
-      from: ["midi", "import", "--file", file.path, "--confirm"])
+      from: PhaseFour.importOf(file: file))
     let track = imported.track.index
 
     try PhaseFour.byHand(
@@ -839,6 +852,7 @@ struct Phase4LiveScenarios {
       "select \(rows.joined(separator: " and ")) in the Event List of the region, and leave "
         + "both selected. If Logic lets the second row go when the command writes the "
         + "selection, no edit ever meets two rows and this scenario cannot pass.",
+      pollMs: PhaseFour.selectionPollMs,
       until: {
         let answer = try LiveHarness.logicctl(
           PhaseFour.velocityOf(track: run.track, note: 1, value: held))
@@ -933,6 +947,27 @@ extension PhaseFour {
     && source.contains("LiveHarness.temporaryFolder()")
   #expect(
     onACopy, "and they work on a copy, in a folder of the run, never on the project of a person")
+
+  let writes = [
+    PhaseFour.importOf(file: URL(fileURLWithPath: "/tmp/phase-four.mid")),
+    PhaseFour.quantizeOf(track: 4),
+    PhaseFour.velocityOf(track: 4, note: PhaseFour.notePicked, value: PhaseFour.velocityGiven),
+    PhaseFour.automationAddOf(track: 4),
+    PhaseFour.automationSetOf(track: 4, point: PhaseFour.pointPicked, value: PhaseFour.valueGiven),
+    PhaseFour.pluginsInsertOf(track: 4, name: PhaseFour.plugin),
+  ]
+  let reads = [
+    PhaseFour.notesOf(track: 4), PhaseFour.automationListOf(track: 4),
+    PhaseFour.pluginsListOf(track: 4),
+  ]
+  let unguarded = writes.filter { !$0.contains("--confirm") }
+  let guardedReads = reads.filter { $0.contains("--confirm") }
+  #expect(
+    unguarded.isEmpty,
+    "every write says --confirm, because the copy is a project logicctl did not make and RUN-4 "
+      + "stops a change to one of those: \(unguarded)")
+  #expect(
+    guardedReads.isEmpty, "and no read says it, because a read has nothing to guard")
 
   let object = try JSONSerialization.jsonObject(with: Data(PhaseFour.notesFileText.utf8))
   let file = object as? [String: Any]
