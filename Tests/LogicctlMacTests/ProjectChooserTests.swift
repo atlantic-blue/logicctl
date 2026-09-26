@@ -90,7 +90,7 @@ private let theCancelButtonOfTheSheet = Locator(
   #expect(onDisk.id == session, "the session of the answer is the session on disk")
   #expect(onDisk.project.createdByLogicctl, "logicctl made this project")
 
-  let tracks = try tracksRecorded(in: repository)
+  let tracks = tracksRecorded(in: repository)
 
   #expect(tracks.count == 1, "the project a person is left with holds the track Create made")
   #expect(tracks.first?["index"] == JSONValue.number(1))
@@ -127,7 +127,7 @@ private let theCancelButtonOfTheSheet = Locator(
 
   #expect(found.status == 0, "a project with tracks is an answer: \(found.out)")
   #expect(already.pressed.isEmpty, "there was no sheet to answer, so nothing was pressed")
-  #expect(try tracksRecorded(in: URL(fileURLWithPath: found.folder())).count == 1)
+  #expect(tracksRecorded(in: URL(fileURLWithPath: try found.folder())).count == 1)
 
   for run in [logic, stuck, already] {
     #expect(
@@ -327,9 +327,13 @@ private struct APicture: WindowCapturer {
 }
 
 /// The tracks the session at one folder recorded, in the order they read.
-private func tracksRecorded(in repository: URL) throws -> [[String: JSONValue]] {
-  let state = try readJSON(at: repository.appending(path: "state.json"))
-  guard case .object(let fields) = state, case .array(let tracks) = fields["tracks"] else {
+///
+/// A folder that holds no state answers nothing rather than throwing, so a run that wrote no
+/// session fails the expectation that reads it, and every claim after that one still runs.
+private func tracksRecorded(in repository: URL) -> [[String: JSONValue]] {
+  guard let state = try? readJSON(at: repository.appending(path: "state.json")),
+    case .object(let fields) = state, case .array(let tracks) = fields["tracks"]
+  else {
     return []
   }
   return tracks.compactMap { track in
