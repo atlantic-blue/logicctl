@@ -93,6 +93,12 @@ public enum TrackReader {
   /// What the value of a button reads as while it is on.
   private static let on = "1"
 
+  /// What Logic writes between the name of a button and the state of that button, in the
+  /// description of the button. Measured on this Mac at 16:30 on 2026-09-26 against Logic 12.3.1:
+  /// the Record Enable button of a track Logic recorded described itself `Record Enable,
+  /// recording`.
+  private static let beforeTheState = ", "
+
   /// The first words of the help text of the name field. The description of that field is the
   /// name of the track, so the help text is what says which field it is.
   private static let nameFieldHelp = "Name field"
@@ -149,11 +155,19 @@ public enum TrackReader {
   }
 
   /// Whether one button of a track header is on.
+  ///
+  /// A button says what it is in its description, and while Logic records a track it writes the
+  /// state of that button there too: the Record Enable button of the recording track describes
+  /// itself `Record Enable, recording`. So the description is read as the name of the button, or
+  /// as the name followed by a comma, a space and whatever Logic says after it. A description that
+  /// carries another name is still refused, because the button carries no identifier and no title,
+  /// so what it says it is for is the whole of what says the walk reached the right control.
   private static func isOn(
     _ locator: Locator, describedAs wanted: String, in root: any AXNode
   ) throws -> Bool {
     let button = try LocatorResolver.element(of: locator, in: root)
-    guard button.description == wanted else {
+    let written = button.description ?? ""
+    guard written == wanted || written.hasPrefix(wanted + TrackReader.beforeTheState) else {
       throw Refusal(
         locator: locator.name, wanted: "the \(wanted) button", found: button.description)
     }
