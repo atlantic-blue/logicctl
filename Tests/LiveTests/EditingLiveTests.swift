@@ -12,7 +12,7 @@ import Testing
 /// The phase works on one copy of the scratch project, in a folder of the run, and it makes its
 /// own region: it writes a MIDI file of four notes off the grid and imports that file onto a new
 /// track. So what each read must answer is known before Logic answers it.
-enum PhaseFour {
+private enum PhaseFour {
   /// The grid the run quantizes onto.
   static let grid = "1/16"
 
@@ -335,7 +335,29 @@ extension PhaseFour {
   /// stories mean by a note that keeps its value, and an edit that reached a note it was never
   /// given shows up here as a line.
   static func notesThatChanged(from before: [Note], to after: [Note]) -> [String] {
-    []
+    guard before.count == after.count else {
+      return ["the region held \(before.count) notes and holds \(after.count)"]
+    }
+    var moved: [String] = []
+    for (was, now) in zip(before, after) {
+      if was.note != now.note {
+        moved.append("note \(was.note) reads as note \(now.note)")
+        continue
+      }
+      if was.pitch != now.pitch {
+        moved.append("note \(was.note) pitch \(was.pitch) to \(now.pitch)")
+      }
+      if was.velocity != now.velocity {
+        moved.append("note \(was.note) velocity \(was.velocity) to \(now.velocity)")
+      }
+      if was.length != now.length {
+        moved.append("note \(was.note) length \(was.length) to \(now.length)")
+      }
+      if was.channel != now.channel {
+        moved.append("note \(was.note) channel \(was.channel) to \(now.channel)")
+      }
+    }
+    return moved
   }
 
   /// Names every point that is not the point it was, and says what moved.
@@ -343,7 +365,26 @@ extension PhaseFour {
   /// A point carries a position as well as a value, and `automation set` moves neither one but
   /// the value it was given. So all four fields are read here, unlike the notes above.
   static func pointsThatChanged(from before: [Point], to after: [Point]) -> [String] {
-    []
+    guard before.count == after.count else {
+      return ["the region held \(before.count) points and holds \(after.count)"]
+    }
+    var moved: [String] = []
+    for (was, now) in zip(before, after) {
+      if was.point != now.point {
+        moved.append("point \(was.point) reads as point \(now.point)")
+        continue
+      }
+      if was.value != now.value {
+        moved.append("point \(was.point) value \(was.value) to \(now.value)")
+      }
+      if was.position != now.position {
+        moved.append("point \(was.point) position \(was.position) to \(now.position)")
+      }
+      if was.parameter != now.parameter {
+        moved.append("point \(was.point) parameter \(was.parameter) to \(now.parameter)")
+      }
+    }
+    return moved
   }
 
   /// Every way the region does not carry the notes of the file it came from.
@@ -354,7 +395,38 @@ extension PhaseFour {
   /// notes there are, the pitch, the velocity and the channel of each one, and the order. The
   /// file gave every note one length, so the rows carry one length between them too.
   static func differencesFromTheFile(_ read: [Note]) -> [String] {
-    []
+    guard read.count == knownNotes.count else {
+      return ["the file holds \(knownNotes.count) notes and the region holds \(read.count)"]
+    }
+    var found: [String] = []
+    for index in knownNotes.indices {
+      let wanted = knownNotes[index]
+      let got = read[index]
+      let number = index + 1
+      if got.note != number {
+        found.append("the note in place \(number) reads as note \(got.note)")
+      }
+      if got.pitch != wanted.pitch {
+        found.append(
+          "note \(number) carries pitch \(got.pitch), and the file wrote \(wanted.pitch)")
+      }
+      if got.velocity != wanted.velocity {
+        found.append(
+          "note \(number) carries velocity \(got.velocity), and the file wrote \(wanted.velocity)")
+      }
+      if got.channel != wanted.channel {
+        found.append(
+          "note \(number) carries channel \(got.channel), and the file wrote \(wanted.channel)")
+      }
+    }
+    let lengths = Set(read.map(\.length)).sorted()
+    if lengths.count > 1 {
+      found.append("the file gave every note one length, and the region holds \(lengths)")
+    }
+    if !inTimeOrder(read.map(\.position)) {
+      found.append("the notes do not rise in time: \(read.map(\.position))")
+    }
+    return found
   }
 
   /// The numbers Logic shows in a position, or nothing when it shows something else.
@@ -373,14 +445,27 @@ extension PhaseFour {
   /// division is a sixteenth and the tick counts from 1 inside it, so a note that quantize put on
   /// the grid reads with a tick of 1, and a note between two sixteenths reads with anything else.
   static func onTheGrid(_ position: String) -> Bool {
-    true
+    guard let read = numbers(of: position), read.count == 4 else {
+      return false
+    }
+    return read[3] == 1
   }
 
   /// Whether these positions rise, read as the numbers Logic shows and not as text.
   ///
   /// Text is the wrong order, because bar 10 sorts before bar 9 as words.
   static func inTimeOrder(_ positions: [String]) -> Bool {
-    true
+    let read = positions.compactMap(numbers(of:))
+    guard read.count == positions.count else {
+      return false
+    }
+    guard read.count > 1 else {
+      return true
+    }
+    for index in 1..<read.count where !rises(from: read[index - 1], to: read[index]) {
+      return false
+    }
+    return true
   }
 
   /// Whether one position comes after another, place by place.
@@ -393,7 +478,12 @@ extension PhaseFour {
 
   /// The slot a plugin lands in: the first number from 1 up that the strip does not hold.
   static func firstEmptySlot(after plugins: [Plugin]) -> Int {
-    1
+    let held = Set(plugins.map(\.slot))
+    var slot = 1
+    while held.contains(slot) {
+      slot += 1
+    }
+    return slot
   }
 
   /// The failure one command printed, read for the rows it names.
@@ -427,6 +517,11 @@ extension PhaseFour {
     until holds: () throws -> Bool
   ) throws {
     print("by hand: \(asking)")
+    do {
+      try Wait.until(limitMs: limitMs, pollMs: pollMs, clock: clock, sleeper: sleeper, holds)
+    } catch let ranOut as Wait.RanOut {
+      throw Trouble.theMacNeverShowed(asking: asking, waitedMs: ranOut.waitedMs)
+    }
   }
 }
 
@@ -515,7 +610,253 @@ private let theRun = AcceptanceRun()
 /// it, the automation points arrive part way through, and each edit reads back what the one
 /// before it left.
 @Suite(.serialized, .enabled(if: LiveHarness.runsLive()))
-struct Phase4LiveScenarios {}
+struct Phase4LiveScenarios {
+  /// The region carries the notes of the file it was made from (story S4.1).
+  ///
+  /// This is the scenario the other eight stand on. A region whose notes are not the notes of the
+  /// file is a region nothing later can be measured against, because every later check reads what
+  /// a command left and compares it with what was there before.
+  @Test func notesOfTheImportedRegionMatchTheFile() throws {
+    LiveHarness.liveScenario("notesOfTheImportedRegionMatchTheFile")
+
+    let run = try theRun.ready()
+    let read = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+
+    #expect(
+      PhaseFour.differencesFromTheFile(read.notes).isEmpty,
+      "the region carries the file: \(PhaseFour.differencesFromTheFile(read.notes))")
+    #expect(
+      read.notes.allSatisfy { PhaseFour.numbers(of: $0.position)?.count == 4 },
+      "and Logic shows a bar, a beat, a division and a tick for each one: \(read.notes)")
+  }
+
+  /// Every note moves onto the grid, and nothing else about it moves (story S4.2).
+  @Test func quantizeMovesEveryNoteOntoTheGrid() throws {
+    LiveHarness.liveScenario("quantizeMovesEveryNoteOntoTheGrid")
+
+    let run = try theRun.ready()
+    let before = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    #expect(
+      before.notes.contains { !PhaseFour.onTheGrid($0.position) },
+      "the notes start off the grid, or quantize is asked to do nothing: \(before.notes)")
+
+    let after = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.quantizeOf(track: run.track))
+    let moved = PhaseFour.notesThatChanged(from: before.notes, to: after.notes)
+
+    #expect(
+      after.notes.allSatisfy { PhaseFour.onTheGrid($0.position) },
+      "every note sits on a sixteenth now: \(after.notes.map(\.position))")
+    #expect(moved.isEmpty, "and nothing but the position moved: \(moved)")
+  }
+
+  /// One note takes the velocity it was given, and no other note moves (story S4.3).
+  @Test func velocityChangesOneNoteAndLeavesTheRest() throws {
+    LiveHarness.liveScenario("velocityChangesOneNoteAndLeavesTheRest")
+
+    let run = try theRun.ready()
+    let before = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let was = before.notes.first { $0.note == PhaseFour.notePicked }?.velocity
+
+    let set = try LiveHarness.read(
+      PhaseFour.VelocityAnswer.self,
+      from: PhaseFour.velocityOf(
+        track: run.track, note: PhaseFour.notePicked, value: PhaseFour.velocityGiven))
+    let after = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let moved = PhaseFour.notesThatChanged(from: before.notes, to: after.notes)
+
+    #expect(set.velocity == PhaseFour.velocityGiven, "the note reached the value it was given")
+    #expect(
+      moved == [
+        "note \(PhaseFour.notePicked) velocity \(was ?? 0) to \(PhaseFour.velocityGiven)"
+      ],
+      "and the note it named is the only note that moved: \(moved)")
+
+    let asked = PhaseFour.velocityOf(
+      track: run.track, note: PhaseFour.noteUnknown, value: PhaseFour.velocityGiven)
+    let missing = try LiveHarness.logicctl(asked)
+    let refused = try PhaseFour.refusal(of: missing, from: "midi velocity")
+
+    #expect(missing.status == 18, "a note the region does not hold exits 18: \(missing.printed)")
+    #expect(refused.error?.code == "note_not_found", "with that code: \(missing.printed)")
+  }
+
+  /// The points Logic made at the borders of the region are the points that are printed
+  /// (story S4.4).
+  ///
+  /// Logic decides how many points a region gets, and it can make a third at the end. So the
+  /// check is that the answer carries what Logic made, read back through a second command, and
+  /// never the two points that were asked for.
+  @Test func automationAddPrintsThePointsLogicMade() throws {
+    LiveHarness.liveScenario("automationAddPrintsThePointsLogicMade")
+
+    let run = try theRun.ready()
+    let notesBefore = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+
+    let added = try LiveHarness.read(
+      PhaseFour.PointsAnswer.self, from: PhaseFour.automationAddOf(track: run.track))
+    let listed = try LiveHarness.read(
+      PhaseFour.PointsAnswer.self, from: PhaseFour.automationListOf(track: run.track))
+    let notesAfter = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let moved = PhaseFour.notesThatChanged(from: notesBefore.notes, to: notesAfter.notes)
+
+    #expect(added.points.count >= 2, "the region carries a point at each border: \(added.points)")
+    #expect(
+      PhaseFour.pointsThatChanged(from: added.points, to: listed.points).isEmpty,
+      "add printed every point Logic made, and list reads the same ones: \(listed.points)")
+    #expect(moved.isEmpty, "and the notes of the region are untouched: \(moved)")
+  }
+
+  /// Each point reads with its number, its position, its parameter and its value (story S4.5).
+  @Test func automationListReadsThePointsOfTheRegion() throws {
+    LiveHarness.liveScenario("automationListReadsThePointsOfTheRegion")
+
+    let run = try theRun.ready()
+    let read = try LiveHarness.read(
+      PhaseFour.PointsAnswer.self, from: PhaseFour.automationListOf(track: run.track))
+
+    #expect(read.points.isEmpty == false, "the region carries the points add made")
+    #expect(
+      read.points.map(\.point) == Array(1...max(read.points.count, 1)),
+      "they are numbered from 1, in time order: \(read.points.map(\.point))")
+    #expect(
+      read.points.allSatisfy { $0.parameter == "Volume" },
+      "each one is a volume point: \(read.points.map(\.parameter))")
+    #expect(
+      read.points.allSatisfy { (0...127).contains($0.value) },
+      "on the scale of Logic, where 90 is 0 dB: \(read.points.map(\.value))")
+    #expect(
+      PhaseFour.inTimeOrder(read.points.map(\.position)),
+      "and they rise in time: \(read.points.map(\.position))")
+  }
+
+  /// One point takes the value it was given, and no other point and no note moves (story S4.6).
+  @Test func automationSetChangesOnePointAndLeavesTheRest() throws {
+    LiveHarness.liveScenario("automationSetChangesOnePointAndLeavesTheRest")
+
+    let run = try theRun.ready()
+    let before = try LiveHarness.read(
+      PhaseFour.PointsAnswer.self, from: PhaseFour.automationListOf(track: run.track))
+    let notesBefore = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let was = before.points.first { $0.point == PhaseFour.pointPicked }?.value
+
+    let after = try LiveHarness.read(
+      PhaseFour.PointsAnswer.self,
+      from: PhaseFour.automationSetOf(
+        track: run.track, point: PhaseFour.pointPicked, value: PhaseFour.valueGiven))
+    let notesAfter = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let movedPoints = PhaseFour.pointsThatChanged(from: before.points, to: after.points)
+    let movedNotes = PhaseFour.notesThatChanged(from: notesBefore.notes, to: notesAfter.notes)
+
+    #expect(
+      movedPoints == [
+        "point \(PhaseFour.pointPicked) value \(was ?? 0) to \(PhaseFour.valueGiven)"
+      ],
+      "the point it named is the only point that moved: \(movedPoints)")
+    #expect(movedNotes.isEmpty, "and no note moved with it: \(movedNotes)")
+
+    let asked = PhaseFour.automationSetOf(
+      track: run.track, point: PhaseFour.pointUnknown, value: PhaseFour.valueGiven)
+    let missing = try LiveHarness.logicctl(asked)
+    let refused = try PhaseFour.refusal(of: missing, from: "automation set")
+
+    #expect(missing.status == 19, "a point the region does not hold exits 19: \(missing.printed)")
+    #expect(refused.error?.code == "point_not_found", "with that code: \(missing.printed)")
+  }
+
+  /// The channel strip reads in slot order, from 1 (story S4.7).
+  @Test func pluginsListReadsTheStripInSlotOrder() throws {
+    LiveHarness.liveScenario("pluginsListReadsTheStripInSlotOrder")
+
+    let run = try theRun.ready()
+    let read = try LiveHarness.read(
+      PhaseFour.PluginsAnswer.self, from: PhaseFour.pluginsListOf(track: run.track))
+
+    #expect(
+      read.plugins.map(\.slot) == read.plugins.map(\.slot).sorted(),
+      "the slots rise: \(read.plugins.map(\.slot))")
+    #expect(
+      read.plugins.allSatisfy { $0.slot >= 1 && !$0.name.isEmpty },
+      "each slot counts from 1 and names its plugin: \(read.plugins)")
+  }
+
+  /// The plugin lands in the first empty slot, and every plugin already there keeps its slot
+  /// (story S4.8).
+  @Test func pluginsInsertFillsTheFirstEmptySlot() throws {
+    LiveHarness.liveScenario("pluginsInsertFillsTheFirstEmptySlot")
+
+    let run = try theRun.ready()
+    let before = try LiveHarness.read(
+      PhaseFour.PluginsAnswer.self, from: PhaseFour.pluginsListOf(track: run.track))
+    let empty = PhaseFour.firstEmptySlot(after: before.plugins)
+
+    let after = try LiveHarness.read(
+      PhaseFour.PluginsAnswer.self,
+      from: PhaseFour.pluginsInsertOf(track: run.track, name: PhaseFour.plugin))
+    let landed = after.plugins.first { $0.slot == empty }
+    let kept = after.plugins.filter { $0.slot != empty }
+
+    #expect(landed?.name == PhaseFour.plugin, "the plugin took slot \(empty): \(after.plugins)")
+    #expect(
+      kept == before.plugins,
+      "and every plugin the strip already held kept its slot and its name: \(after.plugins)")
+
+    let asked = PhaseFour.pluginsInsertOf(track: run.track, name: PhaseFour.pluginUnknown)
+    let missing = try LiveHarness.logicctl(asked)
+    let refused = try PhaseFour.refusal(of: missing, from: "plugins insert")
+
+    #expect(missing.status == 12, "a plugin Logic does not offer exits 12: \(missing.printed)")
+    #expect(refused.error?.code == "plugin_not_found", "with that code: \(missing.printed)")
+  }
+
+  /// An edit that meets a selection of two rows writes nothing (rule 9, RUN-8).
+  ///
+  /// A person makes the selection, because no command can: the guard of every edit writes the
+  /// whole selection itself, row by row, before it reads it back, so anything selected first is
+  /// let go by the command that was going to be stopped by it. The wait runs an edit that would
+  /// change nothing even if it went through, so polling for the refusal is safe.
+  @Test func anEditMeetingTwoSelectedRowsChangesNothing() throws {
+    LiveHarness.liveScenario("anEditMeetingTwoSelectedRowsChangesNothing")
+
+    let run = try theRun.ready()
+    let before = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let first = before.notes.first
+    let held = first?.velocity ?? PhaseFour.velocityGiven
+    let rows = ["note 1", "note \(PhaseFour.notePicked)"]
+
+    var named: [String] = []
+    var status: Int32 = 0
+    try PhaseFour.byHand(
+      "select \(rows.joined(separator: " and ")) in the Event List of the region, and leave "
+        + "both selected. If Logic lets the second row go when the command writes the "
+        + "selection, no edit ever meets two rows and this scenario cannot pass.",
+      until: {
+        let answer = try LiveHarness.logicctl(
+          PhaseFour.velocityOf(track: run.track, note: 1, value: held))
+        status = answer.status
+        let refused = try PhaseFour.refusal(of: answer, from: "midi velocity")
+        named = refused.error?.details?.selected ?? []
+        return named.count > 1
+      })
+
+    let after = try LiveHarness.read(
+      PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
+    let moved = PhaseFour.notesThatChanged(from: before.notes, to: after.notes)
+
+    #expect(status == 20, "an edit that meets two rows exits 20")
+    #expect(named.sorted() == rows.sorted(), "and it names both rows: \(named)")
+    #expect(moved.isEmpty, "and it wrote nothing: \(moved)")
+  }
+}
 
 /// Where the text of the live scenarios ends.
 ///
@@ -575,19 +916,23 @@ extension PhaseFour {
   let declared = PhaseFour.scenariosDeclared(in: source)
   #expect(
     declared == PhaseFour.flow.map(\.scenario),
-    "every edit has a scenario that drives it, and no other scenario is in the phase: \(declared)")
+    "every edit has a scenario, and the phase holds no other scenario: \(declared)")
   for edit in PhaseFour.flow {
+    let announcesItself = source.contains("LiveHarness.liveScenario(\"\(edit.scenario)\")")
     #expect(
-      source.contains("LiveHarness.liveScenario(\"\(edit.scenario)\")"),
+      announcesItself,
       "\(edit.command) announces itself, so an acceptance run counts it as one that ran")
   }
+  let offUnlessAPersonSaysSo = source.contains(
+    "@Suite(.serialized, .enabled(if: LiveHarness.runsLive()))")
   #expect(
-    source.contains("@Suite(.serialized, .enabled(if: LiveHarness.runsLive()))"),
+    offUnlessAPersonSaysSo,
     "the scenarios are off unless a person turns the live suite on, one at a time when it is on")
-  #expect(
+  let onACopy =
     source.contains("LiveHarness.copyOfTheScratchProject(into: folder)")
-      && source.contains("LiveHarness.temporaryFolder()"),
-    "and they work on a copy, in a folder of the run, never on the project of a person")
+    && source.contains("LiveHarness.temporaryFolder()")
+  #expect(
+    onACopy, "and they work on a copy, in a folder of the run, never on the project of a person")
 
   let object = try JSONSerialization.jsonObject(with: Data(PhaseFour.notesFileText.utf8))
   let file = object as? [String: Any]
