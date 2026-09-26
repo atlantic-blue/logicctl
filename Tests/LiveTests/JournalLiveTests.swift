@@ -21,7 +21,11 @@ enum JournalLive {
   static let replaySessionVariable = "LOGICCTL_REPLAY_SESSION"
 
   /// The scenarios of this phase, one for each thing the step proves against Logic.
-  static let checks: [String] = []
+  static let checks = [
+    "aMuteByHandBecomesAnExternalChangeStep",
+    "replayOfThePhaseTwoSessionFindsNoDifference",
+    "aSaveInLogicWritesASaveStepWithNoCommand",
+  ]
 
   /// How long a scenario waits for the operator to make one change in Logic, in milliseconds.
   static let byHandLimitMs = 300_000
@@ -172,12 +176,16 @@ enum JournalLive {
   static func replaySession(
     in environment: [String: String] = ProcessInfo.processInfo.environment
   ) throws -> String {
-    environment[replaySessionVariable] ?? ""
+    let named = environment[replaySessionVariable] ?? ""
+    guard !named.isEmpty else {
+      throw Refusal.theReplaySessionIsNotNamed(replaySessionVariable)
+    }
+    return named
   }
 
   /// The line a scenario prints to ask the operator for one change in Logic.
   static func byHandLine(for change: String) -> String {
-    change
+    "by hand: \(change)"
   }
 
   /// Asks the operator for one change in Logic.
@@ -196,10 +204,7 @@ enum JournalLive {
     } else {
       source = try LiveHarness.scratchProject()
     }
-    let copy = folder.appending(path: source.lastPathComponent)
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    try FileManager.default.copyItem(at: source, to: copy)
-    return copy
+    return try LiveHarness.copy(source, into: folder)
   }
 
   /// Everything `log` answers now.
@@ -246,6 +251,170 @@ enum JournalLive {
     } catch {
       return error
     }
+  }
+}
+
+/// Part 7 of the path, the journal, against the Logic that runs on this Mac.
+///
+/// The pipeline proves the journal against a real `git` in a temporary folder and against the fake
+/// driver. It says nothing about whether a change a person makes in Logic reaches the journal, and
+/// that is what these three scenarios answer: a mute by hand arrives as an external change step
+/// before the next command runs, a session of phase 2 repeats with no difference, and a save in
+/// Logic arrives as a save step that no command wrote.
+///
+/// They run one at a time, because all three drive the one Logic this Mac has.
+@Suite(.serialized, .enabled(if: LiveHarness.runsLive()))
+struct Phase7LiveScenarios {
+  /// A mute the operator makes in Logic is a step of the journal before the next command runs
+  /// (story J2, `CMD-J1`).
+  ///
+  /// The mute is made by mouse, by a person, because the suite posts no event of its own. The
+  /// scenario then reads `tracks list` until the mute is there. The command that first reads it is
+  /// the command that writes the external change step, so the journal carries the change with the
+  /// command after it, and `log` and `show` both read it back.
+  @Test func aMuteByHandBecomesAnExternalChangeStep() throws {
+    LiveHarness.liveScenario("aMuteByHandBecomesAnExternalChangeStep")
+
+    let folder = try LiveHarness.temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    let copy = try JournalLive.copyForTheRun(into: folder)
+    let name = copy.deletingPathExtension().lastPathComponent
+    try LiveHarness.openInLogic(copy)
+
+    let read = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
+    let track = try #require(
+      read.tracks.first, "the copy carries a track for the operator to mute")
+    #expect(
+      track.mute == false,
+      """
+      track \(track.index) of \(name) starts unmuted, so the mute the operator makes next is the \
+      change this scenario reads
+      """)
+
+    JournalLive.byHand("mute track \(track.index) of \(name) in the Tracks window of Logic")
+
+    _ = try JournalLive.waitForTheJournal(naming: "the mute of track \(track.index)") {
+      let now = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
+      return now.tracks.first { $0.index == track.index && $0.mute }
+    }
+
+    let steps = try JournalLive.journal().steps
+    #expect(
+      steps.map(\.step) == steps.map(\.step).sorted(by: >),
+      "log answers the steps of the session newest first")
+
+    let found = try #require(
+      steps.firstIndex { $0.kind == "external_change" },
+      "the mute nobody typed is a step of the journal of its own")
+    let external = steps[found]
+    #expect(external.command == nil, "no command made that change, so the step names none")
+    #expect(
+      found > 0,
+      """
+      the command that read the mute wrote that step, so the journal carries it after the change
+      """)
+    if found > 0 {
+      #expect(
+        steps[found - 1].command == "tracks list",
+        "and that command is the tracks list which read the mute")
+    }
+
+    let shown = try LiveHarness.read(
+      JournalLive.Recorded.self, from: ["show", String(external.step)])
+    #expect(shown.kind == "external_change", "show reads the same step back")
+    #expect(shown.command == nil, "and it names no command either")
+    #expect(
+      shown.stateBefore != shown.stateAfter,
+      "and the two hashes differ, because the project moved while nothing of logicctl ran")
+  }
+
+  /// A session of phase 2 runs again on a new project and reports no difference (story J3,
+  /// `CMD-J3`).
+  ///
+  /// The acceptance of phase 2 keeps its session and prints its id, and the operator hands that id
+  /// to this run. A replay that repeats the whole work reports nothing and exits 0, which is the
+  /// evidence story J3 asks for.
+  @Test func replayOfThePhaseTwoSessionFindsNoDifference() throws {
+    LiveHarness.liveScenario("replayOfThePhaseTwoSessionFindsNoDifference")
+
+    let session = try JournalLive.replaySession()
+
+    let folder = try LiveHarness.temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    let copy = try JournalLive.copyForTheRun(into: folder)
+    try LiveHarness.openInLogic(copy)
+
+    let answer = try LiveHarness.logicctl(["replay", session])
+    let carried = try LiveHarness.envelope(
+      JournalLive.Report.self, of: answer, from: "replay \(session)")
+    let report = try #require(
+      carried.data, "the session of phase 2 runs again on a new project: \(answer.printed)")
+
+    #expect(answer.status == 0, "a replay that repeated the whole session exits 0")
+    #expect(report.source == session, "the report names the session it ran again")
+    #expect(report.stepsRun > 0, "and it ran the steps that session holds")
+    #expect(
+      report.skipped.isEmpty,
+      "nothing was passed over: \(report.skipped.map(\.seq))")
+    #expect(
+      report.differences.isEmpty,
+      """
+      and every step left the project as the session recorded it: \
+      \(report.differences.map(\.seq))
+      """)
+  }
+
+  /// A save the operator makes in Logic is a step the watcher wrote, with no command (story J5,
+  /// `CMD-J5`).
+  ///
+  /// The scenario reads `log` while it waits, and `log` reads the journal and never Logic, so the
+  /// waiting writes no step of its own. A save step that arrives while nothing else ran is a step
+  /// the watcher wrote.
+  @Test func aSaveInLogicWritesASaveStepWithNoCommand() throws {
+    LiveHarness.liveScenario("aSaveInLogicWritesASaveStepWithNoCommand")
+
+    let folder = try LiveHarness.temporaryFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+
+    let copy = try JournalLive.copyForTheRun(into: folder)
+    let name = copy.deletingPathExtension().lastPathComponent
+    try LiveHarness.openInLogic(copy)
+
+    // The watcher watches the project of a session, so the copy needs a session before it starts.
+    _ = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
+
+    let started = try LiveHarness.read(JournalLive.Watcher.self, from: ["watch", "start"])
+    defer {
+      let left = JournalLive.unloadTheWatcher()
+      #expect(
+        left == nil,
+        "the launch agent comes off this Mac at the end of the run: \(words(of: left))")
+    }
+    #expect(started.running, "the watcher runs while this scenario waits for a save")
+
+    let status = try LiveHarness.read(JournalLive.WatcherStatus.self, from: ["watch", "status"])
+    #expect(status.running, "watch status reads the agent this run loaded")
+    #expect(
+      status.projects.contains { $0.hasSuffix(copy.lastPathComponent) },
+      "and it names the copy among the projects it watches: \(status.projects)")
+
+    let newest = try JournalLive.journal().steps.first?.step ?? 0
+
+    JournalLive.byHand("move the Channel EQ gain on track 1 of \(name), then save the project")
+
+    let saved = try JournalLive.waitForTheJournal(naming: "the save of \(name)") {
+      let now = try JournalLive.journal()
+      return now.steps.first { $0.step > newest && $0.kind == "save" }
+    }
+
+    #expect(saved.command == nil, "the watcher wrote the step, and no command of logicctl ran")
+    #expect(saved.exitCode == 0, "and the step reads as a save that worked")
+
+    let shown = try LiveHarness.read(JournalLive.Recorded.self, from: ["show", String(saved.step)])
+    #expect(shown.kind == "save", "show reads the same step back")
+    #expect(shown.stateAfter != nil, "and it carries the state of the project Logic saved")
   }
 }
 
