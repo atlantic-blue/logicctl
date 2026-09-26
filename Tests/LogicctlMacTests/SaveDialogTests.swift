@@ -70,6 +70,123 @@ private func treeRead(from text: String) throws -> RecordedTree {
   #expect(refusal.reason.contains("Save As"), "the reason names what was not there")
 }
 
+/// A save walks the panel to the folder and types the name of the project, and nothing else.
+///
+/// Measured on this Mac at 12:46 on 2026-09-26: the route wrote the whole path into the name field,
+/// Logic read that value as a name, and it made a project called
+/// `:private:tmp:logicctl-probe:np79.logicx` in the music folder while the command answered
+/// `timeout`. The panel takes no path in that field. It lists the folders of this Mac in one column
+/// per part of the path, so the route walks those columns and types the name on its own.
+///
+/// A folder the column does not list stops the walk before anything is typed. The panel closes, the
+/// failure names that folder, and the project stays where it is.
+@Test func saveWalksThePanelToTheFolderAndTypesOnlyTheName() throws {
+  let panel = ARecordedSavePanel()
+
+  try panel.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+
+  #expect(
+    panel.opened == ["private in column 1", "tmp in column 2", "logicctl-probe in column 3"],
+    "the route walked the columns of the panel, one folder of the path at a time")
+  let typed = try #require(panel.written[Locators.saveNameField.name], "the field was written")
+  #expect(typed == "Song.logicx", "the name field takes the name of the project and nothing else")
+  #expect(!typed.contains("/"), "a path in that field is read as a name")
+  #expect(!typed.contains(":"), "and every slash of it comes back as a colon")
+  #expect(panel.pressed == [Locators.saveButton.name], "Save was pressed, and Cancel was not")
+
+  let missing = ARecordedSavePanel()
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try missing.dialog().save(
+      toPath: "/private/tmp/nowhere/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .invalidArgument, "the path is what a person fixes")
+  #expect(refusal.failure.code.exitCode == 2, "the number the process exits with")
+  #expect(refusal.reason.contains("nowhere"), "the reason names the folder that is not there")
+  #expect(
+    missing.opened == ["private in column 1", "tmp in column 2"],
+    "the walk stopped at the folder the column does not list")
+  #expect(missing.written.isEmpty, "nothing was typed into the panel")
+  #expect(missing.pressed == [Locators.saveCancelButton.name], "and the panel was closed")
+}
+
+/// Each column of the panel is read by its number, and a row carries its name in a field.
+///
+/// The recorded panel was walked to `/private/tmp/logicctl-probe`, so column 1 lists the root of
+/// the start up disk and each column to the right lists the folder opened before it. A read that
+/// took two columns as one would leave the walk looking for `tmp` among the folders of the root.
+@Test func theColumnsOfTheSavePanelAreReadOneAtATime() throws {
+  let panel = try treeRoot(of: "save-panel-expanded.json")
+
+  #expect(try SaveDialog.names(inColumnNumbered: 0, of: panel).contains("private"))
+  #expect(try SaveDialog.names(inColumnNumbered: 1, of: panel) == ["etc", "tmp", "var"])
+  #expect(
+    try SaveDialog.names(inColumnNumbered: 2, of: panel) == ["logicctl-fixtures", "logicctl-probe"])
+
+  let name = try SaveDialog.nameField(of: "tmp", inColumnNumbered: 1, of: panel)
+  #expect(name.role == "AXTextField", "the name of a row is a field of it")
+  #expect(name.actions.contains(SaveDialog.openAction), "and opening that field opens the folder")
+
+  let refused = #expect(throws: LocatorResolver.Refusal.self) {
+    try SaveDialog.names(inColumnNumbered: 9, of: panel)
+  }
+  #expect(refused?.locator == Locators.saveColumn(number: 9).name, "a column that is not there")
+}
+
+/// A route over the recorded Save panel, walked the way Logic answers it.
+///
+/// The columns are the ones Logic listed, so a folder this panel does not hold is a folder the walk
+/// cannot find here either. A recorded tree does not move, so the Where popup answers the last
+/// folder the route opened, which is what Logic does with it.
+private final class ARecordedSavePanel {
+  /// Every folder the route opened, with the column it opened it in.
+  private(set) var opened: [String] = []
+
+  /// The names of the locators the route pressed, in order.
+  private(set) var pressed: [String] = []
+
+  /// What the route wrote into each field.
+  private(set) var written: [String: String] = [:]
+
+  /// True while the panel is open, which the press of Save ends.
+  private var showing = true
+
+  /// The folder the Where popup shows.
+  private var folder = ""
+
+  /// The route, with every read taken from the recorded panel.
+  func dialog() throws -> SaveDialog {
+    let panel = try treeRoot(of: "save-panel-expanded.json")
+    return SaveDialog(
+      openTheMenuItem: {},
+      showsThePanel: { self.showing },
+      write: { locator, text in
+        // The walk has to find the field in the recorded panel before it can be written into.
+        _ = try LocatorResolver.element(of: locator, in: panel)
+        self.written[locator.name] = text
+      },
+      press: { locator in
+        _ = try LocatorResolver.element(of: locator, in: panel)
+        self.pressed.append(locator.name)
+        if locator.name == Locators.saveButton.name {
+          self.showing = false
+        }
+      },
+      resolve: { $0 },
+      namesInColumn: { number in
+        try SaveDialog.names(inColumnNumbered: number, of: panel)
+      },
+      openFolder: { number, name in
+        _ = try SaveDialog.nameField(of: name, inColumnNumbered: number, of: panel)
+        self.opened.append("\(name) in column \(number + 1)")
+        self.folder = name
+      },
+      folderShown: { self.folder })
+  }
+}
+
 /// An application with a File menu that carries Save As, and an Edit menu that carries one too.
 private let aMenuBar = """
   {

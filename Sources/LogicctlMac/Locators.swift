@@ -356,6 +356,45 @@ public enum Locators {
     name: "save.saveButton",
     path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
 
+  /// The button that closes the Save panel and writes nothing.
+  ///
+  /// The route presses it when a folder of the path is not in the column, so a refusal leaves no
+  /// panel open waiting for an answer that nothing is going to give it.
+  public static let saveCancelButton = Locator(
+    name: "save.cancelButton",
+    path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "CancelButton")])
+
+  /// The popup that says which folder the Save panel is in.
+  ///
+  /// Measured on Logic 12.3.1 on 2026-09-26: `AXOpen` on the name of a folder in a column moves the
+  /// value of this popup to that folder. So it is how the route reads back where the walk got to.
+  public static let saveWherePopup = Locator(
+    name: "save.wherePopup",
+    path: toTheSavePanel + [LocatorStep(role: "AXPopUpButton", identifier: "where popup")])
+
+  /// The browser of the Save panel, which lists the folders of this Mac one column at a time.
+  ///
+  /// The leftmost column lists the root of the start up disk, and each column to the right lists
+  /// what the row selected in the column before it holds. So the walk to a folder is one column per
+  /// part of the path, and the panel needs no field for a path.
+  public static let saveColumnView = Locator(
+    name: "save.columnView",
+    path: toTheSaveColumnView)
+
+  /// One column of that browser, counted from 0. Column 0 lists the root of the start up disk.
+  ///
+  /// A column carries no identifier and no title, so its place among the scroll areas of the
+  /// browser is the whole of what a path can name here. The scroll bar of the browser carries
+  /// another role, so it is not counted.
+  public static func saveColumn(number: Int) -> Locator {
+    let column = [
+      LocatorStep(role: "AXScrollArea"),
+      LocatorStep(role: "AXScrollArea", index: number),
+      LocatorStep(role: "AXList"),
+    ]
+    return Locator(name: "save.column\(number + 1)", path: toTheSaveColumnView + column)
+  }
+
   /// The window Logic opens for File, Import, "MIDI File...".
   ///
   /// It is a window of its own and not a sheet on the project, and it carries the identifier
@@ -415,6 +454,9 @@ public enum Locators {
     saveWindow,
     saveNameField,
     saveButton,
+    saveCancelButton,
+    saveWherePopup,
+    saveColumnView,
     importWindow,
     importWherePopup,
     importButton,
@@ -429,6 +471,17 @@ public enum Locators {
   /// The walk from the window Logic opens for File, "Save As...".
   private static let toTheSavePanel: [LocatorStep] = [
     LocatorStep(role: "AXWindow", identifier: "save-panel")
+  ]
+
+  /// The walk from that window to the browser that lists the folders in columns.
+  ///
+  /// The browser sits under the splitter that holds the sidebar on its left, so the walk goes
+  /// through two split groups to reach it.
+  private static let toTheSaveColumnView: [LocatorStep] = [
+    LocatorStep(role: "AXWindow", identifier: "save-panel"),
+    LocatorStep(role: "AXSplitGroup"),
+    LocatorStep(role: "AXSplitGroup"),
+    LocatorStep(role: "AXBrowser", identifier: "ColumnView"),
   ]
 
   /// The walk from the window Logic opens for File, Import, "MIDI File...".

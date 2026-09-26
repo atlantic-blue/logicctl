@@ -47,6 +47,18 @@ public struct SaveDialog {
   /// Presses the one element a locator names.
   public typealias Press = (Locator) throws -> Void
 
+  /// The path with every symbolic link resolved, which is the path the panel shows.
+  public typealias Resolve = (String) throws -> String
+
+  /// The names one column of the browser lists, counted from 0.
+  public typealias ReadNames = (Int) throws -> [String]
+
+  /// Opens the folder of this name in the column at this number, counted from 0.
+  public typealias OpenFolder = (Int, String) throws -> Void
+
+  /// The folder the panel is in, as the Where popup shows it.
+  public typealias ReadFolder = () throws -> String
+
   /// Asks Logic for File, "Save As...".
   public let openTheMenuItem: OpenTheMenuItem
 
@@ -59,16 +71,36 @@ public struct SaveDialog {
   /// Presses a button of the panel.
   public let press: Press
 
+  /// Resolves the folder of the path before the walk.
+  public let resolve: Resolve
+
+  /// Reads the names one column of the browser lists.
+  public let namesInColumn: ReadNames
+
+  /// Opens one folder of a column.
+  public let openFolder: OpenFolder
+
+  /// Reads which folder the panel reached.
+  public let folderShown: ReadFolder
+
   public init(
     openTheMenuItem: @escaping OpenTheMenuItem,
     showsThePanel: @escaping Read,
     write: @escaping Write,
-    press: @escaping Press
+    press: @escaping Press,
+    resolve: @escaping Resolve,
+    namesInColumn: @escaping ReadNames,
+    openFolder: @escaping OpenFolder,
+    folderShown: @escaping ReadFolder
   ) {
     self.openTheMenuItem = openTheMenuItem
     self.showsThePanel = showsThePanel
     self.write = write
     self.press = press
+    self.resolve = resolve
+    self.namesInColumn = namesInColumn
+    self.openFolder = openFolder
+    self.folderShown = folderShown
   }
 }
 
@@ -104,7 +136,11 @@ extension SaveDialog {
       openTheMenuItem: SaveDialog.askTheLogicOfThisMacToSaveAs,
       showsThePanel: SaveDialog.theLogicOfThisMacShowsThePanel,
       write: SaveDialog.writeIntoTheLogicOfThisMac,
-      press: SaveDialog.pressInTheLogicOfThisMac)
+      press: SaveDialog.pressInTheLogicOfThisMac,
+      resolve: SaveDialog.resolveOnThisMac,
+      namesInColumn: SaveDialog.theNamesInTheColumnOfThisMac,
+      openFolder: SaveDialog.openTheFolderInTheLogicOfThisMac,
+      folderShown: SaveDialog.theFolderTheLogicOfThisMacShows)
   }
 
   /// What the menu item of Logic is called, under the File menu.
@@ -219,5 +255,86 @@ extension SaveDialog {
       throw Refusal(reason: "Logic shows no window, so nothing in it could be reached.")
     }
     return front.root
+  }
+}
+
+extension SaveDialog {
+  /// The action the name of a folder carries to move the panel into that folder.
+  public static let openAction = "AXOpen"
+
+  /// The names one column of the browser lists, in a tree of the panel.
+  ///
+  /// A row of a column is an `AXGroup` that holds an image and a text field, and the name is the
+  /// value of that field. Measured on Logic 12.3.1 on 2026-09-26: the field carries `AXOpen`,
+  /// `AXShowMenu` and `AXConfirm`, and the group carries no action at all. So the field is what the
+  /// walk reads and what it opens, and a row that holds no such field holds no name.
+  public static func names(inColumnNumbered number: Int, of panel: any AXNode) throws -> [String] {
+    let column = try LocatorResolver.element(of: Locators.saveColumn(number: number), in: panel)
+    return column.children.compactMap { SaveDialog.nameShown(by: $0) }
+  }
+
+  /// The field that holds the name of one row of a column, which is the element `AXOpen` acts on.
+  public static func nameField(
+    of name: String, inColumnNumbered number: Int, of panel: any AXNode
+  ) throws -> any AXNode {
+    let column = try LocatorResolver.element(of: Locators.saveColumn(number: number), in: panel)
+    let rows = column.children.filter { SaveDialog.nameShown(by: $0) == name }
+    guard rows.count == 1, let row = rows.first else {
+      throw Refusal(
+        reason: "Column \(number + 1) of the Save panel lists \(rows.count) rows called \(name).")
+    }
+    guard let field = SaveDialog.nameOf(row) else {
+      throw Refusal(reason: "The row called \(name) in the Save panel shows no name to open.")
+    }
+    return field
+  }
+
+  /// The name a row of a column shows, or nothing when it shows none.
+  static func nameShown(by row: any AXNode) -> String? {
+    SaveDialog.nameOf(row)?.value
+  }
+
+  /// The field of a row that carries its name, which is the one that can be opened.
+  private static func nameOf(_ row: any AXNode) -> (any AXNode)? {
+    row.children.first { $0.actions.contains(SaveDialog.openAction) }
+  }
+}
+
+extension SaveDialog {
+  /// The path with every symbolic link resolved, which is the path the panel shows.
+  static func resolveOnThisMac(_ path: String) throws -> String {
+    URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+  }
+
+  /// The names the column at this number lists, in the panel Logic shows in front.
+  static func theNamesInTheColumnOfThisMac(_ number: Int) throws -> [String] {
+    try SaveDialog.names(inColumnNumbered: number, of: SaveDialog.frontWindow())
+  }
+
+  /// Opens one folder of a column, through the `AXOpen` action of the field that holds its name.
+  static func openTheFolderInTheLogicOfThisMac(_ number: Int, _ name: String) throws {
+    let field = try SaveDialog.nameField(
+      of: name, inColumnNumbered: number, of: SaveDialog.frontWindow())
+    guard let live = field as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(name) was found in a recorded tree, which nothing can open.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementPerformAction(live.element, SaveDialog.openAction as CFString)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused to open \(name) in the Save panel, error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Which folder the panel of this Mac reached, as the Where popup shows it.
+  static func theFolderTheLogicOfThisMacShows() throws -> String {
+    let popup = try LocatorResolver.element(
+      of: Locators.saveWherePopup, in: SaveDialog.frontWindow())
+    guard let shown = popup.value else {
+      throw Refusal(reason: "The Where popup of the Save panel says no folder.")
+    }
+    return shown
   }
 }

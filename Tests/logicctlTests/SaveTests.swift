@@ -95,10 +95,19 @@ private struct APicture: WindowCapturer {
 /// The Logic a test drives: the panel it shows, and the project it has open behind it.
 ///
 /// Pressing Save is what writes the project, as it is in Logic. Nothing else in the route puts a
-/// file on disk, so a test that reads the path afterwards is reading what the press did.
+/// file on disk, so a test that reads the path afterwards is reading what the press did. The
+/// project lands where the walk of the columns points, plus the name in the field, because that is
+/// how the panel decides: a Logic that took the name alone would write every project to one folder.
+///
+/// The columns are the folders of this Mac. Column 1 lists the root of the start up disk, and each
+/// column to the right lists what the folder opened before it holds, so a test that saves into a
+/// temporary folder drives the whole walk down to it.
 private final class Mac {
   /// True while Logic shows the panel that asks where the project goes.
   var showsThePanel = false
+
+  /// The folders the route opened, from the root of the start up disk down.
+  var walked: [String] = []
 
   /// What the route did, in the order it did it.
   var asked: [String] = []
@@ -149,7 +158,7 @@ private final class Mac {
         guard locator.name == Locators.saveButton.name else {
           return
         }
-        let to = self.written[Locators.saveNameField.name] ?? ""
+        let to = self.pathOfTheWalk(named: self.written[Locators.saveNameField.name] ?? "")
         try self.bytesOfTheProject.write(to: URL(fileURLWithPath: to), options: .atomic)
         self.savedTo.append(to)
         self.showsThePanel = false
@@ -158,7 +167,26 @@ private final class Mac {
           return
         }
         self.driver.path = to
-      })
+      },
+      resolve: { $0 },
+      namesInColumn: { number in
+        try FileManager.default.contentsOfDirectory(atPath: self.folderOfTheWalk(cutTo: number))
+      },
+      openFolder: { number, name in
+        self.asked.append("open " + name)
+        self.walked = Array(self.walked.prefix(number)) + [name]
+      },
+      folderShown: { self.walked.last ?? "" })
+  }
+
+  /// The folder the walk reached, cut to the first folders of it.
+  private func folderOfTheWalk(cutTo number: Int) -> String {
+    "/" + walked.prefix(number).joined(separator: "/")
+  }
+
+  /// Where the panel writes the project: the folder the walk reached, and the name in the field.
+  private func pathOfTheWalk(named name: String) -> String {
+    folderOfTheWalk(cutTo: walked.count) + (walked.isEmpty ? "" : "/") + name
   }
 }
 
@@ -316,12 +344,13 @@ private func commits(of session: Session, underRoot root: URL, git: Git) throws 
     "the new path and the step of the save are one commit")
 }
 
-/// Logic is told where the project goes, and then told to write it.
+/// Logic is walked to the folder, told the name, and then told to write the project.
 ///
-/// The panel of macOS takes a whole path in its name field, so the command writes the path there
-/// rather than driving the Where popup and the folder browser under it, which name the folders of
-/// this Mac and not the folder a person typed.
-@Test func theSaveTypesThePathIntoThePanelAndPressesSave() throws {
+/// The panel takes no path in its name field. A value written there is read as a name, so a whole
+/// path becomes one project called `:Users:someone:Free.logicx` in whatever folder the panel was
+/// showing. The command walks the columns of the panel to the folder instead, and the field takes
+/// the name of the project on its own.
+@Test func theSaveCommandWalksToTheFolderAndWritesTheProjectThere() throws {
   let root = try temporaryFolder()
   let git = try gitThatSigns(inside: root)
   let work = try temporaryFolder()
@@ -346,15 +375,26 @@ private func commits(of session: Session, underRoot root: URL, git: Git) throws 
     standardOutput: answered.write,
     standardError: answered.writeError)
 
+  let folders = work.path.split(separator: "/").map(String.init)
+
   #expect(exited == 0, "a path that is free needs no confirmation")
+  #expect(logic.asked.first == "File, Save As", "the command opened the panel first")
   #expect(
-    logic.asked == [
-      "File, Save As",
+    logic.asked.filter { $0.hasPrefix("open ") } == folders.map { "open " + $0 },
+    "it opened one folder of the path per column, down to the folder the project goes in")
+  #expect(
+    Array(logic.asked.suffix(2)) == [
       "write " + Locators.saveNameField.name,
       "press " + Locators.saveButton.name,
     ],
-    "the command opened the panel, wrote the path and pressed Save, and pressed nothing else")
-  #expect(logic.written[Locators.saveNameField.name] == path, "the whole path went into the field")
+    "then it wrote the name and pressed Save")
+  #expect(
+    logic.asked.filter { $0.hasPrefix("press ") } == ["press " + Locators.saveButton.name],
+    "and it pressed nothing else, so the panel was never cancelled")
+  let typed = try #require(logic.written[Locators.saveNameField.name])
+  #expect(typed == "Free.logicx", "the name of the project went into the field, and not the path")
+  #expect(!typed.contains("/"), "a path in that field is read as a name")
+  #expect(logic.savedTo == [path], "the project is at the path the walk and the name make together")
   #expect(!logic.showsThePanel, "the command waited for Logic to close the panel")
 }
 
