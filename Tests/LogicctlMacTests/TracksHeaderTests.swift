@@ -87,3 +87,57 @@ private struct LogicShowing: AXNode {
 
   var children: [any AXNode] { windows }
 }
+
+/// Four ways of naming an element do not last as long as each other.
+///
+/// A description says what an element is for, and Logic writes one on every pane of its window. It
+/// lasts longer than a place among the elements of a role, because Logic moves that place as soon
+/// as a person opens a pane. It lasts less long than an identifier and less long than a title,
+/// which are what an element is called rather than what it is for. So a step that carries more
+/// than one of the four is read in that order, and this is the tree that tells them apart: each
+/// way of naming reaches a different group.
+@Test func theDescriptionIsReadAfterTheTitleAndBeforeTheIndex() throws {
+  let root = try treeWritten(fourGroups).root
+
+  let byTitle = Locator(
+    name: "test.byTitle",
+    path: [
+      LocatorStep(role: "AXWindow"),
+      LocatorStep(role: "AXGroup", title: "named", description: "Tracks", index: 3),
+    ])
+  let byDescription = Locator(
+    name: "test.byDescription",
+    path: [
+      LocatorStep(role: "AXWindow"),
+      LocatorStep(role: "AXGroup", description: "Tracks", index: 3),
+    ])
+  let byIndex = Locator(
+    name: "test.byIndex",
+    path: [LocatorStep(role: "AXWindow"), LocatorStep(role: "AXGroup", index: 3)])
+
+  #expect(try LocatorResolver.element(of: byTitle, in: root).title == "named")
+  #expect(try LocatorResolver.element(of: byDescription, in: root).description == "Tracks")
+  #expect(try LocatorResolver.element(of: byIndex, in: root).description == "Library")
+}
+
+/// Four groups of one role: one with a title, one with the description of the tracks, and two
+/// with neither.
+private let fourGroups = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXWindow",
+      "children": [
+        { "role": "AXGroup", "title": "named", "description": "Inspector" },
+        { "role": "AXGroup", "description": "Tracks" },
+        { "role": "AXGroup", "description": "Control Bar" },
+        { "role": "AXGroup", "description": "Library" }
+      ]
+    }
+  }
+  """
+
+/// A tree written in a test, read back the way a recorded tree is read.
+private func treeWritten(_ text: String) throws -> RecordedTree {
+  try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
+}
