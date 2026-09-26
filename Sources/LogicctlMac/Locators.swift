@@ -25,10 +25,11 @@ public struct Locator: Equatable, Sendable {
 
 /// One element on the walk a locator makes.
 ///
-/// A step reads the identifier first, then the title, then the index, which is the order the three
-/// last in. An identifier Logic gives an element of its own stands in every project. A title
-/// stands until the language of Logic changes. An index is the weakest of the three and is there
-/// for the elements that carry neither of the others.
+/// A step reads the identifier first, then the title, then the description, then the index, which
+/// is the order the four last in. An identifier Logic gives an element of its own stands in every
+/// project. A title stands until the language of Logic changes. A description says what the element
+/// is for, and it stands while the element does. An index is the weakest of the four and is there
+/// for the elements that carry none of the others.
 public struct LocatorStep: Equatable, Sendable {
   /// What kind of element this is, for example `AXButton`. Every step names one.
   public let role: String
@@ -39,6 +40,12 @@ public struct LocatorStep: Equatable, Sendable {
   /// The title the element carries, or nil when the step names none.
   public let title: String?
 
+  /// What the element is for, in the words Accessibility carries, or nil when the step names none.
+  ///
+  /// The panes of the window of Logic carry one each, and a pane carries no identifier and no
+  /// title, so this is the only lasting way to name one.
+  public let description: String?
+
   /// Which element of that role, counted from 0 among the elements of that role alone.
   ///
   /// The count leaves out every element of another role, because Logic puts elements beside the
@@ -47,10 +54,14 @@ public struct LocatorStep: Equatable, Sendable {
   /// in both.
   public let index: Int?
 
-  public init(role: String, identifier: String? = nil, title: String? = nil, index: Int? = nil) {
+  public init(
+    role: String, identifier: String? = nil, title: String? = nil, description: String? = nil,
+    index: Int? = nil
+  ) {
     self.role = role
     self.identifier = identifier
     self.title = title
+    self.description = description
     self.index = index
   }
 }
@@ -196,6 +207,25 @@ public enum Locators {
           role: "AXMenuItem", title: "Convert Visible Track Automation to Region Automation")
       ])
 
+  /// The item of the menu bar that carries the windows Logic can open.
+  ///
+  /// The walk starts at the application, as the walks to the Track menu and the Mix menu do,
+  /// because the menu bar of an application sits beside its windows and not under one. So no
+  /// recorded tree holds it, and the live acceptance is what proves this walk against Logic
+  /// itself.
+  public static let windowMenu = Locator(
+    name: "menu.window",
+    path: toTheMenuBar + [LocatorStep(role: "AXMenuBarItem", title: "Window")])
+
+  /// The item of the Window menu that opens the Mixer in a window of its own.
+  ///
+  /// Measured on this Mac on 2026-09-26 against Logic 12.3.1: the item is titled `Open Mixer` and
+  /// Logic offers it while a project is open. The state reader presses it to read the kind of each
+  /// track, which is in the channel strip and nowhere else.
+  public static let openMixer = Locator(
+    name: "menu.window.openMixer",
+    path: toTheWindowMenu + [LocatorStep(role: "AXMenuItem", title: "Open Mixer")])
+
   /// The play button of the Control Bar.
   public static let transportPlayButton = Locator(
     name: "transport.playButton",
@@ -287,11 +317,21 @@ public enum Locators {
   /// The sheet Logic puts on a project that has no tracks, which asks for the first track.
   ///
   /// Logic shows it on a project it has just made, and again when the last track of a project is
-  /// deleted. So the sheet is how logicctl reads that the project in front has no tracks. logicctl
-  /// presses no button in it: Create would make a track, and Cancel closes a project Logic made.
+  /// deleted. So the sheet is how logicctl reads that the project in front has no tracks.
   public static let newTrackSheet = Locator(
     name: "newTrackSheet.sheet",
-    path: [LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet")])
+    path: toTheNewTrackSheet)
+
+  /// The button of the sheet that makes the first track of the project.
+  ///
+  /// Logic refuses Save while this sheet is open, so a project under it cannot be kept, and the
+  /// other button of the sheet closes the project Logic has just made. The step names the title and
+  /// not the identifier: the identifier of this button reads `_NS:618`, and Logic gives it another
+  /// number on another launch.
+  public static let newTrackCreateButton = Locator(
+    name: "newTrackSheet.createButton",
+    path: toTheNewTrackSheet
+      + [LocatorStep(role: "AXGroup"), LocatorStep(role: "AXButton", title: "Create")])
 
   /// The window Logic opens for File, "Save As...".
   ///
@@ -367,6 +407,7 @@ public enum Locators {
     chooserEmptyProjectTile,
     chooserChooseButton,
     newTrackSheet,
+    newTrackCreateButton,
     eventListWindow,
     eventListTable,
     mixerWindow,
@@ -378,6 +419,11 @@ public enum Locators {
     importWherePopup,
     importButton,
     importCancelButton,
+  ]
+
+  /// The walk from the project window to the sheet that asks for the first track.
+  private static let toTheNewTrackSheet: [LocatorStep] = [
+    LocatorStep(role: "AXWindow"), LocatorStep(role: "AXSheet"),
   ]
 
   /// The walk from the window Logic opens for File, "Save As...".
@@ -438,6 +484,13 @@ public enum Locators {
       LocatorStep(role: "AXMenu"),
     ]
 
+  /// The walk from the application of Logic to the items of its Window menu.
+  private static let toTheWindowMenu: [LocatorStep] =
+    toTheMenuBar + [
+      LocatorStep(role: "AXMenuBarItem", title: "Window"),
+      LocatorStep(role: "AXMenu"),
+    ]
+
   /// The walk from the application of Logic to the items of its Track menu.
   private static let toTheTrackMenu: [LocatorStep] =
     toTheMenuBar + [
@@ -468,9 +521,14 @@ public enum Locators {
   ]
 
   /// The walk from the window to the group that holds the track headers.
+  ///
+  /// The group is named by what Logic calls it, because its place moves with the panes a person has
+  /// open. Every pane is a group of the window, so the Library takes a place of its own while it is
+  /// open. A project Logic has just made shows no Library, and the tracks are the third group there
+  /// and the fourth group of a project that shows one.
   private static let toTheTracksHeader: [LocatorStep] = [
     LocatorStep(role: "AXWindow"),
-    LocatorStep(role: "AXGroup", index: 3),
+    LocatorStep(role: "AXGroup", description: "Tracks"),
     LocatorStep(role: "AXGroup", index: 1),
     LocatorStep(role: "AXSplitGroup", index: 0),
     LocatorStep(role: "AXSplitGroup", index: 1),
