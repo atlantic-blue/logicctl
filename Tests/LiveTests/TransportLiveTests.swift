@@ -274,11 +274,18 @@ struct Phase3LiveScenarios {
   /// question is stored in the preferences of this Mac, so the question may never show. Both ways
   /// are read: a question that shows fails the command with `dialog_open` and logicctl presses
   /// nothing, and a question that does not show leaves the track and the region to read.
+  ///
+  /// The file is copied to a folder Logic can walk to first, and the folder goes again at the end.
   @Test func importPutsTheFileOnANewTrack() throws {
     LiveHarness.liveScenario("importPutsTheFileOnANewTrack")
     _ = try ScratchCopy.open()
 
-    let command = ["midi", "import", "--file", fixture("notes.mid").path, "--confirm"]
+    let folder = try visibleFolder()
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let file = folder.appending(path: "notes.mid")
+    try FileManager.default.copyItem(at: fixture("notes.mid"), to: file)
+
+    let command = ["midi", "import", "--file", file.path, "--confirm"]
     let (read, status) = try envelope(ImportAnswer.self, from: command)
 
     if let refused = read.error {
@@ -366,6 +373,24 @@ private struct LiveRefusal: Error, CustomStringConvertible {
   let reason: String
 
   var description: String { reason }
+}
+
+/// A folder of this run that Logic can walk to, every step of the way down.
+///
+/// The Import panel of macOS lists visible folders alone, so `midi import` refuses a file whose
+/// path passes through a hidden folder before it asks Logic anything. `/tmp` resolves under
+/// `/private`, and the temporary folder of a process sits under `/private/var`, so a file in
+/// either one is refused. A folder in the home folder is visible the whole way, and the scenario
+/// that makes one removes it again.
+private func visibleFolder() throws -> URL {
+  let home = FileManager.default.homeDirectoryForCurrentUser
+  let folder = home.appending(path: "logicctl-live-import-\(UUID().uuidString)")
+  guard LiveHarness.isUnder(LiveHarness.musicFolder, folder) == false else {
+    throw LiveRefusal(
+      reason: "\(folder.path) is under the music folder of this Mac, so nothing is written there")
+  }
+  try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+  return folder
 }
 
 /// A fixture of the repository, by its name under `Tests/Fixtures`.
