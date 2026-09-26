@@ -342,11 +342,11 @@ public enum Locators {
     name: "save.window",
     path: [LocatorStep(role: "AXWindow", identifier: "save-panel")])
 
-  /// The field that holds where the project goes.
+  /// The field that holds the name of the project.
   ///
-  /// Logic puts the name of the project in it. logicctl writes the whole path there instead,
-  /// because a panel takes a path in that field and the alternative is driving the Where popup and
-  /// the folder browser under it, neither of which names a folder a person typed.
+  /// A value written here is read as a name and never as a path: Logic turns every slash of it into
+  /// a colon. So logicctl writes the name of the project on its own, and the folder comes from the
+  /// walk of the column browser beside it.
   public static let saveNameField = Locator(
     name: "save.nameField",
     path: toTheSavePanel + [LocatorStep(role: "AXTextField", identifier: "saveAsNameTextField")])

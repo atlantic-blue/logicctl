@@ -105,27 +105,93 @@ public struct SaveDialog {
 }
 
 extension SaveDialog {
+  /// Where the project goes, as the columns of the panel name it.
+  public struct Destination: Equatable, Sendable {
+    /// The folders of the path, from the root of the start up disk down, with the links resolved.
+    public let folders: [String]
+
+    /// The name of the project, which is the one text the name field takes.
+    public let name: String
+
+    public init(folders: [String], name: String) {
+      self.folders = folders
+      self.name = name
+    }
+  }
+
+  /// Where one path puts the project, with the folders read the way the panel lists them.
+  ///
+  /// The folders are resolved and the name is not. `/tmp` is a link to `/private/tmp` on this Mac,
+  /// and a column lists what a link resolves to, so a walk of `/tmp` would find no `tmp` in the
+  /// first column. There is nothing to resolve in the name, because the project is not on disk yet.
+  public func destination(of path: String) throws -> Destination {
+    let url = URL(fileURLWithPath: path)
+    let name = url.lastPathComponent
+    guard !name.isEmpty, name != "/" else {
+      throw Refusal(
+        reason: "--path names the file the project goes into, and \(path) names a folder.",
+        code: .invalidArgument)
+    }
+    let folder = try resolve(url.deletingLastPathComponent().path)
+    let folders = folder.split(separator: "/", omittingEmptySubsequences: true).map(String.init)
+    return Destination(folders: folders, name: name)
+  }
+
   /// Writes the open project to one path, and answers once Logic has closed the panel.
   ///
-  /// The path goes into the name field whole. A panel of macOS takes a path in that field, and the
-  /// alternative is driving the Where popup and the folder browser under it, which name the
-  /// folders of this Mac and not the folder a person typed.
+  /// The panel carries no field for a path. A value written into the name field is read as a name,
+  /// so a path there becomes one project whose name carries a colon for every slash, in the folder
+  /// the panel was showing. Measured on this Mac at 12:46 on 2026-09-26: a path in that field made
+  /// a project called `:private:tmp:logicctl-probe:np79.logicx` in the music folder.
+  ///
+  /// So the route walks the columns of the panel, one folder of the path per column, and the field
+  /// takes the name of the project on its own. The folder is read back after each open. An open
+  /// that landed somewhere else would leave the project in that folder under the right name, and no
+  /// read of the name afterwards would catch it.
+  ///
+  /// A folder the column does not list stops the route before it writes anything. The route closes
+  /// the panel and names that folder. The project stays where it is.
   public func save(
     toPath path: String,
     limitMs: Int = Wait.defaultLimitMs,
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws {
+    let destination = try self.destination(of: path)
     try openTheMenuItem()
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
     }
-    try write(Locators.saveNameField, path)
+    for (number, folder) in destination.folders.enumerated() {
+      guard try namesInColumn(number).contains(folder) else {
+        closeThePanel()
+        throw Refusal(
+          reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
+            + "\(path) stopped, and nothing was written.",
+          code: .invalidArgument)
+      }
+      try openFolder(number, folder)
+      let shown = try folderShown()
+      guard shown == folder else {
+        throw Refusal(
+          reason: "The Save panel was asked for \(folder) and shows \(shown). The walk to \(path) "
+            + "stopped, and nothing was written.")
+      }
+    }
+    try write(Locators.saveNameField, destination.name)
     try press(Locators.saveButton)
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       let showing = try showsThePanel()
       return !showing
     }
+  }
+
+  /// Closes the panel, which a refusal inside the walk would leave open.
+  ///
+  /// What the press answers is not read. The refusal a person acts on names the folder that is not
+  /// in the column, and a Cancel that Logic refused does not replace it.
+  private func closeThePanel() {
+    _ = try? press(Locators.saveCancelButton)
   }
 }
 
