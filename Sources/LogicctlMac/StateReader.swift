@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 import LogicctlCore
 
@@ -109,10 +110,15 @@ public struct StateReader {
 
   /// The state of the project Logic has open, built from one walk of the tree.
   ///
-  /// The state of the last step comes in, because the plugins of a track are read from the Mixer,
-  /// and Logic shows the Mixer only while a person keeps it open. logicctl opens no window to
-  /// read, so a track whose strip this walk cannot see keeps the plugins the last state gave it,
-  /// and the difference between the two states reports no plugin change from that read.
+  /// The kind of a track is in the Mixer and nowhere else, so a read that found no Mixer opens
+  /// one, walks the tree again, and closes it afterwards. A Mixer a person already had open stays
+  /// open, because a command must not take a window away from them. A Mixer that will not open
+  /// leaves every kind at `other` rather than failing the read.
+  ///
+  /// The state of the last step comes in, because the plugins of a track are read from the Mixer
+  /// as well, and those are read from the first walk alone. So a track whose strip that walk
+  /// cannot see keeps the plugins the last state gave it, and the difference between the two
+  /// states reports no plugin change from that read.
   public func state(after previous: State?) throws -> State {
     let tree = try readTree()
     guard let version = try readStatus().version else {
@@ -130,8 +136,22 @@ public struct StateReader {
     let savedAt = try readPath().flatMap(readSaveTime)
     let transport = try TransportReader.transport(in: project.root, tempo: readTempo)
     let mixer = ChannelStrip.window(of: tree)
+    var shown = mixer
+    var opened = false
+    if shown == nil {
+      opened = (try? openMixer()) != nil
+      if opened, let again = try? readTree() {
+        shown = ChannelStrip.window(of: again)
+      }
+    }
+    defer {
+      if opened {
+        try? closeMixer()
+      }
+    }
     let tracks = try TrackReader.tracks(in: project.root).map { track -> Track in
       var read = track
+      read.type = kind(of: track, in: shown)
       read.regions = RegionReader.regions(ofTrack: track.index, in: project.root)
       read.plugins = plugins(of: track, in: mixer, after: previous)
       return read
@@ -141,6 +161,18 @@ public struct StateReader {
       project: Project(name: name, savedAt: savedAt),
       transport: transport,
       tracks: tracks)
+  }
+
+  /// What kind of track the Mixer shows for one track, or `other` where no Mixer could be read.
+  ///
+  /// The strip of a track is found by its place, and the Mixer shows the strips of the tracks a
+  /// person scrolled to, so a place can hold the strip of another track. That is not a reason to
+  /// stop the command that is reading, and the kind of a track nobody can see is `other`.
+  private func kind(of track: Track, in mixer: (any AXNode)?) -> Track.Kind {
+    guard let mixer else {
+      return .other
+    }
+    return TrackReader.type(ofTrackNumber: track.index, named: track.name, in: mixer)
   }
 
   /// The plugins of one track: what the Mixer shows for it, or what the last state gave it.
@@ -195,6 +227,86 @@ extension StateReader {
       status: driver.status,
       name: project.name,
       path: project.path,
-      tempo: TempoField.readTheLogicOfThisMac)
+      tempo: TempoField.readTheLogicOfThisMac,
+      openMixer: StateReader.openTheMixerOfThisMac,
+      closeMixer: StateReader.closeTheMixerOfThisMac)
+  }
+
+  /// The subrole of the button that closes a window. Accessibility names the three buttons of a
+  /// title bar by subrole alone, and each one carries no title and no description.
+  static let closeButtonSubrole = "AXCloseButton"
+
+  /// Opens the Mixer of the Logic that runs, through the Window menu of its menu bar.
+  ///
+  /// Measured on this Mac on 2026-09-26 (Logic 12.3.1, a copy under /tmp): the Window menu holds
+  /// an item titled `Open Mixer` while a project is open, and pressing it opens a window of its
+  /// own, titled `<project>.logicx - Mixer: Tracks`. A press through Accessibility is not a mouse
+  /// event, so it does not go through the input gate: it asks the one element the walk found to
+  /// act on itself.
+  ///
+  /// Logic builds the window after the press answers, so this waits for the window to be there and
+  /// gives up with `timeout` rather than letting the caller walk a tree that has not got it yet.
+  /// No recorded tree holds a menu bar, so the live acceptance is what proves this walk.
+  public static func openTheMixerOfThisMac() throws {
+    try press(Locators.openMixer)
+    try Wait.until {
+      let tree = try LogicTree.ofRunningLogic()
+      return ChannelStrip.window(of: tree) != nil
+    }
+  }
+
+  /// Closes the Mixer of the Logic that runs, by pressing the close button of its window.
+  ///
+  /// A Mixer that is not there any more is closed already, so this answers rather than refusing: a
+  /// person is free to close it themselves while a command runs.
+  public static func closeTheMixerOfThisMac() throws {
+    let tree = try LogicTree.ofRunningLogic()
+    guard let window = ChannelStrip.window(of: tree) else {
+      return
+    }
+    guard let button = StateReader.closeButton(of: window) else {
+      throw Refusal(
+        reason: "The Mixer window carries no close button, so it stays open.",
+        code: .internalFailure, locator: Locators.mixerWindow.name)
+    }
+    try StateReader.press(button, called: "the close button of the Mixer")
+  }
+
+  /// The close button of one window, found by its subrole.
+  ///
+  /// `AXNode` carries no subrole, because `inspect` writes none and no recorded tree holds one.
+  /// So this asks Accessibility itself, and a window of a recorded tree answers nothing.
+  private static func closeButton(of window: any AXNode) -> LiveAXNode? {
+    window.children.compactMap { $0 as? LiveAXNode }.first { node in
+      var subrole: CFTypeRef?
+      let answered = AXUIElementCopyAttributeValue(
+        node.element, kAXSubroleAttribute as CFString, &subrole)
+      guard answered == .success, let named = subrole as? String else {
+        return false
+      }
+      return named == StateReader.closeButtonSubrole
+    }
+  }
+
+  /// Presses the one element a locator names, in the tree of the Logic that runs.
+  private static func press(_ locator: Locator) throws {
+    let tree = try LogicTree.ofRunningLogic()
+    let element = try LocatorResolver.element(of: locator, in: tree.root)
+    guard let live = element as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which nothing can press.",
+        code: .internalFailure, locator: locator.name)
+    }
+    try StateReader.press(live, called: locator.name)
+  }
+
+  /// Asks one element of the running Logic to press itself.
+  private static func press(_ node: LiveAXNode, called name: String) throws {
+    let answered = AXUIElementPerformAction(node.element, kAXPressAction as CFString)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused the press of \(name), error \(answered.rawValue).",
+        code: .internalFailure)
+    }
   }
 }

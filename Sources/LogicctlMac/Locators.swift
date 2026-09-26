@@ -207,6 +207,25 @@ public enum Locators {
           role: "AXMenuItem", title: "Convert Visible Track Automation to Region Automation")
       ])
 
+  /// The item of the menu bar that carries the windows Logic can open.
+  ///
+  /// The walk starts at the application, as the walks to the Track menu and the Mix menu do,
+  /// because the menu bar of an application sits beside its windows and not under one. So no
+  /// recorded tree holds it, and the live acceptance is what proves this walk against Logic
+  /// itself.
+  public static let windowMenu = Locator(
+    name: "menu.window",
+    path: toTheMenuBar + [LocatorStep(role: "AXMenuBarItem", title: "Window")])
+
+  /// The item of the Window menu that opens the Mixer in a window of its own.
+  ///
+  /// Measured on this Mac on 2026-09-26 against Logic 12.3.1: the item is titled `Open Mixer` and
+  /// Logic offers it while a project is open. The state reader presses it to read the kind of each
+  /// track, which is in the channel strip and nowhere else.
+  public static let openMixer = Locator(
+    name: "menu.window.openMixer",
+    path: toTheWindowMenu + [LocatorStep(role: "AXMenuItem", title: "Open Mixer")])
+
   /// The play button of the Control Bar.
   public static let transportPlayButton = Locator(
     name: "transport.playButton",
@@ -446,6 +465,13 @@ public enum Locators {
   private static let toTheConvertAutomationMenu: [LocatorStep] =
     toTheMixMenu + [
       LocatorStep(role: "AXMenuItem", title: "Convert Automation"),
+      LocatorStep(role: "AXMenu"),
+    ]
+
+  /// The walk from the application of Logic to the items of its Window menu.
+  private static let toTheWindowMenu: [LocatorStep] =
+    toTheMenuBar + [
+      LocatorStep(role: "AXMenuBarItem", title: "Window"),
       LocatorStep(role: "AXMenu"),
     ]
 
