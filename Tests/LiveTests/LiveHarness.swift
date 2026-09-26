@@ -124,7 +124,7 @@ enum LiveHarness {
       case .aModalWindowIsOpen(let name):
         return "Logic shows the window \(name), which a person answers. logicctl presses nothing"
       case .logicDidNotShowTheCopy(let name, let seen, let waitedMs):
-        return "Logic did not show \(name) within \(waitedMs)ms. The window in front reads \(seen)"
+        return "Logic did not show \(name) within \(waitedMs)ms. Its windows read \(seen)"
       case .logicctlRefused(let command, let code, let message):
         return "logicctl \(command) failed with \(code): \(message)"
       case .logicctlPrintedNothingToReadBack(let command, let printed):
@@ -365,23 +365,33 @@ enum LiveHarness {
   ///
   /// A sheet is the shape Logic gives a question it wants answered before anything else: a save,
   /// an export, an alert on the document. The tree carries the role of every element, so a sheet
-  /// is the one the harness reads by name. A dialog that takes a window of its own is read the
-  /// other way, by the title of the window in front, because it is the front window until a person
-  /// answers it.
+  /// is the one the harness reads by name. A window of its own is not one of these: Logic opens
+  /// the window of a plugin in front of the project, nothing waits on an answer to it, and every
+  /// read of logicctl works while it is open.
   static func modalWindows(in tree: RecordedTree) -> [String] {
     sheets(under: tree.root)
   }
 
-  /// The title of the window of Logic in front, or nothing when Logic shows none.
-  static func frontWindowTitle(in tree: RecordedTree) -> String? {
-    var level: [RecordedAXNode] = [tree.root]
-    while !level.isEmpty {
-      if let window = level.first(where: { $0.role == "AXWindow" }) {
-        return window.title ?? ""
-      }
-      level = level.flatMap(\.recordedChildren)
-    }
-    return nil
+  /// The title of every window of Logic, in the order the tree lists them.
+  ///
+  /// A window Logic gave no title reads as an empty line rather than dropping out, so the count
+  /// here is the number of windows Logic has.
+  static func windowTitles(in tree: RecordedTree) -> [String] {
+    windowTitles(under: tree.root)
+  }
+
+  /// Whether Logic is showing the project of this run, in any one of its windows.
+  ///
+  /// Logic titles the window of a project `<name>.logicx - <the view>`, so the name of the copy is
+  /// the start of that title and never the whole of it.
+  static func showsTheProject(named name: String, in tree: RecordedTree) -> Bool {
+    windowTitles(in: tree).contains { $0.hasPrefix(name) }
+  }
+
+  /// The windows of Logic on one line, so a refusal says what it saw.
+  static func whatTheWindowsRead(in tree: RecordedTree) -> String {
+    let named = windowTitles(in: tree).filter { !$0.isEmpty }
+    return named.isEmpty ? "no window" : named.joined(separator: ", ")
   }
 
   /// Opens a project in Logic and waits until Logic shows it.
@@ -389,6 +399,10 @@ enum LiveHarness {
   /// It presses nothing. A modal window that is open before the run, and one that Logic puts up
   /// while the project opens, both stop the scenario and name the window. A person answers it in
   /// Logic, and runs the suite again.
+  ///
+  /// The wait reads every window of Logic, and it ends as soon as one of them is the copy. Logic
+  /// puts the window of a plugin in front of a project it opens, and that window is not modal, so
+  /// a wait on the front window alone waits for a project Logic is already showing.
   static func openInLogic(_ project: URL) throws {
     let name = project.deletingPathExtension().lastPathComponent
 
@@ -410,16 +424,23 @@ enum LiveHarness {
         if let modal = modalWindows(in: tree).first {
           throw Refusal.aModalWindowIsOpen(modal)
         }
-        guard let title = frontWindowTitle(in: tree) else {
-          seen = "no window"
-          return false
-        }
-        seen = title
-        return title.hasPrefix(name)
+        seen = whatTheWindowsRead(in: tree)
+        return showsTheProject(named: name, in: tree)
       }
     } catch let ranOut as Wait.RanOut {
       throw Refusal.logicDidNotShowTheCopy(name: name, seen: seen, waitedMs: ranOut.waitedMs)
     }
+  }
+
+  /// Every window under one element, in the order the tree lists them.
+  ///
+  /// It stops at a window, because the elements under one are what that window holds and never
+  /// another window of Logic.
+  private static func windowTitles(under node: RecordedAXNode) -> [String] {
+    if node.role == "AXWindow" {
+      return [node.title ?? ""]
+    }
+    return node.recordedChildren.flatMap { windowTitles(under: $0) }
   }
 
   /// Every sheet under one element, by the name it shows.
@@ -531,6 +552,69 @@ private func describe(_ error: Error?) -> String {
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "0"]) == false)
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "true"]) == false, "the value is 1, and only 1")
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "1"]))
+}
+
+/// The suite waits for the copy wherever Logic puts its window, and not only in front.
+///
+/// Measured on this Mac at 13:50 on 2026-09-26 (Logic 12.3.1): opening the copy F-T3b also opened
+/// the plugin window `Deluxe Classic`, and Logic put that window in front of the project. The
+/// windows read `Deluxe Classic, F-T3b.logicx - Tracks`. Five of the seven scenarios of phase 3
+/// then waited the whole 180082ms and failed, on a Logic that was showing the copy all along.
+///
+/// A plugin window is not modal, and every read of logicctl works while one is open, so it is no
+/// reason to stop. A sheet is, and that check stays as it is. So the suite gets on with the
+/// scenario as soon as one window of Logic is the copy. When it does give up, it names every
+/// window it saw, because the one title it used to print is the title that says least.
+@Test func theHarnessFindsTheCopyBehindAPluginWindow() throws {
+  let behindAPlugin = try logicShowing(["Deluxe Classic", "F-T3b.logicx - Tracks"])
+  let thePluginAlone = try logicShowing(["Deluxe Classic"])
+
+  #expect(
+    LiveHarness.showsTheProject(named: "F-T3b", in: behindAPlugin),
+    "Logic has F-T3b open behind the plugin window, so the scenario runs now and waits no longer")
+  #expect(
+    LiveHarness.showsTheProject(named: "F-T3b", in: thePluginAlone) == false,
+    "and a Logic with no window of the copy is not showing it")
+
+  let gaveUpOnBoth = gaveUp(on: "F-T3b", whileLogicShowed: behindAPlugin)
+  #expect(
+    gaveUpOnBoth.contains("Deluxe Classic") && gaveUpOnBoth.contains("F-T3b.logicx - Tracks"),
+    "a refusal names every window Logic had: \(gaveUpOnBoth)")
+
+  let gaveUpOnThePlugin = gaveUp(on: "F-T3b", whileLogicShowed: thePluginAlone)
+  #expect(
+    gaveUpOnThePlugin.contains("Deluxe Classic"),
+    "and a Logic that showed one window names that one: \(gaveUpOnThePlugin)")
+}
+
+/// One window of Logic with a title, in the form a recorded tree reads back.
+private func windowJSON(titled title: String) -> String {
+  "{ \"role\": \"AXWindow\", \"title\": \"\(title)\", \"actions\": [\"AXRaise\"] }"
+}
+
+/// A tree of a Logic that shows these windows, in the order Logic lists them.
+private func logicShowing(_ titles: [String]) throws -> RecordedTree {
+  let windows = titles.map { windowJSON(titled: $0) }.joined(separator: ", ")
+  let text = """
+    {
+      "logicVersion": "\(LiveHarness.logicVersion)",
+      "root": {
+        "role": "AXApplication",
+        "title": "Logic Pro",
+        "children": [\(windows)]
+      }
+    }
+    """
+  return try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
+}
+
+/// What the harness tells the operator when it gives up while Logic shows this tree.
+private func gaveUp(on name: String, whileLogicShowed tree: RecordedTree) -> String {
+  let refused = LiveHarness.Refusal.logicDidNotShowTheCopy(
+    name: name,
+    seen: LiveHarness.whatTheWindowsRead(in: tree),
+    waitedMs: LiveHarness.openLimitMs)
+  return String(describing: refused)
 }
 
 /// What one run of make printed, on both channels, and the status it ended with.
