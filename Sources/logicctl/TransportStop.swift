@@ -12,6 +12,10 @@ extension TransportCommand {
   /// moving, and an agent that read that answer would go on to edit a project whose playhead is
   /// running. So the command reads the transport back after the press, and a transport that does
   /// not stop is a failure with the time it was given.
+  ///
+  /// Measured on this Mac on 2026-09-26 against Logic 12.3.1: one press of the Stop button took
+  /// the Play check box from 1 to 0 within a second, and after Record it took Play and Record
+  /// both to 0.
   struct Stop: ParsableCommand {
     static let configuration = CommandConfiguration(
       commandName: "stop",
@@ -19,7 +23,8 @@ extension TransportCommand {
       discussion: """
         The command presses the Stop button of the Control Bar, the one a person clicks. The \
         answer carries the transport as Logic reads it back, so a transport that is still moving \
-        is `timeout` and never a report of a stop.
+        is `timeout` and never a report of a stop. A transport that is already stopped is \
+        left alone, because a press of Stop on a stopped transport moves the playhead.
 
         Example: logicctl transport stop
         """)
@@ -82,24 +87,27 @@ extension TransportCommand.Stop {
 private struct StopPlayback: LogicCommand {
   let name = "transport stop"
   let argv: [String] = []
-
-  /// What presses the Stop button of the Control Bar in Logic.
   let actions: TrackActions
-
-  /// How long Logic is given to stop, in milliseconds.
   let limitMs: Int
-
-  /// The clock the wait reads.
   let clock: Wait.Clock
-
-  /// How the wait sleeps between two reads.
   let sleeper: Wait.Sleeper
 
-  /// Waits until Logic reads as stopped, and answers the transport it reads.
+  /// Presses Stop, waits until Logic reads as stopped, and answers the transport it reads.
+  ///
+  /// A transport that reads neither playing nor recording is left alone. In Logic a press of
+  /// Stop on a stopped transport moves the playhead, and a stop that is not needed moves nothing.
+  ///
+  /// The wait reads both values, because a transport that stopped playing and keeps recording is
+  /// still moving. A transport that keeps either of them ends at the limit with `timeout` and the
+  /// milliseconds it was given, rather than a report of a stop that did not happen.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
-    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      let moving = try driver.readState().transport.playing
-      return !moving
+    let before = try driver.readState().transport
+    if before.playing || before.recording {
+      try actions.pressInWindow(Locators.transportStopButton)
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        let moving = try driver.readState().transport
+        return !moving.playing && !moving.recording
+      }
     }
     let transport = try driver.readState().transport
     return .object([
