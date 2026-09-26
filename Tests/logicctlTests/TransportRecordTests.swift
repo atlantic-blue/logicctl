@@ -406,7 +406,7 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   #expect(theirs.driver.state?.transport.recording == false, "Logic is recording nothing")
   #expect(
     try subjects(of: theirs.session.folder, with: theirs.git) == [
-      "session \(theirs.session.session.shortId)",
+      "session \(theirs.session.session.shortId)"
     ],
     "the session of the person gains no step")
 
