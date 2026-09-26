@@ -587,11 +587,14 @@ private func describe(_ error: Error?) -> String {
     "and a Logic that showed one window names that one: \(gaveUpOnThePlugin)")
 }
 
+/// One window of Logic with a title, in the form a recorded tree reads back.
+private func windowJSON(titled title: String) -> String {
+  "{ \"role\": \"AXWindow\", \"title\": \"\(title)\", \"actions\": [\"AXRaise\"] }"
+}
+
 /// A tree of a Logic that shows these windows, in the order Logic lists them.
 private func logicShowing(_ titles: [String]) throws -> RecordedTree {
-  let windows = titles
-    .map { "{ \"role\": \"AXWindow\", \"title\": \"\($0)\", \"actions\": [\"AXRaise\"] }" }
-    .joined(separator: ", ")
+  let windows = titles.map { windowJSON(titled: $0) }.joined(separator: ", ")
   let text = """
     {
       "logicVersion": "\(LiveHarness.logicVersion)",
