@@ -35,18 +35,11 @@ private func gitThatSigns(inside folder: URL) throws -> Git {
   ])
 }
 
-/// The sentence the approved mockup carries for a Mac that cannot reach Logic over MIDI.
-private let theDriverIsOff =
-  "The IAC driver is off. Open Audio MIDI Setup, show the MIDI Studio, and enable the IAC Driver"
-
 /// Where the project of this scenario sits.
 private let projectPath = "/Users/someone/Music/Sketch.logicx"
 
 /// How long Logic is given to start playing, in milliseconds.
 private let theLimit = 200
-
-/// The six bytes of the Machine Control play message, as they go on the wire.
-private let thePlayMessage: [UInt8] = [0xF0, 0x7F, 0x7F, 0x06, 0x02, 0xF7]
 
 /// A clock and a sleep the test moves itself, so a wait of any length costs no real time.
 private final class PlayTime {
@@ -61,12 +54,12 @@ private final class PlayTime {
   }
 }
 
-/// The project Logic has open: one software instrument track, and a transport that is stopped.
-private func aStoppedProject() -> State {
+/// The project Logic has open: one software instrument track, and a transport in this state.
+private func aProject(playing: Bool) -> State {
   State(
     logic: LogicVersion(version: "12.3.1"),
     project: Project(name: "Sketch"),
-    transport: Transport(playing: false, recording: false, tempo: 120),
+    transport: Transport(playing: playing, recording: false, tempo: 120),
     tracks: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
 }
 
@@ -77,19 +70,19 @@ private func aSession() -> Session {
     versions: Session.Versions(logicctl: "0.1.0", logic: "12.3.1", macos: "15.0"))
 }
 
-/// A Logic that is stopped, with the session of its project, in a folder of its own.
-private struct AStoppedLogic {
+/// A Logic with the session of its project, in a folder of its own.
+private struct ALogic {
   let root: URL
   let git: Git
   let session: SessionRepository
   let driver: FakeLogicDriver
 }
 
-private func aStoppedLogic() throws -> AStoppedLogic {
+private func aLogic(playing: Bool = false) throws -> ALogic {
   let root = try aFolderOfItsOwn()
   let git = try gitThatSigns(inside: root)
-  let project = aStoppedProject()
-  return AStoppedLogic(
+  let project = aProject(playing: playing)
+  return ALogic(
     root: root,
     git: git,
     session: try SessionRepository.start(
@@ -97,30 +90,29 @@ private func aStoppedLogic() throws -> AStoppedLogic {
     driver: FakeLogicDriver(state: project, path: projectPath))
 }
 
-/// The bus of the scenario: what went out, and the Logic that hears it.
+/// Every press that reached the window of Logic, in the order it reached it.
+private final class Buttons {
+  var pressed: [Locator] = []
+
+  /// The name of the control the last press went to.
+  var lastLocatorName: String? {
+    pressed.last?.name
+  }
+}
+
+/// What presses the Control Bar of this Logic, and what that Logic does about it.
 ///
-/// A Logic that takes Machine Control answers a play message by playing, so a bus given that Logic
-/// moves its transport. A bus given none stands for the Logic that hears the message and does
-/// nothing with it: the transport stays stopped, and the state says so.
-private final class ABus {
-  /// What the command sent, in the order it sent it.
-  private(set) var sent: [MachineControlMessage] = []
-
-  /// The Logic that answers the message, or none when nothing answers it.
-  private let heardBy: FakeLogicDriver?
-
-  init(heardBy: FakeLogicDriver? = nil) {
-    self.heardBy = heardBy
-  }
-
-  /// The way out the command is given.
-  var output: MachineControlOutput {
-    let port = MidiDestination(name: "logicctl", isOffline: false)
-    return MachineControlOutput(destination: port) { message in
-      self.sent.append(message)
-      self.heardBy?.state?.transport.playing = true
+/// The Play button of Logic 12.3.1 is a check box whose one action is `AXPress`. Measured on this
+/// Mac on 2026-09-26 against a project with a plugin window in front: one press moved the button
+/// from 0 to 1, and a second press left it at 1. A Logic that does not start stands for a press
+/// that reached the button and started nothing, which is what a refused press answers too.
+private func aControlBar(of logic: ALogic, buttons: Buttons, starts: Bool) -> TrackActions {
+  TrackActions(pressInWindow: { locator in
+    buttons.pressed.append(locator)
+    if starts {
+      logic.driver.state?.transport.playing = true
     }
-  }
+  })
 }
 
 /// A Mac that takes no picture of the window, which is every Mac the pipeline runs on.
@@ -162,12 +154,6 @@ private final class Printed {
     return failure?["code"] as? String
   }
 
-  /// What the failure says to the person who ran the command.
-  func failureMessage() throws -> String? {
-    let failure = try json()["error"] as? [String: Any]
-    return failure?["message"] as? String
-  }
-
   /// What the failure says about itself.
   func failureDetails() throws -> [String: Any] {
     let failure = try json()["error"] as? [String: Any]
@@ -198,30 +184,31 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   return read as? [String: Any] ?? [:]
 }
 
-/// A person or an agent starts playback, and reads whether Logic is playing.
+/// A person or an agent starts playback, and Logic plays, on every Mac.
 ///
-/// Playback is the one thing here that logicctl cannot see itself. The message leaves this Mac over
-/// the bus, and what happens next is up to Logic: the port can be missing, and Logic takes Machine
-/// Control only when its own settings say so. So the answer is read back from the transport of
-/// Logic after the message, and never from the message. A command that printed `playing: true`
-/// because it sent six bytes would report playback on every Mac where nothing is playing, and an
-/// agent that read that answer would go on to record silence.
+/// Playback is what a person starts by pressing Play in the Control Bar, so that is what logicctl
+/// presses. It needs no port and no setting of Logic. A command that sent Machine Control instead
+/// asked for two things this Mac may not have: a port named logicctl, which a Mac with the IAC
+/// driver off carries none of, and a Logic whose own settings take Machine Control input. Neither
+/// is needed to press a button, so play now works where it used to fail.
 ///
-/// Three things can happen, and each one is answered on its own terms. The message reaches a Logic
-/// that plays, and the answer carries the transport Logic reads back. This Mac carries no port
-/// named logicctl, so nothing is sent at all, and the answer is the failure of `midi setup` with
-/// its own exit number. The message goes out and the transport stays stopped, so the command gives
-/// up at its limit with `timeout` and says how long Logic was given, which is a person's cue to
-/// turn Machine Control on in Logic or to wait longer.
+/// The answer is what Logic reads back and never what logicctl pressed, because a press Logic
+/// refused answers the same as one it took. So a Logic that does not start playing is `timeout`
+/// with the time it was given, which is a person's cue to look at Logic, and never a report of
+/// playback that did not happen.
 ///
-/// One play is one step of the session, so a person reads what logicctl sent and a replay sends it
+/// The Play button is a check box, and Logic leaves it on when it is pressed again. A person who
+/// runs the command twice still gets a Logic that plays. So a press goes out only where Logic is
+/// stopped, and a Logic that already plays is read and answered.
+///
+/// One play is one step of the session, so a person reads what logicctl did and a replay does it
 /// again.
-@Test func playReadsPlayingBack() throws {
-  let playing = try aStoppedLogic()
-  let ignoring = try aStoppedLogic()
-  let quiet = try aStoppedLogic()
+@Test func playPressesThePlayButtonOfTheControlBar() throws {
+  let stopped = try aLogic()
+  let already = try aLogic(playing: true)
+  let ignoring = try aLogic()
   defer {
-    for folder in [playing.root, ignoring.root, quiet.root] {
+    for folder in [stopped.root, already.root, ignoring.root] {
       try? FileManager.default.removeItem(at: folder)
     }
   }
@@ -229,31 +216,30 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   let typed = try Logicctl.parseAsRoot(["transport", "play"])
   #expect(typed is TransportCommand.Play, "the noun and the verb of the design system")
   #expect(
-    playing.driver.state?.transport.playing == false, "Logic is stopped before the command runs")
+    stopped.driver.state?.transport.playing == false, "Logic is stopped before the command runs")
 
-  let bus = ABus(heardBy: playing.driver)
+  let buttons = Buttons()
   let answer = Printed()
   let time = PlayTime()
 
   let status = TransportCommand.Play.answer(
-    openingTheBus: { bus.output },
-    driver: playing.driver,
-    root: playing.root,
+    driver: stopped.driver,
+    actions: aControlBar(of: stopped, buttons: buttons, starts: true),
+    root: stopped.root,
     version: "0.1.0",
     limitMs: theLimit,
     clock: time.read,
     sleeper: time.sleep,
-    git: playing.git,
+    git: stopped.git,
     capturer: NoPictureOfTheWindow(),
     standardOutput: answer.write,
     standardError: answer.writeError)
 
   #expect(status == 0, "Logic is playing")
-  #expect(bus.sent.count == 1, "playback is one message")
-  #expect(bus.sent.first == MachineControlMessage.play, "and the message is play")
+  #expect(buttons.pressed.count == 1, "playback is one press")
   #expect(
-    bus.sent.first?.bytes == thePlayMessage,
-    "Logic hears the Machine Control play message, addressed to every device")
+    buttons.lastLocatorName == Locators.transportPlayButton.name,
+    "and the press goes to the Play button of the Control Bar")
 
   let printed = try answer.json()
   #expect(printed["error"] is NSNull, "nothing failed")
@@ -265,28 +251,52 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   #expect(answer.out.filter(\.isNewline).count == 1, "one JSON object and one newline")
 
   let meta = try answer.meta()
-  #expect(meta["session"] as? String == playing.session.session.id)
+  #expect(meta["session"] as? String == stopped.session.session.id)
   let commit = try #require(meta["step"] as? String, "the play is in the record")
   #expect(!commit.isEmpty)
   #expect(
-    try subjects(of: playing.session.folder, with: playing.git) == [
-      "1 transport play", "session \(playing.session.session.shortId)",
+    try subjects(of: stopped.session.folder, with: stopped.git) == [
+      "1 transport play", "session \(stopped.session.session.shortId)",
     ],
-    "the play the command sent is one step of the session")
-  let step = try record(ofStep: 1, in: playing.session.folder)
+    "the play is one step of the session")
+  let step = try record(ofStep: 1, in: stopped.session.folder)
   #expect(step["command"] as? String == "transport play")
   #expect(step["argv"] as? [String] == [], "play takes no flag of its own")
   #expect(step["exitCode"] as? Int == 0)
 
-  // Logic hears the message and the transport stays stopped, which is every Logic that takes no
-  // Machine Control input. The command gives up at its limit rather than reporting playback.
-  let ignored = ABus()
-  let refused = Printed()
+  // Logic is playing already. The button is on, and a press would be a press of a check box that
+  // is already on, so the command reads the transport and presses nothing.
+  let untouched = Buttons()
+  let second = Printed()
+  let noWait = PlayTime()
+
+  let again = TransportCommand.Play.answer(
+    driver: already.driver,
+    actions: aControlBar(of: already, buttons: untouched, starts: false),
+    root: already.root,
+    version: "0.1.0",
+    limitMs: theLimit,
+    clock: noWait.read,
+    sleeper: noWait.sleep,
+    git: already.git,
+    capturer: NoPictureOfTheWindow(),
+    standardOutput: second.write,
+    standardError: second.writeError)
+
+  #expect(again == 0, "Logic plays, which is what was asked for")
+  #expect(untouched.pressed.isEmpty, "a Logic that plays is left alone")
+  #expect(try second.data()?["playing"] as? Bool == true, "the transport Logic reads back")
+  #expect(second.err.isEmpty, "standard error is empty on success")
+
+  // The press reached the button and Logic started nothing, which is what a refused press answers
+  // too. The command gives up at its limit rather than reporting playback.
+  let refused = Buttons()
+  let gaveUp = Printed()
   let waited = PlayTime()
 
-  let gaveUp = TransportCommand.Play.answer(
-    openingTheBus: { ignored.output },
+  let stillStopped = TransportCommand.Play.answer(
     driver: ignoring.driver,
+    actions: aControlBar(of: ignoring, buttons: refused, starts: false),
     root: ignoring.root,
     version: "0.1.0",
     limitMs: theLimit,
@@ -294,44 +304,17 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     sleeper: waited.sleep,
     git: ignoring.git,
     capturer: NoPictureOfTheWindow(),
-    standardOutput: refused.write,
-    standardError: refused.writeError)
+    standardOutput: gaveUp.write,
+    standardError: gaveUp.writeError)
 
-  #expect(gaveUp == 6, "the number the design system gives timeout")
-  #expect(try refused.failureCode() == "timeout", "Logic did not start playing")
-  #expect(try refused.failureDetails()["waitedMs"] as? Int == theLimit, "how long Logic was given")
-  let gaveUpJson = try refused.json()
-  #expect(gaveUpJson["data"] is NSNull, "no answer is made up for a Logic that is stopped")
-  #expect(ignored.sent.count == 1, "the message went out, and Logic did nothing with it")
+  #expect(stillStopped == 6, "the number the design system gives timeout")
+  #expect(try gaveUp.failureCode() == "timeout", "Logic did not start playing")
+  #expect(try gaveUp.failureDetails()["waitedMs"] as? Int == theLimit, "how long Logic was given")
+  let stoppedJson = try gaveUp.json()
+  #expect(stoppedJson["data"] is NSNull, "no answer is made up for a Logic that is stopped")
+  #expect(refused.pressed.count == 1, "the press went out, and Logic did nothing with it")
   #expect(ignoring.driver.state?.transport.playing == false, "the transport is as it was")
   #expect(
     try record(ofStep: 1, in: ignoring.session.folder)["exitCode"] as? Int == 6,
     "the step records what the command answered")
-
-  // This Mac carries no port named logicctl, so the command never reaches a bus at all.
-  let withNoBus = Printed()
-
-  let stopped = TransportCommand.Play.answer(
-    openingTheBus: { nil },
-    driver: quiet.driver,
-    root: quiet.root,
-    version: "0.1.0",
-    limitMs: theLimit,
-    git: quiet.git,
-    capturer: NoPictureOfTheWindow(),
-    standardOutput: withNoBus.write,
-    standardError: withNoBus.writeError)
-
-  #expect(stopped == 13, "the number the design system gives midi_unavailable")
-  #expect(try withNoBus.failureCode() == "midi_unavailable")
-  #expect(
-    try withNoBus.failureMessage() == theDriverIsOff,
-    "the sentence that says how to switch the driver on")
-  #expect(withNoBus.err == "logicctl: midi_unavailable: \(theDriverIsOff)\n")
-  #expect(quiet.driver.state?.transport.playing == false, "a Mac with no port plays nothing")
-  #expect(try withNoBus.meta()["session"] is NSNull, "nothing reached the project")
-  #expect(try withNoBus.meta()["step"] is NSNull, "nothing was recorded")
-  #expect(
-    try subjects(of: quiet.session.folder, with: quiet.git).count == 1,
-    "the session gained nothing from a message that was never sent")
 }
