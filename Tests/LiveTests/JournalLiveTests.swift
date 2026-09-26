@@ -278,8 +278,14 @@ enum JournalLive {
       "\(check) says its name as it starts, which is the line the target counts")
   }
 
+  // The declaration is read as two lines joined here, and never as one text this file carries,
+  // because an assertion that looks for a string its own line holds passes on any file at all.
+  let declaration = [
+    "@Suite(.serialized, .enabled(if: LiveHarness.runsLive()))",
+    "struct Phase7LiveScenarios {",
+  ].joined(separator: "\n")
   #expect(
-    source.contains(".enabled(if: LiveHarness.runsLive())"),
+    source.contains(declaration),
     "the phase is off unless a person turns it on, so the pipeline drives nothing")
   #expect(LiveHarness.runsLive([:]) == false, "and a run that names nothing is not a live run")
 
