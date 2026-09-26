@@ -47,12 +47,12 @@ public struct LiveAXNode: AXNode {
     text(kAXDescriptionAttribute)
   }
 
-  public var help: String? {
-    text(kAXHelpAttribute)
-  }
-
   public var orientation: String? {
     text(kAXOrientationAttribute)
+  }
+
+  public var help: String? {
+    text(kAXHelpAttribute)
   }
 
   public var actions: [String] {

@@ -118,11 +118,11 @@ public enum TreeWriter {
   /// and a depth of 2 is the element and the elements one level under it.
   ///
   /// A key the element does not carry is left out, and so is an empty list, because a missing key
-  /// reads back as nothing and a file a person opens is shorter for it. `description`, `help` and
-  /// `orientation` are written although the tree a person reads does not name them: a plugin slot
-  /// of Logic is found by its description and by nothing else, a region carries its borders in
-  /// its help, and the two bars of a scroll area are told apart by their orientation alone. A
-  /// file without the three cannot serve the steps that look for one of them.
+  /// reads back as nothing and a file a person opens is shorter for it. `description` and `help`
+  /// are written although the tree a person reads does not name them: a plugin slot of Logic is
+  /// found by its description and by nothing else, and a region carries its borders in its help, so
+  /// a file without the two cannot serve the steps that look for either. `orientation` is written
+  /// for the same reason: the two scroll bars of a column of the Save panel differ in nothing else.
   public static func json(of node: any AXNode, depth: Int) -> JSONValue {
     var written: [String: JSONValue] = ["role": .string(node.role)]
     let text = [

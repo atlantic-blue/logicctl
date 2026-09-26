@@ -42,11 +42,12 @@ public protocol AXNode {
   /// What the element can be asked to do, for example `AXPress`.
   var actions: [String] { get }
 
-  /// Which way an element runs, for example `AXVerticalOrientation`, or nil when it carries no
-  /// orientation.
+  /// Which way the element runs, for the elements that say: `AXVerticalOrientation` or
+  /// `AXHorizontalOrientation`. An element that says nothing answers nothing.
   ///
-  /// A scroll area holds two bars with the same role, so the orientation is the only thing that
-  /// tells them apart.
+  /// A column of the Save panel carries a horizontal scroll bar and a vertical one, they differ in
+  /// no other way a locator can name, and Logic answers the horizontal one first. So this is the
+  /// only way to tell the two apart.
   var orientation: String? { get }
 
   /// The elements under this one, in the order Accessibility answers them.
@@ -54,8 +55,7 @@ public protocol AXNode {
 }
 
 extension AXNode {
-  /// An element that says nothing about its orientation carries none, the same way an element
-  /// that says nothing about its title carries none.
+  /// Most elements say nothing about which way they run, and answer nothing here.
   public var orientation: String? {
     nil
   }

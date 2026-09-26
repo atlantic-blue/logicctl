@@ -733,7 +733,7 @@ extension ImportDialog {
       return nil
     }
     return area.children.first {
-      $0.role == ImportDialog.scrollBarRole && $0.orientation == ImportDialog.verticalOrientation
+      $0.role == ImportDialog.scrollBarRole && $0.orientation == Locators.verticalOrientation
     }
   }
 
@@ -810,8 +810,6 @@ extension ImportDialog {
   /// The role of one row of the file list.
   static let rowRole = "AXRow"
 
-  /// What the vertical bar of that area says it is.
-  static let verticalOrientation = "AXVerticalOrientation"
 
   /// The action a row of the file list carries to move the panel into that folder.
   static let openAction = "AXOpen"
