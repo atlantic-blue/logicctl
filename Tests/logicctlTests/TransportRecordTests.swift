@@ -72,9 +72,13 @@ private func aRecordingProject() -> State {
 }
 
 /// The session of that project, as an earlier command started it.
-private func aSession() -> Session {
+///
+/// `madeByLogicctl` says whose project it is. logicctl may change a project it made on its own
+/// word. Every other project holds the work of a person, and a change to one of those waits for
+/// `--confirm`.
+private func aSession(madeByLogicctl: Bool = true) -> Session {
   Session(
-    project: Session.Project(name: "Sketch", path: projectPath, createdByLogicctl: true),
+    project: Session.Project(name: "Sketch", path: projectPath, createdByLogicctl: madeByLogicctl),
     versions: Session.Versions(logicctl: "0.1.0", logic: "12.3.1", macos: "15.0"))
 }
 
@@ -86,14 +90,14 @@ private struct ALogic {
   let driver: FakeLogicDriver
 }
 
-private func aLogic(showing project: State) throws -> ALogic {
+private func aLogic(showing project: State, madeByLogicctl: Bool = true) throws -> ALogic {
   let root = try aFolderOfItsOwn()
   let git = try gitThatSigns(inside: root)
   return ALogic(
     root: root,
     git: git,
     session: try SessionRepository.start(
-      session: aSession(), root: root, state: project, git: git),
+      session: aSession(madeByLogicctl: madeByLogicctl), root: root, state: project, git: git),
     driver: FakeLogicDriver(state: project, path: projectPath))
 }
 
@@ -347,4 +351,96 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   #expect(
     try record(ofStep: 1, in: already.session.folder)["command"] as? String == "transport record",
     "a record of a recording transport is a step like any other")
+}
+
+/// A person has their own project open, with a part in it they want to keep, and an agent asks
+/// logicctl to start recording.
+///
+/// A take runs on the tracks that person armed, and Logic writes it into the project they wrote.
+/// Nothing reads a take back afterwards: once Logic has recorded over a part, the performance that
+/// was there is gone, and no later read of the project says what it was. So logicctl does not start
+/// a take in the project of a person on its own word. The agent reads `confirm_required` and
+/// exit 7, the Record button is never pressed, Logic is recording nothing, and the session of that
+/// person gains no step, so there is nothing for them to find and nothing to undo. They then say
+/// `--confirm`, and the same command records.
+///
+/// Both halves are here against one project, because a refusal on its own also reads green on a
+/// logicctl that refuses every record. The second half says the guard is what stopped the first.
+@Test func recordNeedsConfirmOnAProjectLogicctlDidNotMake() throws {
+  let theirs = try aLogic(showing: anIdleProject(), madeByLogicctl: false)
+  let allowed = try aLogic(showing: anIdleProject(), madeByLogicctl: false)
+  defer {
+    for folder in [theirs.root, allowed.root] {
+      try? FileManager.default.removeItem(at: folder)
+    }
+  }
+
+  let controlBar = AControlBar(heardBy: theirs.driver)
+  let refused = Printed()
+  let time = RecordTime()
+
+  let stopped = TransportCommand.Record.answer(
+    driver: theirs.driver,
+    actions: controlBar.actions,
+    root: theirs.root,
+    version: "0.1.0",
+    limitMs: theLimit,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: theirs.git,
+    capturer: NoPictureOfTheWindow(),
+    standardOutput: refused.write,
+    standardError: refused.writeError)
+
+  #expect(stopped == 7, "the number the design system gives confirm_required")
+  #expect(try refused.failureCode() == "confirm_required", "logicctl did not make this project")
+  #expect(
+    try refused.failureDetails()["project"] as? String == projectPath,
+    "the answer says which project it left alone")
+  let stoppedJson = try refused.json()
+  #expect(stoppedJson["data"] is NSNull, "a command that stopped answers no take")
+  #expect(
+    controlBar.pressedInTheWindow.isEmpty,
+    "the Record button of the Control Bar was not pressed")
+  #expect(controlBar.pressedInTheMenuBar.isEmpty, "and nothing was pressed anywhere else")
+  #expect(theirs.driver.state?.transport.recording == false, "Logic is recording nothing")
+  #expect(
+    try subjects(of: theirs.session.folder, with: theirs.git) == [
+      "session \(theirs.session.session.shortId)",
+    ],
+    "the session of the person gains no step")
+
+  let typed = try Logicctl.parseAsRoot(["transport", "record", "--confirm"])
+  let asked = try #require(
+    typed as? TransportCommand.Record, "the noun and the verb of the design system")
+  #expect(asked.guarded.confirm, "--confirm is what a person says to go ahead")
+
+  let pressing = AControlBar(heardBy: allowed.driver)
+  let said = Printed()
+  let went = RecordTime()
+
+  let recorded = TransportCommand.Record.answer(
+    driver: allowed.driver,
+    actions: pressing.actions,
+    confirmed: true,
+    root: allowed.root,
+    version: "0.1.0",
+    limitMs: theLimit,
+    clock: went.read,
+    sleeper: went.sleep,
+    git: allowed.git,
+    capturer: NoPictureOfTheWindow(),
+    standardOutput: said.write,
+    standardError: said.writeError)
+
+  #expect(recorded == 0, "the person said --confirm, so the same command goes through")
+  #expect(
+    pressing.pressedInTheWindow == [Locators.transportRecordButton.name],
+    "one press, on the Record button of the Control Bar")
+  #expect(try said.data()?["recording"] as? Bool == true, "the transport Logic reads back")
+  #expect(
+    try subjects(of: allowed.session.folder, with: allowed.git) == [
+      "1 transport record", "session \(allowed.session.session.shortId)",
+    ],
+    "the take they asked for is one step of their session")
 }

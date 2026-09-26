@@ -27,6 +27,8 @@ extension TransportCommand {
         Example: logicctl transport record
         """)
 
+    @OptionGroup var guarded: ConfirmOption
+
     @OptionGroup var output: OutputOption
 
     @OptionGroup var wait: TimeoutOption
@@ -35,6 +37,7 @@ extension TransportCommand {
       let status = TransportCommand.Record.answer(
         driver: NewProject.liveDriver(),
         actions: TrackActions.live(),
+        confirmed: guarded.confirm,
         limitMs: wait.timeout.milliseconds,
         format: output.format)
       guard status == 0 else {
@@ -54,6 +57,7 @@ extension TransportCommand.Record {
   static func answer(
     driver: any LogicDriver,
     actions: TrackActions,
+    confirmed: Bool = false,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     limitMs: Int = Wait.defaultLimitMs,
