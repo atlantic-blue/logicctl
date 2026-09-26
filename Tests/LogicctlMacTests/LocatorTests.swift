@@ -25,8 +25,12 @@ private let chooserWindows = ["project-chooser.json"]
 /// notes, and one holds a region of four notes with volume automation on it.
 private let eventLists = ["event-list-notes.json", "event-list-automation.json"]
 
-/// The tree of the window Logic opens for File, "Save As...".
-private let savePanels = ["save-as-window.json"]
+/// The trees of the window Logic opens for File, "Save As...".
+///
+/// One was recorded at depth 4, so its column browser reads as one element with nothing under it.
+/// The other was recorded deeper, on a panel walked to `/private/tmp/logicctl-probe`, so it carries
+/// the columns and the folders they list.
+private let savePanels = ["save-as-window.json", "save-panel-expanded.json"]
 
 /// The tree of the window Logic opens for File, Import, "MIDI File...".
 ///
@@ -41,8 +45,11 @@ private let importPanels = ["import-panel.json"]
 private let mixers = ["mixer.json"]
 
 /// The trees of a project that has no tracks. Logic puts the sheet that asks for a track on a
-/// project it has just made, and on a project whose last track was deleted.
-private let emptyProjects = ["new-project-sheet.json", "empty.json"]
+/// project it has just made, and on a project whose last track was deleted. The third one was
+/// recorded with the Library closed, which is how Logic opens a project it has just made.
+private let emptyProjects = [
+  "new-project-sheet.json", "empty.json", "empty-project-new-track-sheet.json",
+]
 
 /// A locator, the recorded trees it is put to, and what the element it names reads as in them.
 private struct ProvedLocator {
@@ -133,6 +140,21 @@ private func provedLocators() -> [ProvedLocator] {
       names: "the button that writes the project where the field says",
       holds: { $0.role == "AXButton" && $0.title == "Save" }),
     ProvedLocator(
+      locator: Locators.saveCancelButton,
+      trees: savePanels,
+      names: "the button that closes the Save panel and writes nothing",
+      holds: { $0.role == "AXButton" && $0.title == "Cancel" }),
+    ProvedLocator(
+      locator: Locators.saveWherePopup,
+      trees: savePanels,
+      names: "the popup that says which folder the Save panel is in",
+      holds: { $0.role == "AXPopUpButton" && $0.actions.contains("AXShowMenu") }),
+    ProvedLocator(
+      locator: Locators.saveColumnView,
+      trees: savePanels,
+      names: "the browser that lists the folders of this Mac in columns",
+      holds: { $0.role == "AXBrowser" && $0.identifier == "ColumnView" }),
+    ProvedLocator(
       locator: Locators.importWindow,
       trees: importPanels,
       names: "the window Logic opens for File, Import, MIDI File",
@@ -181,6 +203,11 @@ private func provedLocators() -> [ProvedLocator] {
       trees: emptyProjects,
       names: "the sheet Logic puts on a project that has no tracks",
       holds: { $0.role == "AXSheet" && $0.description == "New Track" }),
+    ProvedLocator(
+      locator: Locators.newTrackCreateButton,
+      trees: emptyProjects,
+      names: "the button of the sheet that makes the first track",
+      holds: { $0.role == "AXButton" && $0.title == "Create" }),
   ]
 }
 

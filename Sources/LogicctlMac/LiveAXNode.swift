@@ -47,6 +47,10 @@ public struct LiveAXNode: AXNode {
     text(kAXDescriptionAttribute)
   }
 
+  public var orientation: String? {
+    text(kAXOrientationAttribute)
+  }
+
   public var help: String? {
     text(kAXHelpAttribute)
   }
