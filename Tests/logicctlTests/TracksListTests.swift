@@ -135,6 +135,21 @@ private let theButtonOn = "1"
 /// The names of the three tracks of the recorded project, in the order Logic shows them.
 private let theThreeTracks = ["Deluxe Classic", "Deluxe Classic", "Studio Grand"]
 
+/// A recorded tree with the Record Enable button of one track written another way, and how many
+/// buttons the writing reached.
+///
+/// The count goes back to the test. A writing that reaches no button answers a tree that reads
+/// exactly like the recorded one, where every button is idle and off, so a scenario that never
+/// checked the count would read `arm: false` and call the reader broken, or pass on a tree it
+/// never edited.
+private struct ARecordedProject {
+  /// The window the tree starts at.
+  let root: any AXNode
+
+  /// How many Record Enable buttons the writing changed.
+  let buttonsWritten: Int
+}
+
 /// The window of a project of three tracks, where one track describes its Record Enable button
 /// with the text this test gives and carries the value of a button that is on.
 ///
@@ -142,12 +157,18 @@ private let theThreeTracks = ["Deluxe Classic", "Deluxe Classic", "Studio Grand"
 /// fixture with the value `0` and the description of an idle button, because a person cannot record
 /// a take and run `inspect` in the same moment. So the recorded tree of the project is read, and
 /// the one button is written as the running Logic wrote it.
+///
+/// The file is one JSON object of two keys, `logicVersion` and `root`, and the elements start under
+/// `root`. So the writing starts at that element and not at the object, which holds no element of
+/// its own and carries no `children`.
 private func aRecordedProject(
   whereTrack track: Int, describesItsRecordEnableAs description: String
-) throws -> any AXNode {
+) throws -> ARecordedProject {
   let file = recordedTrees.appending(path: "region.json")
   let read = try JSONSerialization.jsonObject(with: Data(contentsOf: file))
+  var document = read as? [String: Any] ?? [:]
   var reached = 0
+  var changed = 0
   func written(_ node: Any) -> Any {
     guard var element = node as? [String: Any] else { return node }
     if element["description"] as? String == theIdleRecordEnable {
@@ -155,6 +176,7 @@ private func aRecordedProject(
       if reached == track {
         element["description"] = description
         element["value"] = theButtonOn
+        changed += 1
       }
     }
     if let children = element["children"] as? [Any] {
@@ -162,8 +184,10 @@ private func aRecordedProject(
     }
     return element
   }
-  let tree = try JSONSerialization.data(withJSONObject: written(read))
-  return try JSONDecoder().decode(RecordedTree.self, from: tree).root
+  document["root"] = written(document["root"] ?? [:])
+  let tree = try JSONSerialization.data(withJSONObject: document)
+  let decoded = try JSONDecoder().decode(RecordedTree.self, from: tree)
+  return ARecordedProject(root: decoded.root, buttonsWritten: changed)
 }
 
 /// Logic records a track, and a person reads the project back while it records.
@@ -184,7 +208,11 @@ private func aRecordedProject(
   let recording = try aRecordedProject(
     whereTrack: 2, describesItsRecordEnableAs: theRecordingRecordEnable)
 
-  let tracks = try TrackReader.tracks(in: recording)
+  try #require(
+    recording.buttonsWritten == 1,
+    "the button of track 2 is the one this tree writes, and the tree holds it")
+
+  let tracks = try TrackReader.tracks(in: recording.root)
 
   #expect(tracks.map(\.arm) == [false, true, false], "the track Logic records is the armed one")
   #expect(tracks.map(\.name) == theThreeTracks, "the tracks Logic shows, in its own order")
@@ -201,8 +229,10 @@ private func aRecordedProject(
   let wrongControl = try aRecordedProject(
     whereTrack: 1, describesItsRecordEnableAs: anotherControl)
 
+  try #require(wrongControl.buttonsWritten == 1, "and the button of track 1 in this one")
+
   let refused = #expect(throws: TrackReader.Refusal.self) {
-    try TrackReader.tracks(in: wrongControl)
+    try TrackReader.tracks(in: wrongControl.root)
   }
 
   let other = try #require(refused)
