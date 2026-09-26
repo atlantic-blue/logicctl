@@ -70,6 +70,344 @@ private func treeRead(from text: String) throws -> RecordedTree {
   #expect(refusal.reason.contains("Save As"), "the reason names what was not there")
 }
 
+/// A save walks the panel to the folder and types the name of the project, and nothing else.
+///
+/// Measured on this Mac at 12:46 on 2026-09-26: the route wrote the whole path into the name field,
+/// Logic read that value as a name, and it made a project called
+/// `:private:tmp:logicctl-probe:np79.logicx` in the music folder while the command answered
+/// `timeout`. The panel takes no path in that field. It lists the folders of this Mac in one column
+/// per part of the path, so the route walks those columns and types the name on its own.
+///
+/// A folder the column does not list stops the walk before anything is typed. The panel closes, the
+/// failure names that folder, and the project stays where it is.
+@Test func saveWalksThePanelToTheFolderAndTypesOnlyTheName() throws {
+  let panel = ARecordedSavePanel()
+
+  try panel.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+
+  #expect(
+    panel.opened == ["private in column 1", "tmp in column 2", "logicctl-probe in column 3"],
+    "the route walked the columns of the panel, one folder of the path at a time")
+  let typed = try #require(panel.written[Locators.saveNameField.name], "the field was written")
+  #expect(typed == "Song.logicx", "the name field takes the name of the project and nothing else")
+  #expect(!typed.contains("/"), "a path in that field is read as a name")
+  #expect(!typed.contains(":"), "and every slash of it comes back as a colon")
+  #expect(
+    panel.pressed == [Locators.saveWherePopup.name, Locators.saveButton.name],
+    "the Where popup opened the walk, Save closed it, and Cancel was not pressed")
+
+  let missing = ARecordedSavePanel()
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try missing.dialog().save(
+      toPath: "/private/tmp/nowhere/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .invalidArgument, "the path is what a person fixes")
+  #expect(refusal.failure.code.exitCode == 2, "the number the process exits with")
+  #expect(refusal.reason.contains("nowhere"), "the reason names the folder that is not there")
+  #expect(
+    missing.opened == ["private in column 1", "tmp in column 2"],
+    "the walk stopped at the folder the column does not list")
+  #expect(missing.written.isEmpty, "nothing was typed into the panel")
+  #expect(
+    missing.pressed == [Locators.saveWherePopup.name, Locators.saveCancelButton.name],
+    "and the panel was closed")
+}
+
+/// An open is read back from the panel, and never taken from what the action answered.
+///
+/// Measured on this Mac at 15:00 on 2026-09-26: `AXOpen` on the name of a folder in a column
+/// answers -25205, and the panel opens that folder all the same. So what the action answered says
+/// nothing, and the route reads the Where popup until it shows the folder. A panel that never
+/// shows it stops the walk with `timeout`, and the reason names the folder. A walk that went on
+/// from there would type the name of the project into a panel standing in another folder.
+@Test func aPanelThatNeverReachesTheFolderStopsTheWalkWithTimeout() throws {
+  #expect(SaveDialog.opensAnyway(-25205), "the answer Logic gives while it opens the folder")
+  #expect(!SaveDialog.opensAnyway(-25204), "and every other answer is a refusal")
+
+  let panel = ARecordedSavePanel(reachesTheFolder: false)
+  let time = ATime()
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try panel.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 200, clock: time.read,
+      sleeper: time.sleep)
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .timeout, "Logic did not get there")
+  #expect(refusal.failure.code.exitCode == 6, "the number the process exits with")
+  #expect(refusal.reason.contains("private"), "the reason names the folder it never reached")
+  #expect(panel.opened == ["private in column 1"], "the walk stopped at that folder")
+  #expect(panel.written.isEmpty, "nothing was typed into the panel")
+  #expect(
+    panel.pressed == [Locators.saveWherePopup.name, Locators.saveCancelButton.name],
+    "and the panel was closed")
+}
+
+/// Every failure after the panel opened closes the panel.
+///
+/// Measured on this Mac at 15:00 on 2026-09-26: an open that Logic refused left the Save panel
+/// standing over the project window, with the Mixer behind it. Logic takes nothing else while a
+/// panel is open, so the next command reads that panel and stops with `dialog_open`. A person is
+/// then left closing a window by hand to carry on. What Logic said still reaches the caller.
+@Test func aFailureInsideTheWalkClosesThePanel() throws {
+  let panel = ARecordedSavePanel(refusesTheOpen: true)
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try panel.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 },
+      sleeper: { _ in })
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .internalFailure, "what Logic said reaches the caller")
+  #expect(refusal.reason.contains("private"), "and it names the folder it was opening")
+  #expect(
+    panel.pressed == [Locators.saveWherePopup.name, Locators.saveCancelButton.name],
+    "the panel was closed")
+  #expect(panel.written.isEmpty, "and nothing was typed into it")
+}
+
+/// The walk starts at the start up disk, so it always starts from one column.
+///
+/// Measured on this Mac at 15:30 on 2026-09-26: `AXOpen` on a row of a column that is not the last
+/// one changes nothing at all, and the panel opens wherever it was last left. Choosing the disk in
+/// the Where popup leaves exactly one column, the root of that disk, so the first folder of the
+/// path is in column 1 and the walk can count from there. A walk that started in the folder the
+/// panel happened to show would count its columns from a place nobody read.
+@Test func theWalkMovesThePanelToTheStartUpDiskBeforeItOpensAnything() throws {
+  let panel = ARecordedSavePanel()
+
+  try panel.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+
+  #expect(panel.chosen == [ARecordedSavePanel.theDisk], "the name of the disk, read from the Mac")
+  #expect(
+    Array(panel.did.prefix(2)) == [
+      "press save.wherePopup",
+      "choose " + ARecordedSavePanel.theDisk,
+    ],
+    "the popup opened and the disk was chosen, before anything else was asked of the panel")
+  let chose = try #require(panel.did.firstIndex { $0.hasPrefix("choose ") })
+  let opened = try #require(panel.did.firstIndex { $0.hasPrefix("open ") })
+  #expect(chose < opened, "no folder was opened before the panel moved to the disk")
+}
+
+/// A row is put in view before it is opened, because `AXOpen` does not reach a row that is not.
+///
+/// Measured on this Mac at 15:30 on 2026-09-26: the folder at row 14 of the 22 in the home folder
+/// did not open until the scroll bar of its column was set to (14 - 1) / (22 - 1). After that write
+/// it opened, the Where popup showed it, and the next column appeared. So the route writes the
+/// place of the row into the bar of that column first. A column of one row needs no write at all.
+@Test func aRowIsScrolledIntoViewBeforeItIsOpened() throws {
+  #expect(SaveDialog.place(ofRow: 13, of: 22) == 13.0 / 21.0, "row 14 of 22, counted from 0")
+  #expect(SaveDialog.place(ofRow: 0, of: 22) == 0, "the first row sits at the top")
+  #expect(SaveDialog.place(ofRow: 21, of: 22) == 1, "and the last row at the end")
+  #expect(SaveDialog.place(ofRow: 0, of: 1) == nil, "a column of one row is not scrolled")
+  #expect(SaveDialog.place(ofRow: 22, of: 22) == nil, "and neither is a row it does not hold")
+
+  let panel = ARecordedSavePanel()
+
+  try panel.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+
+  #expect(
+    panel.scrolled == [
+      AScroll(column: 0, place: 0.5),
+      AScroll(column: 1, place: 0.5),
+      AScroll(column: 2, place: 1),
+    ],
+    "private is the third of five rows, tmp the second of three, logicctl-probe the second of two")
+  #expect(
+    Array(panel.did.prefix(4)) == [
+      "press save.wherePopup",
+      "choose " + ARecordedSavePanel.theDisk,
+      "scroll column 1",
+      "open private in column 1",
+    ],
+    "the column was scrolled before the folder in it was opened")
+}
+
+/// The bar the route writes to is the one that runs up and down, and never the one Logic answers
+/// first.
+///
+/// Measured on this Mac on 2026-09-26: the scroll area of a column holds a horizontal bar first and
+/// the vertical bar second. A write to the horizontal one moves the rows sideways, so the row the
+/// walk asked for stays out of view and `AXOpen` on it does nothing at all. The two bars carry no
+/// identifier, no title and no description, so the direction is the only thing a step can tell them
+/// apart by, and a step that took the first bar, or the bar at index 1, would take the wrong one
+/// half the time.
+///
+/// The tree here is written from that measurement, because the recorded panel carries one bar per
+/// column and says nothing about which way it runs.
+@Test func theRouteScrollsTheVerticalBarOfAColumnAndNotTheFirstBar() throws {
+  let panel = try treeRead(from: aColumnWithTwoScrollBars).root
+  let walk = Locators.saveColumnScrollBar(number: 0)
+
+  let bar = try LocatorResolver.element(of: walk, in: panel)
+
+  #expect(bar.orientation == Locators.verticalOrientation, "the write lands on the vertical bar")
+  #expect(bar.identifier == "the vertical one", "which is the second bar of the scroll area")
+
+  let byPlace = Locator(
+    name: "test.theFirstBar",
+    path: Array(walk.path.dropLast()) + [LocatorStep(role: "AXScrollBar", index: 0)])
+  let first = try LocatorResolver.element(of: byPlace, in: panel)
+
+  #expect(first.orientation == "AXHorizontalOrientation", "Logic answers the horizontal bar first")
+  #expect(first.identifier != bar.identifier, "so the first bar is not the one written to")
+}
+
+/// Each column of the panel is read by its number, and a row carries its name in a field.
+///
+/// The recorded panel was walked to `/private/tmp/logicctl-probe`, so column 1 lists the root of
+/// the start up disk and each column to the right lists the folder opened before it. A read that
+/// took two columns as one would leave the walk looking for `tmp` among the folders of the root.
+@Test func theColumnsOfTheSavePanelAreReadOneAtATime() throws {
+  let panel = try treeRoot(of: "save-panel-expanded.json")
+
+  #expect(try SaveDialog.names(inColumnNumbered: 0, of: panel).contains("private"))
+  #expect(try SaveDialog.names(inColumnNumbered: 1, of: panel) == ["etc", "tmp", "var"])
+  #expect(
+    try SaveDialog.names(inColumnNumbered: 2, of: panel) == ["logicctl-fixtures", "logicctl-probe"])
+
+  let name = try SaveDialog.nameField(of: "tmp", inColumnNumbered: 1, of: panel)
+  #expect(name.role == "AXTextField", "the name of a row is a field of it")
+  #expect(name.actions.contains(SaveDialog.openAction), "and opening that field opens the folder")
+
+  let refused = #expect(throws: LocatorResolver.Refusal.self) {
+    try SaveDialog.names(inColumnNumbered: 9, of: panel)
+  }
+  #expect(refused?.locator == Locators.saveColumn(number: 9).name, "a column that is not there")
+}
+
+/// A route over the recorded Save panel, walked the way Logic answers it.
+///
+/// The columns are the ones Logic listed, so a folder this panel does not hold is a folder the walk
+/// cannot find here either. A recorded tree does not move, so the Where popup answers the last
+/// folder the route opened, which is what Logic does with it.
+private final class ARecordedSavePanel {
+  /// Every folder the route opened, with the column it opened it in.
+  private(set) var opened: [String] = []
+
+  /// The names of the locators the route pressed, in order.
+  private(set) var pressed: [String] = []
+
+  /// What the route wrote into each field.
+  private(set) var written: [String: String] = [:]
+
+  /// Every item the route chose from the menu of the Where popup, in order.
+  private(set) var chosen: [String] = []
+
+  /// Every write the route made to the scroll bar of a column, in order.
+  private(set) var scrolled: [AScroll] = []
+
+  /// Everything the route did to the panel, in one order, so a test reads what came before what.
+  private(set) var did: [String] = []
+
+  /// True while the panel is open, which the press of Save ends.
+  private var showing = true
+
+  /// The folder the Where popup shows.
+  private var folder = ""
+
+  /// Whether the Where popup follows the opens, as the panel of Logic does.
+  private let reachesTheFolder: Bool
+
+  /// Whether Logic refuses the open, the way it does for any answer that is not -25205.
+  private let refusesTheOpen: Bool
+
+  init(reachesTheFolder: Bool = true, refusesTheOpen: Bool = false) {
+    self.reachesTheFolder = reachesTheFolder
+    self.refusesTheOpen = refusesTheOpen
+  }
+
+  /// The route, with every read taken from the recorded panel.
+  func dialog() throws -> SaveDialog {
+    let panel = try treeRoot(of: "save-panel-expanded.json")
+    return SaveDialog(
+      openTheMenuItem: {},
+      showsThePanel: { self.showing },
+      write: { locator, text in
+        // The walk has to find the field in the recorded panel before it can be written into.
+        _ = try LocatorResolver.element(of: locator, in: panel)
+        self.written[locator.name] = text
+        self.did.append("write " + locator.name)
+      },
+      press: { locator in
+        _ = try LocatorResolver.element(of: locator, in: panel)
+        self.pressed.append(locator.name)
+        self.did.append("press " + locator.name)
+        if locator.name == Locators.saveButton.name {
+          self.showing = false
+        }
+      },
+      resolve: { $0 },
+      namesInColumn: { number in
+        try SaveDialog.names(inColumnNumbered: number, of: panel)
+      },
+      openFolder: { number, name in
+        _ = try SaveDialog.nameField(of: name, inColumnNumbered: number, of: panel)
+        self.opened.append("\(name) in column \(number + 1)")
+        self.did.append("open \(name) in column \(number + 1)")
+        guard !self.refusesTheOpen else {
+          throw SaveDialog.Refusal(
+            reason: "Logic refused to open \(name) in the Save panel, error -25204.",
+            code: .internalFailure)
+        }
+        if self.reachesTheFolder {
+          self.folder = name
+        }
+      },
+      folderShown: { self.folder },
+      pressItem: { title in
+        self.chosen.append(title)
+        self.did.append("choose " + title)
+        self.folder = title
+      },
+      startUpDisk: { ARecordedSavePanel.theDisk },
+      scroll: { number, place in
+        // The column has to be in the recorded panel before its rows can be scrolled. The bar
+        // itself is not walked here: this panel was recorded before the direction of a bar was
+        // read, so its bars carry none, and the walk to the bar is put to a tree that carries both.
+        _ = try LocatorResolver.element(of: Locators.saveColumn(number: number), in: panel)
+        self.scrolled.append(AScroll(column: number, place: place))
+        self.did.append("scroll column \(number + 1)")
+      })
+  }
+
+  /// What the start up disk of the Mac under this test is called.
+  ///
+  /// The route reads the name rather than carrying one, because the name belongs to the Mac. This
+  /// is a name no Mac has.
+  static let theDisk = "A Disk Of Its Own"
+}
+
+/// One write the route made to the scroll bar of a column.
+private struct AScroll: Equatable {
+  /// Which column, counted from 0.
+  let column: Int
+
+  /// Where the bar was put, from 0 at the top to 1 at the end.
+  let place: Double
+}
+
+/// A clock and a sleep a test moves itself, so a wait of any length costs the suite no time.
+private final class ATime {
+  private var now = 0
+
+  func read() -> Int {
+    now
+  }
+
+  func sleep(_ span: Int) {
+    now += span
+  }
+}
+
 /// An application with a File menu that carries Save As, and an Edit menu that carries one too.
 private let aMenuBar = """
   {
@@ -133,6 +471,77 @@ private let aMenuBarWithNoSaveAs = """
                   "children": [
                     { "role": "AXMenuItem", "title": "New" },
                     { "role": "AXMenuItem", "title": "Save" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+  """
+
+/// The scroll area of one column of the Save panel, with the horizontal bar first.
+///
+/// Written from what the panel of this Mac answered on 2026-09-26, and not recorded by `inspect`:
+/// the recorded panel holds one bar per column. Every step of the walk to the bar is here, so a
+/// walk that names the wrong element fails on this tree.
+private let aColumnWithTwoScrollBars = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXWindow",
+      "identifier": "save-panel",
+      "title": "Save",
+      "children": [
+        {
+          "role": "AXSplitGroup",
+          "children": [
+            {
+              "role": "AXSplitGroup",
+              "children": [
+                {
+                  "role": "AXBrowser",
+                  "identifier": "ColumnView",
+                  "children": [
+                    {
+                      "role": "AXScrollArea",
+                      "children": [
+                        {
+                          "role": "AXScrollArea",
+                          "children": [
+                            {
+                              "role": "AXScrollBar",
+                              "identifier": "the sideways one",
+                              "orientation": "AXHorizontalOrientation",
+                              "value": "0"
+                            },
+                            {
+                              "role": "AXList",
+                              "children": [
+                                {
+                                  "role": "AXGroup",
+                                  "children": [
+                                    {
+                                      "role": "AXTextField",
+                                      "value": "tmp",
+                                      "actions": ["AXOpen"]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "AXScrollBar",
+                              "identifier": "the vertical one",
+                              "orientation": "AXVerticalOrientation",
+                              "value": "0"
+                            }
+                          ]
+                        }
+                      ]
+                    }
                   ]
                 }
               ]

@@ -87,6 +87,9 @@ public enum LocatorResolver {
     if let description = step.description {
       return ofTheRole.filter { $0.description == description }
     }
+    if let orientation = step.orientation {
+      return ofTheRole.filter { $0.orientation == orientation }
+    }
     guard let index = step.index else {
       return ofTheRole
     }
