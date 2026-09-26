@@ -7,8 +7,8 @@ import LogicctlMac
 /// What logicctl does to the transport of Logic.
 ///
 /// The transport is what a person drives with the play, stop and record buttons of the Control Bar.
-/// `play` presses that button through Accessibility, so it needs no port and no setting of Logic.
-/// `stop` and `record` still send Machine Control on the bus.
+/// `play` and `record` press those buttons through Accessibility, so they need no port and no
+/// setting of Logic. `stop` still sends Machine Control on the bus.
 ///
 /// The name is longer than the word a person types, because `LogicctlCore` already carries a
 /// `Transport`, which is what the state says the transport is doing. Two types of that name, one in
