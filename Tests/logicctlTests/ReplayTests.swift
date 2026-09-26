@@ -529,7 +529,8 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   let git = try gitThatSigns(inside: root)
 
   let recorded = try Recording(root: root, git: git)
-  try recorded.wrote(.command, command: "new-project", leaving: anEmptyProject())
+  try recorded.wrote(
+    .command, command: "new-project", leaving: theProjectAReplayStartsIn())
   try recorded.wrote(
     .command, command: "tracks add", argv: ["--type", "software-instrument"],
     leaving: aProject(withTrackNamed: "Inst 1"))
