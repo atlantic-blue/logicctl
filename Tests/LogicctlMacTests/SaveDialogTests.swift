@@ -186,7 +186,10 @@ private func treeRead(from text: String) throws -> RecordedTree {
 
   #expect(panel.chosen == [ARecordedSavePanel.theDisk], "the name of the disk, read from the Mac")
   #expect(
-    Array(panel.did.prefix(2)) == ["press save.wherePopup", "choose " + ARecordedSavePanel.theDisk],
+    Array(panel.did.prefix(2)) == [
+      "press save.wherePopup",
+      "choose " + ARecordedSavePanel.theDisk,
+    ],
     "the popup opened and the disk was chosen, before anything else was asked of the panel")
   let chose = try #require(panel.did.firstIndex { $0.hasPrefix("choose ") })
   let opened = try #require(panel.did.firstIndex { $0.hasPrefix("open ") })
