@@ -35,19 +35,11 @@ private func gitThatSigns(inside folder: URL) throws -> Git {
   ])
 }
 
-/// The sentence the approved mockup carries for a Mac that cannot reach Logic over MIDI.
-private let theDriverIsOff =
-  "The IAC driver is off. Open Audio MIDI Setup, show the MIDI Studio, and enable the IAC Driver"
-
 /// Where the project of this scenario sits.
 private let projectPath = "/Users/someone/Music/Sketch.logicx"
 
 /// How long Logic is given to start recording, in milliseconds.
 private let theLimit = 200
-
-/// The six bytes of the Machine Control record message, as they go on the wire. The Machine
-/// Control command set calls this one Record Strobe.
-private let theRecordMessage: [UInt8] = [0xF0, 0x7F, 0x7F, 0x06, 0x06, 0xF7]
 
 /// A clock and a sleep the test moves itself, so a wait of any length costs no real time.
 private final class RecordTime {
@@ -105,34 +97,40 @@ private func aLogic(showing project: State) throws -> ALogic {
     driver: FakeLogicDriver(state: project, path: projectPath))
 }
 
-/// The bus of the scenario: what went out, and the Logic that hears it.
+/// The Control Bar of the scenario: what the command pressed, and the Logic that answers a press.
 ///
-/// A Logic that takes Machine Control answers a record message by starting a take, so a bus given
-/// that Logic sets its transport recording. A bus given none stands for the Logic that hears the
-/// message and does nothing with it: no take starts, and the state says so.
-private final class ABus {
-  /// What the command sent, in the order it sent it.
-  private(set) var sent: [MachineControlMessage] = []
+/// A Logic given here starts a take when its Record button is pressed. Measured on this Mac at
+/// 15:27 on 2026-09-26 against Logic 12.3.1: one press of Record moved both the Play and the
+/// Record button of the Control Bar to 1, so the Logic here sets both. A Control Bar given no
+/// Logic stands for the press that reaches Logic and starts nothing: no take runs, and the
+/// transport says so.
+private final class AControlBar {
+  /// The controls the command pressed inside the window of the project, in the order it pressed
+  /// them.
+  private(set) var pressedInTheWindow: [String] = []
 
-  /// The Logic that answers the message, or none when nothing answers it.
+  /// The items the command pressed in the menu bar. The Control Bar is in the window, so a press
+  /// that lands here is a press in the wrong tree.
+  private(set) var pressedInTheMenuBar: [String] = []
+
+  /// The Logic that answers the press, or none when nothing answers it.
   private let heardBy: FakeLogicDriver?
 
   init(heardBy: FakeLogicDriver? = nil) {
     self.heardBy = heardBy
   }
 
-  /// The way out the command is given.
-  ///
-  /// A Logic that records also rolls the transport, so this Logic sets both. The step makes a
-  /// contract of `recording` alone, because what Logic does to `playing` while it records is read
-  /// from Logic at the live acceptance and not decided here.
-  var output: MachineControlOutput {
-    let port = MidiDestination(name: "logicctl", isOffline: false)
-    return MachineControlOutput(destination: port) { message in
-      self.sent.append(message)
-      self.heardBy?.state?.transport.recording = true
-      self.heardBy?.state?.transport.playing = true
-    }
+  /// What the command presses through.
+  var actions: TrackActions {
+    TrackActions(
+      press: { locator in
+        self.pressedInTheMenuBar.append(locator.name)
+      },
+      pressInWindow: { locator in
+        self.pressedInTheWindow.append(locator.name)
+        self.heardBy?.state?.transport.recording = true
+        self.heardBy?.state?.transport.playing = true
+      })
   }
 }
 
@@ -175,12 +173,6 @@ private final class Printed {
     return failure?["code"] as? String
   }
 
-  /// What the failure says to the person who ran the command.
-  func failureMessage() throws -> String? {
-    let failure = try json()["error"] as? [String: Any]
-    return failure?["message"] as? String
-  }
-
   /// What the failure says about itself.
   func failureDetails() throws -> [String: Any] {
     let failure = try json()["error"] as? [String: Any]
@@ -213,31 +205,32 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
 
 /// A person or an agent starts a take, and reads whether Logic is recording.
 ///
-/// A take is the one thing here that costs a performance to get wrong. The message leaves this Mac
-/// over the bus, and what happens next is up to Logic: the port can be missing, and Logic takes
-/// Machine Control only when its own settings say so. So the answer is read back from the
-/// transport of Logic after the message, and never from the message. A command that printed
-/// `recording: true` because it sent six bytes would report a take on every Mac where Logic is
-/// idle. A person would then play the part, and there would be nothing to keep.
+/// A take is the one thing here that costs a performance to get wrong. logicctl starts it the way
+/// a person does, by pressing the Record button of the Control Bar, and what happens next is up to
+/// Logic. So the answer is read back from the transport of Logic after the press, and never from
+/// the press. A command that printed `recording: true` because it pressed something would report a
+/// take on every Mac where Logic is idle. A person would then play the part, and there would be
+/// nothing to keep.
 ///
-/// Four things can happen, and each one is answered on its own terms. The message reaches a Logic
-/// that starts recording, and the answer carries the transport Logic reads back. This Mac carries
-/// no port named logicctl, so nothing is sent at all, and the answer is the failure of
-/// `midi setup` with its own exit number. The message goes out and no take starts, so the command
-/// gives up at its limit with `timeout` and says how long Logic was given, which is a person's cue
-/// to turn Machine Control on in Logic or to wait longer. Logic is already recording, and the
-/// command answers that it is recording without waiting, because a record sets a state and never
-/// toggles one.
+/// The press reaches Logic through Accessibility and nothing goes over MIDI, so this command asks
+/// nothing of the IAC driver. A Mac with the driver off records, where before it was refused with
+/// `midi_unavailable` and no take at all.
 ///
-/// One record is one step of the session, so a person reads what logicctl sent and a replay sends
-/// it again.
-@Test func recordReadsRecordingBack() throws {
+/// Three things can happen, and each one is answered on its own terms. The press starts a take,
+/// and the answer carries the transport Logic reads back. The press lands and no take starts, so
+/// the command gives up at its limit with `timeout` and says how long Logic was given, which is a
+/// person's cue to look at Logic or to wait longer. Logic is already recording, and the command
+/// presses nothing and answers that it is recording: the Record button is a check box, so a second
+/// press would turn the take off and the performance would be gone.
+///
+/// One record is one step of the session, so a person reads what logicctl did and a replay does it
+/// again.
+@Test func recordPressesTheRecordButtonOfTheControlBar() throws {
   let recording = try aLogic(showing: anIdleProject())
   let ignoring = try aLogic(showing: anIdleProject())
-  let quiet = try aLogic(showing: anIdleProject())
   let already = try aLogic(showing: aRecordingProject())
   defer {
-    for folder in [recording.root, ignoring.root, quiet.root, already.root] {
+    for folder in [recording.root, ignoring.root, already.root] {
       try? FileManager.default.removeItem(at: folder)
     }
   }
@@ -248,13 +241,13 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     recording.driver.state?.transport.recording == false,
     "Logic is recording nothing before the command runs")
 
-  let bus = ABus(heardBy: recording.driver)
+  let controlBar = AControlBar(heardBy: recording.driver)
   let answer = Printed()
   let time = RecordTime()
 
   let status = TransportCommand.Record.answer(
-    openingTheBus: { bus.output },
     driver: recording.driver,
+    actions: controlBar.actions,
     root: recording.root,
     version: "0.1.0",
     limitMs: theLimit,
@@ -266,11 +259,12 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     standardError: answer.writeError)
 
   #expect(status == 0, "Logic is recording")
-  #expect(bus.sent.count == 1, "a record is one message")
-  #expect(bus.sent.first == MachineControlMessage.record, "and the message is record")
   #expect(
-    bus.sent.first?.bytes == theRecordMessage,
-    "Logic hears the Machine Control record message, addressed to every device")
+    controlBar.pressedInTheWindow == [Locators.transportRecordButton.name],
+    "one press, on the Record button of the Control Bar")
+  #expect(
+    controlBar.pressedInTheMenuBar.isEmpty,
+    "the Control Bar sits in the window of the project, and not in the menu bar")
 
   let printed = try answer.json()
   #expect(printed["error"] is NSNull, "nothing failed")
@@ -288,21 +282,21 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
     try subjects(of: recording.session.folder, with: recording.git) == [
       "1 transport record", "session \(recording.session.session.shortId)",
     ],
-    "the record the command sent is one step of the session")
+    "the press is one step of the session")
   let step = try record(ofStep: 1, in: recording.session.folder)
   #expect(step["command"] as? String == "transport record")
   #expect(step["argv"] as? [String] == [], "record takes no flag of its own")
   #expect(step["exitCode"] as? Int == 0)
 
-  // Logic hears the message and no take starts, which is every Logic that takes no Machine
-  // Control input. The command gives up at its limit rather than reporting a take.
-  let ignored = ABus()
+  // The press lands and no take starts. The command gives up at its limit rather than reporting a
+  // take that is not running.
+  let ignored = AControlBar()
   let refused = Printed()
   let waited = RecordTime()
 
   let gaveUp = TransportCommand.Record.answer(
-    openingTheBus: { ignored.output },
     driver: ignoring.driver,
+    actions: ignored.actions,
     root: ignoring.root,
     version: "0.1.0",
     limitMs: theLimit,
@@ -318,48 +312,23 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
   #expect(try refused.failureDetails()["waitedMs"] as? Int == theLimit, "how long Logic was given")
   let gaveUpJson = try refused.json()
   #expect(gaveUpJson["data"] is NSNull, "no take is made up for a Logic that is idle")
-  #expect(ignored.sent.count == 1, "the message went out, and Logic did nothing with it")
+  #expect(
+    ignored.pressedInTheWindow == [Locators.transportRecordButton.name],
+    "the press went in, and Logic started nothing")
   #expect(ignoring.driver.state?.transport.recording == false, "the transport is as it was")
   #expect(
     try record(ofStep: 1, in: ignoring.session.folder)["exitCode"] as? Int == 6,
     "the step records what the command answered")
 
-  // This Mac carries no port named logicctl, so the command never reaches a bus at all.
-  let withNoBus = Printed()
-
-  let sentNothing = TransportCommand.Record.answer(
-    openingTheBus: { nil },
-    driver: quiet.driver,
-    root: quiet.root,
-    version: "0.1.0",
-    limitMs: theLimit,
-    git: quiet.git,
-    capturer: NoPictureOfTheWindow(),
-    standardOutput: withNoBus.write,
-    standardError: withNoBus.writeError)
-
-  #expect(sentNothing == 13, "the number the design system gives midi_unavailable")
-  #expect(try withNoBus.failureCode() == "midi_unavailable")
-  #expect(
-    try withNoBus.failureMessage() == theDriverIsOff,
-    "the sentence that says how to switch the driver on")
-  #expect(withNoBus.err == "logicctl: midi_unavailable: \(theDriverIsOff)\n")
-  #expect(quiet.driver.state?.transport.recording == false, "a Mac with no port records nothing")
-  #expect(try withNoBus.meta()["session"] is NSNull, "nothing reached the project")
-  #expect(try withNoBus.meta()["step"] is NSNull, "nothing was recorded")
-  #expect(
-    try subjects(of: quiet.session.folder, with: quiet.git).count == 1,
-    "the session gained nothing from a message that was never sent")
-
-  // Logic is already recording. A record sets a state and never toggles one, so the command
-  // answers that Logic is recording, and it waits for nothing to change.
-  let running = ABus(heardBy: already.driver)
+  // Logic is already recording. The Record button is a check box, so a press here would stop the
+  // take. The command presses nothing and answers the transport it reads.
+  let running = AControlBar(heardBy: already.driver)
   let again = Printed()
   let noWait = RecordTime()
 
   let recordingAlready = TransportCommand.Record.answer(
-    openingTheBus: { running.output },
     driver: already.driver,
+    actions: running.actions,
     root: already.root,
     version: "0.1.0",
     limitMs: theLimit,
@@ -372,8 +341,9 @@ private func record(ofStep sequence: Int, in folder: URL) throws -> [String: Any
 
   #expect(recordingAlready == 0, "a transport that records is what the command asked for")
   #expect(try again.data()?["recording"] as? Bool == true, "and the answer says so")
+  #expect(running.pressedInTheWindow.isEmpty, "a take that runs is left running")
   #expect(noWait.now == 0, "the recording transport is read before the command sleeps")
-  #expect(running.sent.count == 1, "the message goes out, because Logic says what the transport is")
+  #expect(already.driver.state?.transport.recording == true, "the take is still running")
   #expect(
     try record(ofStep: 1, in: already.session.folder)["command"] as? String == "transport record",
     "a record of a recording transport is a step like any other")
