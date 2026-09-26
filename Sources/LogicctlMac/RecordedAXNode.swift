@@ -30,6 +30,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
   public let valueDescription: String?
   public let description: String?
   public let help: String?
+  public let orientation: String?
   public let actions: [String]
 
   /// The children as the file wrote them. `children` answers the same elements through the
@@ -48,6 +49,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
     case valueDescription
     case description
     case help
+    case orientation
     case actions
     case recordedChildren = "children"
   }
@@ -61,6 +63,7 @@ public struct RecordedAXNode: AXNode, Decodable, Equatable {
     valueDescription = try read.decodeIfPresent(String.self, forKey: .valueDescription)
     description = try read.decodeIfPresent(String.self, forKey: .description)
     help = try read.decodeIfPresent(String.self, forKey: .help)
+    orientation = try read.decodeIfPresent(String.self, forKey: .orientation)
     actions = try read.decodeIfPresent([String].self, forKey: .actions) ?? []
     recordedChildren =
       try read.decodeIfPresent([RecordedAXNode].self, forKey: .recordedChildren) ?? []

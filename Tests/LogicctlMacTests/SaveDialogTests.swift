@@ -231,6 +231,36 @@ private func treeRead(from text: String) throws -> RecordedTree {
     "the column was scrolled before the folder in it was opened")
 }
 
+/// The bar the route writes to is the one that runs up and down, and never the one Logic answers
+/// first.
+///
+/// Measured on this Mac on 2026-09-26: the scroll area of a column holds a horizontal bar first and
+/// the vertical bar second. A write to the horizontal one moves the rows sideways, so the row the
+/// walk asked for stays out of view and `AXOpen` on it does nothing at all. The two bars carry no
+/// identifier, no title and no description, so the direction is the only thing a step can tell them
+/// apart by, and a step that took the first bar, or the bar at index 1, would take the wrong one
+/// half the time.
+///
+/// The tree here is written from that measurement, because the recorded panel carries one bar per
+/// column and says nothing about which way it runs.
+@Test func theRouteScrollsTheVerticalBarOfAColumnAndNotTheFirstBar() throws {
+  let panel = try treeRead(from: aColumnWithTwoScrollBars).root
+  let walk = Locators.saveColumnScrollBar(number: 0)
+
+  let bar = try LocatorResolver.element(of: walk, in: panel)
+
+  #expect(bar.orientation == Locators.verticalOrientation, "the write lands on the vertical bar")
+  #expect(bar.identifier == "the vertical one", "which is the second bar of the scroll area")
+
+  let byPlace = Locator(
+    name: "test.theFirstBar",
+    path: Array(walk.path.dropLast()) + [LocatorStep(role: "AXScrollBar", index: 0)])
+  let first = try LocatorResolver.element(of: byPlace, in: panel)
+
+  #expect(first.orientation == "AXHorizontalOrientation", "Logic answers the horizontal bar first")
+  #expect(first.identifier != bar.identifier, "so the first bar is not the one written to")
+}
+
 /// Each column of the panel is read by its number, and a row carries its name in a field.
 ///
 /// The recorded panel was walked to `/private/tmp/logicctl-probe`, so column 1 lists the root of
@@ -340,8 +370,10 @@ private final class ARecordedSavePanel {
       },
       startUpDisk: { ARecordedSavePanel.theDisk },
       scroll: { number, place in
-        _ = try LocatorResolver.element(
-          of: Locators.saveColumnScrollBar(number: number), in: panel)
+        // The column has to be in the recorded panel before its rows can be scrolled. The bar
+        // itself is not walked here: this panel was recorded before the direction of a bar was
+        // read, so its bars carry none, and the walk to the bar is put to a tree that carries both.
+        _ = try LocatorResolver.element(of: Locators.saveColumn(number: number), in: panel)
         self.scrolled.append(AScroll(column: number, place: place))
         self.did.append("scroll column \(number + 1)")
       })
@@ -439,6 +471,77 @@ private let aMenuBarWithNoSaveAs = """
                   "children": [
                     { "role": "AXMenuItem", "title": "New" },
                     { "role": "AXMenuItem", "title": "Save" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+  """
+
+/// The scroll area of one column of the Save panel, with the horizontal bar first.
+///
+/// Written from what the panel of this Mac answered on 2026-09-26, and not recorded by `inspect`:
+/// the recorded panel holds one bar per column. Every step of the walk to the bar is here, so a
+/// walk that names the wrong element fails on this tree.
+private let aColumnWithTwoScrollBars = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXWindow",
+      "identifier": "save-panel",
+      "title": "Save",
+      "children": [
+        {
+          "role": "AXSplitGroup",
+          "children": [
+            {
+              "role": "AXSplitGroup",
+              "children": [
+                {
+                  "role": "AXBrowser",
+                  "identifier": "ColumnView",
+                  "children": [
+                    {
+                      "role": "AXScrollArea",
+                      "children": [
+                        {
+                          "role": "AXScrollArea",
+                          "children": [
+                            {
+                              "role": "AXScrollBar",
+                              "identifier": "the sideways one",
+                              "orientation": "AXHorizontalOrientation",
+                              "value": "0"
+                            },
+                            {
+                              "role": "AXList",
+                              "children": [
+                                {
+                                  "role": "AXGroup",
+                                  "children": [
+                                    {
+                                      "role": "AXTextField",
+                                      "value": "tmp",
+                                      "actions": ["AXOpen"]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "AXScrollBar",
+                              "identifier": "the vertical one",
+                              "orientation": "AXVerticalOrientation",
+                              "value": "0"
+                            }
+                          ]
+                        }
+                      ]
+                    }
                   ]
                 }
               ]

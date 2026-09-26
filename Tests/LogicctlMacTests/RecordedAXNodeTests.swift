@@ -130,6 +130,7 @@ private func compare(_ node: any AXNode, with written: [String: Any], at path: S
     "valueDescription at \(path)")
   #expect(node.description == written["description"] as? String, "description at \(path)")
   #expect(node.help == written["help"] as? String, "help at \(path)")
+  #expect(node.orientation == written["orientation"] as? String, "orientation at \(path)")
   #expect(node.actions == (written["actions"] as? [String] ?? []), "actions at \(path)")
 
   let writtenChildren = written["children"] as? [[String: Any]] ?? []

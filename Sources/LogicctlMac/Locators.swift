@@ -25,11 +25,12 @@ public struct Locator: Equatable, Sendable {
 
 /// One element on the walk a locator makes.
 ///
-/// A step reads the identifier first, then the title, then the description, then the index, which
-/// is the order the four last in. An identifier Logic gives an element of its own stands in every
-/// project. A title stands until the language of Logic changes. A description says what the element
-/// is for, and it stands while the element does. An index is the weakest of the four and is there
-/// for the elements that carry none of the others.
+/// A step reads the identifier first, then the title, then the description, then the direction,
+/// then the index, which is the order the five last in. An identifier Logic gives an element of
+/// its own stands in every project. A title stands until the language of Logic changes. A
+/// description says what the element is for, and it stands while the element does. A direction
+/// tells the two bars of one scroll area apart. An index is the weakest of the five, for the
+/// elements that carry none of the others.
 public struct LocatorStep: Equatable, Sendable {
   /// What kind of element this is, for example `AXButton`. Every step names one.
   public let role: String
@@ -46,6 +47,13 @@ public struct LocatorStep: Equatable, Sendable {
   /// title, so this is the only lasting way to name one.
   public let description: String?
 
+  /// Which way the element runs, or nil when the step names no direction.
+  ///
+  /// It is read after the description and before the index, because it says what the element is
+  /// rather than where it sits. A scroll bar carries no identifier, no title and no description, so
+  /// for the bars of one scroll area this is the only lasting way to name one.
+  public let orientation: String?
+
   /// Which element of that role, counted from 0 among the elements of that role alone.
   ///
   /// The count leaves out every element of another role, because Logic puts elements beside the
@@ -56,12 +64,13 @@ public struct LocatorStep: Equatable, Sendable {
 
   public init(
     role: String, identifier: String? = nil, title: String? = nil, description: String? = nil,
-    index: Int? = nil
+    orientation: String? = nil, index: Int? = nil
   ) {
     self.role = role
     self.identifier = identifier
     self.title = title
     self.description = description
+    self.orientation = orientation
     self.index = index
   }
 }
@@ -73,6 +82,9 @@ public struct LocatorStep: Equatable, Sendable {
 public enum Locators {
   /// The version of Logic every path in this file was read from.
   public static let recordedFrom = "12.3.1"
+
+  /// What an element that runs up and down answers when it is asked which way it runs.
+  public static let verticalOrientation = "AXVerticalOrientation"
 
   /// The window Logic shows the tracks area in.
   ///
@@ -395,17 +407,21 @@ public enum Locators {
     return Locator(name: "save.column\(number + 1)", path: toTheSaveColumnView + column)
   }
 
-  /// The scroll bar of one column of that browser, which puts the rows of it in view.
+  /// The vertical scroll bar of one column of that browser, which puts the rows of it in view.
   ///
   /// A column scrolls its own rows, and `AXOpen` reaches a row only while that row is in view.
   /// Measured on Logic 12.3.1 on 2026-09-26 at 15:30: the folder at row 14 of the 22 in the home
-  /// folder did not open until this bar was set to (14 - 1) / (22 - 1). The bar carries no
-  /// identifier either, and it is the one element of its role inside the column.
+  /// folder did not open until this bar was set to (14 - 1) / (22 - 1).
+  ///
+  /// The scroll area of a column carries two bars, and Logic answers the horizontal one first, so
+  /// the step names the direction. A bar carries no identifier, no title and no description, and a
+  /// step that took the first bar, or the bar at index 1, would scroll the rows sideways and leave
+  /// the row it was asked for out of view.
   public static func saveColumnScrollBar(number: Int) -> Locator {
     let bar = [
       LocatorStep(role: "AXScrollArea"),
       LocatorStep(role: "AXScrollArea", index: number),
-      LocatorStep(role: "AXScrollBar"),
+      LocatorStep(role: "AXScrollBar", orientation: Locators.verticalOrientation),
     ]
     return Locator(name: "save.column\(number + 1).scrollBar", path: toTheSaveColumnView + bar)
   }
