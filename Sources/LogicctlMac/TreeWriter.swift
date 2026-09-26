@@ -121,7 +121,8 @@ public enum TreeWriter {
   /// reads back as nothing and a file a person opens is shorter for it. `description` and `help`
   /// are written although the tree a person reads does not name them: a plugin slot of Logic is
   /// found by its description and by nothing else, and a region carries its borders in its help, so
-  /// a file without the two cannot serve the steps that look for either.
+  /// a file without the two cannot serve the steps that look for either. `orientation` is written
+  /// for the same reason: the two scroll bars of a column of the Save panel differ in nothing else.
   public static func json(of node: any AXNode, depth: Int) -> JSONValue {
     var written: [String: JSONValue] = ["role": .string(node.role)]
     let text = [
@@ -131,6 +132,7 @@ public enum TreeWriter {
       "valueDescription": node.valueDescription,
       "description": node.description,
       "help": node.help,
+      "orientation": node.orientation,
     ]
     for (key, carried) in text {
       guard let carried else {

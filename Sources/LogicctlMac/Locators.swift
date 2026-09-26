@@ -25,11 +25,12 @@ public struct Locator: Equatable, Sendable {
 
 /// One element on the walk a locator makes.
 ///
-/// A step reads the identifier first, then the title, then the description, then the index, which
-/// is the order the four last in. An identifier Logic gives an element of its own stands in every
-/// project. A title stands until the language of Logic changes. A description says what the element
-/// is for, and it stands while the element does. An index is the weakest of the four and is there
-/// for the elements that carry none of the others.
+/// A step reads the identifier first, then the title, then the description, then the direction,
+/// then the index, which is the order the five last in. An identifier Logic gives an element of
+/// its own stands in every project. A title stands until the language of Logic changes. A
+/// description says what the element is for, and it stands while the element does. A direction
+/// tells the two bars of one scroll area apart. An index is the weakest of the five, for the
+/// elements that carry none of the others.
 public struct LocatorStep: Equatable, Sendable {
   /// What kind of element this is, for example `AXButton`. Every step names one.
   public let role: String
@@ -46,6 +47,13 @@ public struct LocatorStep: Equatable, Sendable {
   /// title, so this is the only lasting way to name one.
   public let description: String?
 
+  /// Which way the element runs, or nil when the step names no direction.
+  ///
+  /// It is read after the description and before the index, because it says what the element is
+  /// rather than where it sits. A scroll bar carries no identifier, no title and no description, so
+  /// for the bars of one scroll area this is the only lasting way to name one.
+  public let orientation: String?
+
   /// Which element of that role, counted from 0 among the elements of that role alone.
   ///
   /// The count leaves out every element of another role, because Logic puts elements beside the
@@ -56,12 +64,13 @@ public struct LocatorStep: Equatable, Sendable {
 
   public init(
     role: String, identifier: String? = nil, title: String? = nil, description: String? = nil,
-    index: Int? = nil
+    orientation: String? = nil, index: Int? = nil
   ) {
     self.role = role
     self.identifier = identifier
     self.title = title
     self.description = description
+    self.orientation = orientation
     self.index = index
   }
 }
@@ -73,6 +82,9 @@ public struct LocatorStep: Equatable, Sendable {
 public enum Locators {
   /// The version of Logic every path in this file was read from.
   public static let recordedFrom = "12.3.1"
+
+  /// What an element that runs up and down answers when it is asked which way it runs.
+  public static let verticalOrientation = "AXVerticalOrientation"
 
   /// The window Logic shows the tracks area in.
   ///
@@ -342,11 +354,11 @@ public enum Locators {
     name: "save.window",
     path: [LocatorStep(role: "AXWindow", identifier: "save-panel")])
 
-  /// The field that holds where the project goes.
+  /// The field that holds the name of the project.
   ///
-  /// Logic puts the name of the project in it. logicctl writes the whole path there instead,
-  /// because a panel takes a path in that field and the alternative is driving the Where popup and
-  /// the folder browser under it, neither of which names a folder a person typed.
+  /// A value written here is read as a name and never as a path: Logic turns every slash of it into
+  /// a colon. So logicctl writes the name of the project on its own, and the folder comes from the
+  /// walk of the column browser beside it.
   public static let saveNameField = Locator(
     name: "save.nameField",
     path: toTheSavePanel + [LocatorStep(role: "AXTextField", identifier: "saveAsNameTextField")])
@@ -355,6 +367,64 @@ public enum Locators {
   public static let saveButton = Locator(
     name: "save.saveButton",
     path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "OKButton")])
+
+  /// The button that closes the Save panel and writes nothing.
+  ///
+  /// The route presses it when a folder of the path is not in the column, so a refusal leaves no
+  /// panel open waiting for an answer that nothing is going to give it.
+  public static let saveCancelButton = Locator(
+    name: "save.cancelButton",
+    path: toTheSavePanel + [LocatorStep(role: "AXButton", identifier: "CancelButton")])
+
+  /// The popup that says which folder the Save panel is in.
+  ///
+  /// Measured on Logic 12.3.1 on 2026-09-26: `AXOpen` on the name of a folder in a column moves the
+  /// value of this popup to that folder. So it is how the route reads back where the walk got to.
+  public static let saveWherePopup = Locator(
+    name: "save.wherePopup",
+    path: toTheSavePanel + [LocatorStep(role: "AXPopUpButton", identifier: "where popup")])
+
+  /// The browser of the Save panel, which lists the folders of this Mac one column at a time.
+  ///
+  /// The leftmost column lists the root of the start up disk, and each column to the right lists
+  /// what the row selected in the column before it holds. So the walk to a folder is one column per
+  /// part of the path, and the panel needs no field for a path.
+  public static let saveColumnView = Locator(
+    name: "save.columnView",
+    path: toTheSaveColumnView)
+
+  /// One column of that browser, counted from 0. Column 0 lists the root of the start up disk.
+  ///
+  /// A column carries no identifier and no title, so its place among the scroll areas of the
+  /// browser is the whole of what a path can name here. The scroll bar of the browser carries
+  /// another role, so it is not counted.
+  public static func saveColumn(number: Int) -> Locator {
+    let column = [
+      LocatorStep(role: "AXScrollArea"),
+      LocatorStep(role: "AXScrollArea", index: number),
+      LocatorStep(role: "AXList"),
+    ]
+    return Locator(name: "save.column\(number + 1)", path: toTheSaveColumnView + column)
+  }
+
+  /// The vertical scroll bar of one column of that browser, which puts the rows of it in view.
+  ///
+  /// A column scrolls its own rows, and `AXOpen` reaches a row only while that row is in view.
+  /// Measured on Logic 12.3.1 on 2026-09-26 at 15:30: the folder at row 14 of the 22 in the home
+  /// folder did not open until this bar was set to (14 - 1) / (22 - 1).
+  ///
+  /// The scroll area of a column carries two bars, and Logic answers the horizontal one first, so
+  /// the step names the direction. A bar carries no identifier, no title and no description, and a
+  /// step that took the first bar, or the bar at index 1, would scroll the rows sideways and leave
+  /// the row it was asked for out of view.
+  public static func saveColumnScrollBar(number: Int) -> Locator {
+    let bar = [
+      LocatorStep(role: "AXScrollArea"),
+      LocatorStep(role: "AXScrollArea", index: number),
+      LocatorStep(role: "AXScrollBar", orientation: Locators.verticalOrientation),
+    ]
+    return Locator(name: "save.column\(number + 1).scrollBar", path: toTheSaveColumnView + bar)
+  }
 
   /// The window Logic opens for File, Import, "MIDI File...".
   ///
@@ -415,6 +485,9 @@ public enum Locators {
     saveWindow,
     saveNameField,
     saveButton,
+    saveCancelButton,
+    saveWherePopup,
+    saveColumnView,
     importWindow,
     importWherePopup,
     importButton,
@@ -429,6 +502,17 @@ public enum Locators {
   /// The walk from the window Logic opens for File, "Save As...".
   private static let toTheSavePanel: [LocatorStep] = [
     LocatorStep(role: "AXWindow", identifier: "save-panel")
+  ]
+
+  /// The walk from that window to the browser that lists the folders in columns.
+  ///
+  /// The browser sits under the splitter that holds the sidebar on its left, so the walk goes
+  /// through two split groups to reach it.
+  private static let toTheSaveColumnView: [LocatorStep] = [
+    LocatorStep(role: "AXWindow", identifier: "save-panel"),
+    LocatorStep(role: "AXSplitGroup"),
+    LocatorStep(role: "AXSplitGroup"),
+    LocatorStep(role: "AXBrowser", identifier: "ColumnView"),
   ]
 
   /// The walk from the window Logic opens for File, Import, "MIDI File...".
