@@ -304,8 +304,10 @@ enum JournalLive {
   let unnamed = whatStopped { _ = try JournalLive.replaySession(in: [:]) }
   #expect(
     words(of: unnamed).contains(JournalLive.replaySessionVariable),
-    "the replay check runs the session of phase 2, and a run that names none says which variable "
-      + "to set: \(words(of: unnamed))")
+    """
+    the replay check runs the session of phase 2, and a run that names none says which \
+    variable to set: \(words(of: unnamed))
+    """)
 
   #expect(
     JournalLive.byHandLine(for: "mute track 2 in the Tracks window")
