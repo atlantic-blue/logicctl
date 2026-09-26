@@ -7,8 +7,8 @@ import LogicctlMac
 /// What logicctl does to the transport of Logic.
 ///
 /// The transport is what a person drives with the play, stop and record buttons of the Control Bar.
-/// logicctl reaches it over Machine Control on the bus rather than by pressing a button, so one
-/// message moves it and no event is posted at the screen.
+/// `play` presses that button through Accessibility, so it needs no port and no setting of Logic.
+/// `stop` and `record` still send Machine Control on the bus.
 ///
 /// The name is longer than the word a person types, because `LogicctlCore` already carries a
 /// `Transport`, which is what the state says the transport is doing. Two types of that name, one in
@@ -102,15 +102,37 @@ extension TransportCommand.Play {
 private struct StartPlayback: LogicCommand {
   let name = "transport play"
   let argv: [String] = []
+
+  /// What presses the Play button of the Control Bar in Logic.
   let actions: TrackActions
+
+  /// How long Logic is given to start playing, in milliseconds.
   let limitMs: Int
+
+  /// The clock the wait reads.
   let clock: Wait.Clock
+
+  /// How the wait sleeps between two reads.
   let sleeper: Wait.Sleeper
 
-  /// Waits until Logic reads as playing, and answers the transport it reads.
+  /// Presses Play where Logic is stopped, waits until Logic reads as playing, and answers the
+  /// transport it reads.
+  ///
+  /// The transport is read first. The Play button is a check box, and measured on this Mac against
+  /// Logic 12.3.1 a second press leaves it on, so a press on a Logic that already plays is safe.
+  /// The read is still worth its cost, because it turns the command into one that presses nothing
+  /// where there is nothing to do.
+  ///
+  /// The answer comes from the transport of Logic and never from the press, because a press Logic
+  /// refused answers the same as one it took. A transport that never starts ends at the limit with
+  /// `timeout` and the milliseconds it was given.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
-    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      try driver.readState().transport.playing
+    let before = try driver.readState().transport
+    if !before.playing {
+      try actions.pressInWindow(Locators.transportPlayButton)
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try driver.readState().transport.playing
+      }
     }
     let transport = try driver.readState().transport
     return .object([
