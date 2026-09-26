@@ -25,10 +25,11 @@ public struct Locator: Equatable, Sendable {
 
 /// One element on the walk a locator makes.
 ///
-/// A step reads the identifier first, then the title, then the index, which is the order the three
-/// last in. An identifier Logic gives an element of its own stands in every project. A title
-/// stands until the language of Logic changes. An index is the weakest of the three and is there
-/// for the elements that carry neither of the others.
+/// A step reads the identifier first, then the title, then the description, then the index, which
+/// is the order the four last in. An identifier Logic gives an element of its own stands in every
+/// project. A title stands until the language of Logic changes. A description says what the element
+/// is for, and it stands while the element does. An index is the weakest of the four and is there
+/// for the elements that carry none of the others.
 public struct LocatorStep: Equatable, Sendable {
   /// What kind of element this is, for example `AXButton`. Every step names one.
   public let role: String
@@ -39,6 +40,12 @@ public struct LocatorStep: Equatable, Sendable {
   /// The title the element carries, or nil when the step names none.
   public let title: String?
 
+  /// What the element is for, in the words Accessibility carries, or nil when the step names none.
+  ///
+  /// The panes of the window of Logic carry one each, and a pane carries no identifier and no
+  /// title, so this is the only lasting way to name one.
+  public let description: String?
+
   /// Which element of that role, counted from 0 among the elements of that role alone.
   ///
   /// The count leaves out every element of another role, because Logic puts elements beside the
@@ -47,10 +54,14 @@ public struct LocatorStep: Equatable, Sendable {
   /// in both.
   public let index: Int?
 
-  public init(role: String, identifier: String? = nil, title: String? = nil, index: Int? = nil) {
+  public init(
+    role: String, identifier: String? = nil, title: String? = nil, description: String? = nil,
+    index: Int? = nil
+  ) {
     self.role = role
     self.identifier = identifier
     self.title = title
+    self.description = description
     self.index = index
   }
 }
@@ -468,9 +479,14 @@ public enum Locators {
   ]
 
   /// The walk from the window to the group that holds the track headers.
+  ///
+  /// The group is named by what Logic calls it, because its place moves with the panes a person has
+  /// open. Every pane is a group of the window, so the Library takes a place of its own while it is
+  /// open. A project Logic has just made shows no Library, and the tracks are the third group there
+  /// and the fourth group of a project that shows one.
   private static let toTheTracksHeader: [LocatorStep] = [
     LocatorStep(role: "AXWindow"),
-    LocatorStep(role: "AXGroup", index: 3),
+    LocatorStep(role: "AXGroup", description: "Tracks"),
     LocatorStep(role: "AXGroup", index: 1),
     LocatorStep(role: "AXSplitGroup", index: 0),
     LocatorStep(role: "AXSplitGroup", index: 1),
