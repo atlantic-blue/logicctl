@@ -55,12 +55,20 @@ public struct StateReader {
   /// When the project at one path was last saved, or nothing when nothing was saved there.
   public typealias SaveTimeRead = (String) -> Date?
 
+  /// Opens the Mixer of the project Logic has open. It refuses where nothing can open one.
+  public typealias MixerOpen = () throws -> Void
+
+  /// Closes the Mixer this reader opened.
+  public typealias MixerClose = () throws -> Void
+
   private let readTree: TreeRead
   private let readStatus: StatusRead
   private let readName: NameRead
   private let readPath: PathRead
   private let readTempo: TempoRead
   private let readSaveTime: SaveTimeRead
+  private let openMixer: MixerOpen
+  private let closeMixer: MixerClose
 
   public init(
     tree: @escaping TreeRead,
@@ -68,7 +76,9 @@ public struct StateReader {
     name: @escaping NameRead,
     path: @escaping PathRead,
     tempo: @escaping TempoRead = TempoField.readTheLogicOfThisMac,
-    saveTime: @escaping SaveTimeRead = StateReader.saveTime(ofProjectAt:)
+    saveTime: @escaping SaveTimeRead = StateReader.saveTime(ofProjectAt:),
+    openMixer: @escaping MixerOpen = StateReader.noMixerOpenWasGiven,
+    closeMixer: @escaping MixerClose = StateReader.noMixerCloseWasGiven
   ) {
     readTree = tree
     readStatus = status
@@ -76,6 +86,25 @@ public struct StateReader {
     readPath = path
     readTempo = tempo
     readSaveTime = saveTime
+    self.openMixer = openMixer
+    self.closeMixer = closeMixer
+  }
+
+  /// What a caller that gave no way to open the Mixer gets when the reader asks for one.
+  ///
+  /// Each one refuses rather than doing nothing. An open that quietly went nowhere would leave
+  /// the reader waiting for a window that nobody asked Logic for.
+  private static func noMixerOpenWasGiven() throws {
+    throw Refusal(
+      reason: "No way to open the Mixer was given, so nothing could open it.",
+      code: .internalFailure)
+  }
+
+  /// What a caller that gave no way to close the Mixer gets when the reader asks for one.
+  private static func noMixerCloseWasGiven() throws {
+    throw Refusal(
+      reason: "No way to close the Mixer was given, so nothing could close it.",
+      code: .internalFailure)
   }
 
   /// The state of the project Logic has open, built from one walk of the tree.

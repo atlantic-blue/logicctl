@@ -56,6 +56,15 @@ public enum TrackReader {
     return tracks
   }
 
+  /// What kind of track the Mixer shows for one track, counted from 1.
+  ///
+  /// This answers `other` for every track until the read is built.
+  public static func type(
+    ofTrackNumber number: Int, named track: String, in mixer: any AXNode
+  ) -> Track.Kind {
+    .other
+  }
+
   /// The role of one track header, under the group that holds them all.
   private static let headerRole = "AXLayoutItem"
 
