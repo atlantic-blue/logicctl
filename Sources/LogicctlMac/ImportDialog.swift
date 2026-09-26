@@ -810,7 +810,6 @@ extension ImportDialog {
   /// The role of one row of the file list.
   static let rowRole = "AXRow"
 
-
   /// The action a row of the file list carries to move the panel into that folder.
   static let openAction = "AXOpen"
 
