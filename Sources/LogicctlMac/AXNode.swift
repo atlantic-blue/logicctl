@@ -42,6 +42,21 @@ public protocol AXNode {
   /// What the element can be asked to do, for example `AXPress`.
   var actions: [String] { get }
 
+  /// Which way an element runs, for example `AXVerticalOrientation`, or nil when it carries no
+  /// orientation.
+  ///
+  /// A scroll area holds two bars with the same role, so the orientation is the only thing that
+  /// tells them apart.
+  var orientation: String? { get }
+
   /// The elements under this one, in the order Accessibility answers them.
   var children: [any AXNode] { get }
+}
+
+extension AXNode {
+  /// An element that says nothing about its orientation carries none, the same way an element
+  /// that says nothing about its title carries none.
+  public var orientation: String? {
+    nil
+  }
 }
