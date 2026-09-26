@@ -162,34 +162,60 @@ extension SaveDialog {
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
     }
-    for (number, folder) in destination.folders.enumerated() {
-      guard try namesInColumn(number).contains(folder) else {
-        closeThePanel()
-        throw Refusal(
-          reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
-            + "\(path) stopped, and nothing was written.",
-          code: .invalidArgument)
+    do {
+      for (number, folder) in destination.folders.enumerated() {
+        guard try namesInColumn(number).contains(folder) else {
+          throw Refusal(
+            reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
+              + "\(path) stopped, and nothing was written.",
+            code: .invalidArgument)
+        }
+        try openFolder(number, folder)
+        try reach(folder, ofPath: path, limitMs: limitMs, clock: clock, sleeper: sleeper)
       }
-      try openFolder(number, folder)
-      let shown = try folderShown()
-      guard shown == folder else {
-        throw Refusal(
-          reason: "The Save panel was asked for \(folder) and shows \(shown). The walk to \(path) "
-            + "stopped, and nothing was written.")
+      try write(Locators.saveNameField, destination.name)
+      try press(Locators.saveButton)
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        let showing = try showsThePanel()
+        return !showing
       }
-    }
-    try write(Locators.saveNameField, destination.name)
-    try press(Locators.saveButton)
-    try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      let showing = try showsThePanel()
-      return !showing
+    } catch {
+      closeThePanel()
+      throw error
     }
   }
 
-  /// Closes the panel, which a refusal inside the walk would leave open.
+  /// Waits for the Where popup to show one folder, and fails with `timeout` when it never does.
   ///
-  /// What the press answers is not read. The refusal a person acts on names the folder that is not
-  /// in the column, and a Cancel that Logic refused does not replace it.
+  /// The action that opens a folder answers -25205 while it opens the folder all the same, so what
+  /// the action answered is no evidence. The popup is, and it moves some time after the open, as
+  /// every other read of Logic does. A panel that never shows the folder cannot be walked any
+  /// further, and the reason names that folder because it is where a person picks the walk up.
+  private func reach(
+    _ folder: String,
+    ofPath path: String,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws {
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try folderShown() == folder
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "The Save panel did not reach \(folder) within \(ranOut.waitedMs)ms. The walk to "
+          + "\(path) stopped, and nothing was written.",
+        code: .timeout)
+    }
+  }
+
+  /// Closes the panel, which every failure after it opened would otherwise leave standing.
+  ///
+  /// Measured on this Mac at 15:00 on 2026-09-26: a failure inside the walk left the panel open
+  /// over the project, so the next command read a Logic with a panel on it and stopped with
+  /// `dialog_open`. What the press answers is not read, because the failure a person acts on is the
+  /// one from the walk and a Cancel that Logic refused does not replace it.
   private func closeThePanel() {
     _ = try? press(Locators.saveCancelButton)
   }
@@ -387,11 +413,21 @@ extension SaveDialog {
         code: .internalFailure)
     }
     let answered = AXUIElementPerformAction(live.element, SaveDialog.openAction as CFString)
-    guard answered == .success else {
+    guard answered == .success || SaveDialog.opensAnyway(answered.rawValue) else {
       throw Refusal(
         reason: "Logic refused to open \(name) in the Save panel, error \(answered.rawValue).",
         code: .internalFailure)
     }
+  }
+
+  /// Whether one answer from `AXOpen` says nothing about whether the folder opened.
+  ///
+  /// Measured on this Mac at 15:00 on 2026-09-26, Logic 12.3.1: the action answers -25205 on the
+  /// name of a folder in a column, and the panel opens that folder all the same. AppleScript hides
+  /// the number, so a probe through it reads the open as clean. The value of the Where popup says
+  /// where the panel got to, and this one answer is not a refusal. Every other one is.
+  public static func opensAnyway(_ code: Int32) -> Bool {
+    code == AXError.attributeUnsupported.rawValue
   }
 
   /// Which folder the panel of this Mac reached, as the Where popup shows it.

@@ -112,6 +112,57 @@ private func treeRead(from text: String) throws -> RecordedTree {
   #expect(missing.pressed == [Locators.saveCancelButton.name], "and the panel was closed")
 }
 
+/// An open is read back from the panel, and never taken from what the action answered.
+///
+/// Measured on this Mac at 15:00 on 2026-09-26: `AXOpen` on the name of a folder in a column
+/// answers -25205, and the panel opens that folder all the same. So what the action answered says
+/// nothing, and the route reads the Where popup until it shows the folder. A panel that never
+/// shows it stops the walk with `timeout`, and the reason names the folder. A walk that went on
+/// from there would type the name of the project into a panel standing in another folder.
+@Test func aPanelThatNeverReachesTheFolderStopsTheWalkWithTimeout() throws {
+  #expect(SaveDialog.opensAnyway(-25205), "the answer Logic gives while it opens the folder")
+  #expect(!SaveDialog.opensAnyway(-25204), "and every other answer is a refusal")
+
+  let panel = ARecordedSavePanel(reachesTheFolder: false)
+  let time = ATime()
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try panel.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 200, clock: time.read,
+      sleeper: time.sleep)
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .timeout, "Logic did not get there")
+  #expect(refusal.failure.code.exitCode == 6, "the number the process exits with")
+  #expect(refusal.reason.contains("private"), "the reason names the folder it never reached")
+  #expect(panel.opened == ["private in column 1"], "the walk stopped at that folder")
+  #expect(panel.written.isEmpty, "nothing was typed into the panel")
+  #expect(panel.pressed == [Locators.saveCancelButton.name], "and the panel was closed")
+}
+
+/// Every failure after the panel opened closes the panel.
+///
+/// Measured on this Mac at 15:00 on 2026-09-26: an open that Logic refused left the Save panel
+/// standing over the project window, with the Mixer behind it. Logic takes nothing else while a
+/// panel is open, so the next command reads that panel and stops with `dialog_open`. A person is
+/// then left closing a window by hand to carry on. What Logic said still reaches the caller.
+@Test func aFailureInsideTheWalkClosesThePanel() throws {
+  let panel = ARecordedSavePanel(refusesTheOpen: true)
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try panel.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 },
+      sleeper: { _ in })
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .internalFailure, "what Logic said reaches the caller")
+  #expect(refusal.reason.contains("private"), "and it names the folder it was opening")
+  #expect(panel.pressed == [Locators.saveCancelButton.name], "the panel was closed")
+  #expect(panel.written.isEmpty, "and nothing was typed into it")
+}
+
 /// Each column of the panel is read by its number, and a row carries its name in a field.
 ///
 /// The recorded panel was walked to `/private/tmp/logicctl-probe`, so column 1 lists the root of
@@ -156,6 +207,17 @@ private final class ARecordedSavePanel {
   /// The folder the Where popup shows.
   private var folder = ""
 
+  /// Whether the Where popup follows the opens, as the panel of Logic does.
+  private let reachesTheFolder: Bool
+
+  /// Whether Logic refuses the open, the way it does for any answer that is not -25205.
+  private let refusesTheOpen: Bool
+
+  init(reachesTheFolder: Bool = true, refusesTheOpen: Bool = false) {
+    self.reachesTheFolder = reachesTheFolder
+    self.refusesTheOpen = refusesTheOpen
+  }
+
   /// The route, with every read taken from the recorded panel.
   func dialog() throws -> SaveDialog {
     let panel = try treeRoot(of: "save-panel-expanded.json")
@@ -181,9 +243,29 @@ private final class ARecordedSavePanel {
       openFolder: { number, name in
         _ = try SaveDialog.nameField(of: name, inColumnNumbered: number, of: panel)
         self.opened.append("\(name) in column \(number + 1)")
-        self.folder = name
+        guard !self.refusesTheOpen else {
+          throw SaveDialog.Refusal(
+            reason: "Logic refused to open \(name) in the Save panel, error -25204.",
+            code: .internalFailure)
+        }
+        if self.reachesTheFolder {
+          self.folder = name
+        }
       },
       folderShown: { self.folder })
+  }
+}
+
+/// A clock and a sleep a test moves itself, so a wait of any length costs the suite no time.
+private final class ATime {
+  private var now = 0
+
+  func read() -> Int {
+    now
+  }
+
+  func sleep(_ span: Int) {
+    now += span
   }
 }
 
