@@ -36,7 +36,7 @@ accept:
 	  exit 1; \
 	fi
 	@case "$(PART)" in \
-	  0|1|2|3|4) ;; \
+	  0|1|2|3|4|7) ;; \
 	  *) echo "logicctl: PART is a phase of the stories, 0 to 4, and $(PART) is not one of them"; \
 	     exit 1;; \
 	esac
