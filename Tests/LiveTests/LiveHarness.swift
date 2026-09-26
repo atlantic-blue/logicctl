@@ -384,6 +384,27 @@ enum LiveHarness {
     return nil
   }
 
+  /// The title of every window of Logic, in the order the tree lists them.
+  ///
+  /// It answers the front window alone for now, which is the read the wait does today.
+  static func windowTitles(in tree: RecordedTree) -> [String] {
+    frontWindowTitle(in: tree).map { [$0] } ?? []
+  }
+
+  /// Whether Logic is showing the project of this run, in any one of its windows.
+  ///
+  /// Logic titles the window of a project `<name>.logicx - <the view>`, so the name of the copy is
+  /// the start of that title and never the whole of it.
+  static func showsTheProject(named name: String, in tree: RecordedTree) -> Bool {
+    windowTitles(in: tree).contains { $0.hasPrefix(name) }
+  }
+
+  /// The windows of Logic on one line, so a refusal says what it saw.
+  static func whatTheWindowsRead(in tree: RecordedTree) -> String {
+    let named = windowTitles(in: tree).filter { !$0.isEmpty }
+    return named.isEmpty ? "no window" : named.joined(separator: ", ")
+  }
+
   /// Opens a project in Logic and waits until Logic shows it.
   ///
   /// It presses nothing. A modal window that is open before the run, and one that Logic puts up
@@ -531,6 +552,66 @@ private func describe(_ error: Error?) -> String {
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "0"]) == false)
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "true"]) == false, "the value is 1, and only 1")
   #expect(LiveHarness.runsLive(["LOGICCTL_LIVE": "1"]))
+}
+
+/// The suite waits for the copy wherever Logic puts its window, and not only in front.
+///
+/// Measured on this Mac at 13:50 on 2026-09-26 (Logic 12.3.1): opening the copy F-T3b also opened
+/// the plugin window `Deluxe Classic`, and Logic put that window in front of the project. The
+/// windows read `Deluxe Classic, F-T3b.logicx - Tracks`. Five of the seven scenarios of phase 3
+/// then waited the whole 180082ms and failed, on a Logic that was showing the copy all along.
+///
+/// A plugin window is not modal, and every read of logicctl works while one is open, so it is no
+/// reason to stop. A sheet is, and that check stays as it is. So the suite gets on with the
+/// scenario as soon as one window of Logic is the copy. When it does give up, it names every
+/// window it saw, because the one title it used to print is the title that says least.
+@Test func theHarnessFindsTheCopyBehindAPluginWindow() throws {
+  let behindAPlugin = try logicShowing(["Deluxe Classic", "F-T3b.logicx - Tracks"])
+  let thePluginAlone = try logicShowing(["Deluxe Classic"])
+
+  #expect(
+    LiveHarness.showsTheProject(named: "F-T3b", in: behindAPlugin),
+    "Logic has F-T3b open behind the plugin window, so the scenario runs now and waits no longer")
+  #expect(
+    LiveHarness.showsTheProject(named: "F-T3b", in: thePluginAlone) == false,
+    "and a Logic with no window of the copy is not showing it")
+
+  let gaveUpOnBoth = gaveUp(on: "F-T3b", whileLogicShowed: behindAPlugin)
+  #expect(
+    gaveUpOnBoth.contains("Deluxe Classic") && gaveUpOnBoth.contains("F-T3b.logicx - Tracks"),
+    "a refusal names every window Logic had: \(gaveUpOnBoth)")
+
+  let gaveUpOnThePlugin = gaveUp(on: "F-T3b", whileLogicShowed: thePluginAlone)
+  #expect(
+    gaveUpOnThePlugin.contains("Deluxe Classic"),
+    "and a Logic that showed one window names that one: \(gaveUpOnThePlugin)")
+}
+
+/// A tree of a Logic that shows these windows, in the order Logic lists them.
+private func logicShowing(_ titles: [String]) throws -> RecordedTree {
+  let windows = titles
+    .map { "{ \"role\": \"AXWindow\", \"title\": \"\($0)\", \"actions\": [\"AXRaise\"] }" }
+    .joined(separator: ", ")
+  let text = """
+    {
+      "logicVersion": "\(LiveHarness.logicVersion)",
+      "root": {
+        "role": "AXApplication",
+        "title": "Logic Pro",
+        "children": [\(windows)]
+      }
+    }
+    """
+  return try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
+}
+
+/// What the harness tells the operator when it gives up while Logic shows this tree.
+private func gaveUp(on name: String, whileLogicShowed tree: RecordedTree) -> String {
+  let refused = LiveHarness.Refusal.logicDidNotShowTheCopy(
+    name: name,
+    seen: LiveHarness.whatTheWindowsRead(in: tree),
+    waitedMs: LiveHarness.openLimitMs)
+  return String(describing: refused)
 }
 
 /// What one run of make printed, on both channels, and the status it ended with.
