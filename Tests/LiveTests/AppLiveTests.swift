@@ -223,7 +223,97 @@ extension PhaseOne {
     fileManager: FileManager = .default,
     runs: Runs
   ) -> Run {
-    Run(asked: [], newMusicEntries: [], stopped: nil)
+    var asked: [Asked] = []
+    let saveTo = folder.appending(path: projectName)
+    let logicOfTheMusicFolder = musicFolder.appending(path: logicFolder)
+    let before = names(directlyUnder: logicOfTheMusicFolder, fileManager)
+
+    func ask(_ step: String, _ arguments: [String]) throws -> Asked {
+      let answer = try runs(arguments)
+      guard let envelope = PhaseOne.envelope(of: answer) else {
+        throw Stopped.theCommandPrintedNothingToReadBack(step: step, printed: answer.printed)
+      }
+      let record = Asked(
+        step: step,
+        command: arguments.joined(separator: " "),
+        status: answer.status,
+        printed: answer.printed,
+        data: envelope.data,
+        error: envelope.error,
+        meta: envelope.meta)
+      if let note = record.screenshot {
+        print("screenshot: \(step): \(note)")
+      }
+      asked.append(record)
+      return record
+    }
+
+    var stopped: String?
+    do {
+      guard !LiveHarness.isUnder(musicFolder, saveTo) else {
+        throw Stopped.theSaveWouldBeUnderTheMusicFolder(saveTo.path)
+      }
+
+      let launched = try ask("launch", ["launch"])
+      let itStartedLogic = launched.data?.running == true && (launched.data?.pid ?? 0) > 0
+      guard launched.status == 0, itStartedLogic else {
+        throw Stopped.theCommandAnsweredWrongly(step: "launch", said: launched.said)
+      }
+
+      let read = try ask("status", ["status"])
+      let itReadLogic = read.data?.running == true && read.data?.version == LiveHarness.logicVersion
+      guard read.status == 0, itReadLogic else {
+        throw Stopped.theCommandAnsweredWrongly(step: "status", said: read.said)
+      }
+
+      let made = try ask("new-project", ["new-project"])
+      guard made.status == 0, made.startedASession else {
+        throw Stopped.theCommandAnsweredWrongly(step: "new-project", said: made.said)
+      }
+
+      let saved = try ask("save", ["save", "--path", saveTo.path])
+      guard saved.status == 0, saved.data?.project?.path == saveTo.path else {
+        throw Stopped.theCommandAnsweredWrongly(step: "save", said: saved.said)
+      }
+      guard fileManager.fileExists(atPath: saveTo.path) else {
+        throw Stopped.theProjectIsNotAtThePath(saveTo.path)
+      }
+
+      let again = try ask("save again", ["save", "--path", saveTo.path])
+      let itRefusedThePath =
+        again.error?.code == ErrorCode.pathExists.rawValue
+        && again.status == ErrorCode.pathExists.exitCode
+      guard itRefusedThePath else {
+        throw Stopped.theCommandAnsweredWrongly(step: "save again", said: again.said)
+      }
+
+      let closed = try ask("quit", ["quit"])
+      guard closed.status == 0, closed.data?.running == false else {
+        throw Stopped.theCommandAnsweredWrongly(step: "quit", said: closed.said)
+      }
+    } catch {
+      stopped = String(describing: error)
+    }
+
+    let after = names(directlyUnder: logicOfTheMusicFolder, fileManager)
+    let appeared = after.filter { !before.contains($0) }
+    for name in appeared {
+      print("music folder: new entry \(name)")
+    }
+    return Run(asked: asked, newMusicEntries: appeared, stopped: stopped)
+  }
+
+  /// One walk of phase 1 against the Logic this Mac runs, through the signed binary.
+  static func walkTheRealLogic() -> Run {
+    do {
+      let folder = try LiveHarness.temporaryFolder()
+      print("phase 1 saves into: \(folder.path)")
+      return walk(savingInto: folder) { arguments in
+        try LiveHarness.logicctl(arguments)
+      }
+    } catch {
+      return Run(asked: [], newMusicEntries: [], stopped: String(describing: error))
+    }
   }
 
   /// The envelope one command printed, or nothing when it printed none.
@@ -232,6 +322,106 @@ extension PhaseOne {
       return nil
     }
     return try? JSONDecoder().decode(Envelope.self, from: bytes)
+  }
+}
+
+/// Phase 1 of the stories, against the Logic that runs on this Mac.
+///
+/// The pipeline drives every one of these commands against a driver of its own, over a tree that
+/// `inspect` recorded from Logic 12.3.1. That says nothing about whether the presses still land on
+/// the running application: a locator that moved, a sheet Logic now puts up, a window that is not
+/// where it was. These six scenarios are where phase 1 is answered, and `make accept PART=1` is
+/// how a person runs them.
+///
+/// They run one at a time, because one Logic runs on this Mac, and they read one walk of the flow
+/// rather than walking it each. Six walks would make six projects and leave Logic in a state the
+/// next scenario did not expect.
+@Suite(.serialized, .enabled(if: LiveHarness.runsLive()))
+struct Phase1LiveScenarios {
+  /// The one walk of phase 1, made the first time a scenario reads it.
+  static let walked = PhaseOne.walkTheRealLogic()
+
+  /// The answer of one step of that walk, or a failure naming what the walk did instead.
+  static func answer(of step: String) throws -> PhaseOne.Asked {
+    let walk = Phase1LiveScenarios.walked
+    return try #require(walk.answer(of: step), "the flow reached \(step): \(walk.report)")
+  }
+
+  /// `launch` starts Logic and answers once Logic shows a window (story S1.1).
+  @Test func launchStartsLogicAndWaitsForItsWindow() throws {
+    LiveHarness.liveScenario("launchStartsLogicAndWaitsForItsWindow")
+
+    let launched = try Phase1LiveScenarios.answer(of: "launch")
+
+    #expect(launched.status == 0, "launch waited for the window of Logic: \(launched.said)")
+    #expect(launched.data?.running == true, "and it answers the Logic it started")
+    #expect((launched.data?.pid ?? 0) > 0, "with the process id of that Logic")
+  }
+
+  /// `status` reads the Logic of this Mac as a state (story S1.1).
+  @Test func statusReadsTheLogicOfThisMac() throws {
+    LiveHarness.liveScenario("statusReadsTheLogicOfThisMac")
+
+    let read = try Phase1LiveScenarios.answer(of: "status")
+
+    #expect(read.status == 0, "status read the running Logic: \(read.said)")
+    #expect(read.data?.running == true, "it reads that Logic runs")
+    #expect(
+      read.data?.version == LiveHarness.logicVersion,
+      "and the version this suite drives: \(read.data?.version ?? "no version")")
+  }
+
+  /// `new-project` reaches an empty project and starts the session that records it (story S1.3).
+  ///
+  /// The commit the answer names is the first commit of that session, and the proof of this phase
+  /// is that commit and the picture of the empty project. A Mac that granted no Screen Recording
+  /// takes no picture, so the note in `meta` is printed and nothing here fails on it.
+  @Test func newProjectStartsASessionWithItsFirstCommit() throws {
+    LiveHarness.liveScenario("newProjectStartsASessionWithItsFirstCommit")
+
+    let made = try Phase1LiveScenarios.answer(of: "new-project")
+
+    #expect(made.status == 0, "new-project reached an empty project: \(made.said)")
+    #expect(made.startedASession, "and it started the session that records it: \(made.printed)")
+    #expect(made.data?.project?.name?.isEmpty == false, "the answer names the project Logic made")
+  }
+
+  /// `save --path` writes the project into the folder of the run (story S1.4).
+  @Test func saveWritesTheProjectIntoTheFolderOfTheRun() throws {
+    LiveHarness.liveScenario("saveWritesTheProjectIntoTheFolderOfTheRun")
+
+    let saved = try Phase1LiveScenarios.answer(of: "save")
+    let path = saved.data?.project?.path ?? ""
+
+    #expect(saved.status == 0, "save wrote the project: \(saved.said)")
+    #expect(path.hasSuffix(PhaseOne.projectName), "at the path the run gave it: \(path)")
+    #expect(
+      LiveHarness.isUnder(LiveHarness.musicFolder, URL(fileURLWithPath: path)) == false,
+      "and never under the music folder of this Mac: \(path)")
+  }
+
+  /// A second `save` to the same path stops with `path_exists` (story S1.4).
+  @Test func saveRefusesThePathItAlreadyWrote() throws {
+    LiveHarness.liveScenario("saveRefusesThePathItAlreadyWrote")
+
+    let again = try Phase1LiveScenarios.answer(of: "save again")
+
+    #expect(
+      again.error?.code == ErrorCode.pathExists.rawValue,
+      "a path that is taken stops the save: \(again.said)")
+    #expect(
+      again.status == ErrorCode.pathExists.exitCode,
+      "with the number the design system gives that code: exit \(again.status)")
+  }
+
+  /// `quit` closes the project it saved, and Logic goes (story S1.2).
+  @Test func quitClosesTheProjectItSaved() throws {
+    LiveHarness.liveScenario("quitClosesTheProjectItSaved")
+
+    let closed = try Phase1LiveScenarios.answer(of: "quit")
+
+    #expect(closed.status == 0, "quit closed a project with nothing to lose: \(closed.said)")
+    #expect(closed.data?.running == false, "and Logic is gone when the command answers")
   }
 }
 
