@@ -22,10 +22,13 @@ extension TransportCommand {
         started recording is `timeout` and never a report of a take. A transport that already \
         records is left running.
 
-        Logic records on the tracks that are armed, and arming a track is a person's to do.
+        Logic records on the tracks that are armed, and arming a track is a person's to do. A \
+        project logicctl did not make needs --confirm.
 
         Example: logicctl transport record
         """)
+
+    @OptionGroup var guarded: ConfirmOption
 
     @OptionGroup var output: OutputOption
 
@@ -35,6 +38,7 @@ extension TransportCommand {
       let status = TransportCommand.Record.answer(
         driver: NewProject.liveDriver(),
         actions: TrackActions.live(),
+        confirmed: guarded.confirm,
         limitMs: wait.timeout.milliseconds,
         format: output.format)
       guard status == 0 else {
@@ -54,6 +58,7 @@ extension TransportCommand.Record {
   static func answer(
     driver: any LogicDriver,
     actions: TrackActions,
+    confirmed: Bool = false,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     limitMs: Int = Wait.defaultLimitMs,
@@ -74,15 +79,17 @@ extension TransportCommand.Record {
     let run = Run(
       driver: driver, root: root, version: version, now: now, git: git, lock: lock,
       capturer: capturer)
-    return printer.write(run.run(command: recording))
+    return printer.write(run.run(change: recording, confirmed: confirmed))
   }
 }
 
 /// The take the run records, and the transport of Logic after it.
 ///
 /// Logic writes into the project while it records, and the tracks it writes on are the ones a
-/// person armed. The command itself sets a transport state and names no track, so it is not
-/// guarded and takes no `--confirm`, the way play and stop are not.
+/// person armed. A take is a change to the project, and it is the one change here that no later
+/// read undoes: the part that was on those tracks is gone. So this goes through the guard, and a
+/// project logicctl did not make waits for `--confirm`. Play and stop set a transport state and
+/// write nothing, so neither of them is guarded.
 private struct StartRecording: LogicCommand {
   let name = "transport record"
   let argv: [String] = []
