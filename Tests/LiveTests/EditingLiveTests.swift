@@ -956,16 +956,18 @@ extension PhaseFour {
     PhaseFour.automationSetOf(track: 4, point: PhaseFour.pointPicked, value: PhaseFour.valueGiven),
     PhaseFour.pluginsInsertOf(track: 4, name: PhaseFour.plugin),
   ]
-  let reads = [
+  let readsOfLogic = [
     PhaseFour.notesOf(track: 4), PhaseFour.automationListOf(track: 4),
     PhaseFour.pluginsListOf(track: 4),
   ]
   let unguarded = writes.filter { !$0.contains("--confirm") }
-  let guardedReads = reads.filter { $0.contains("--confirm") }
+  let guardedReads = readsOfLogic.filter { $0.contains("--confirm") }
   #expect(
     unguarded.isEmpty,
-    "every write says --confirm, because the copy is a project logicctl did not make and RUN-4 "
-      + "stops a change to one of those: \(unguarded)")
+    """
+    every write says --confirm, because the copy is a project logicctl did not make and RUN-4 \
+    stops a change to one of those: \(unguarded)
+    """)
   #expect(
     guardedReads.isEmpty, "and no read says it, because a read has nothing to guard")
 
