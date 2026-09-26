@@ -3,10 +3,10 @@ import LogicctlCore
 /// Finds the one element a locator names, in a tree that Logic or a recorded file answers with.
 ///
 /// The walk takes one step at a time: it reads the identifier of the step first, then the title,
-/// then the index, and what it finds is where the next step looks. A step that matches nothing
-/// stops the walk, and so does a step that matches more than one element. A walk that took the
-/// first of several would press a button nobody named, and no later read could tell that it
-/// happened.
+/// then the description, then the index, and what it finds is where the next step looks. A step
+/// that matches nothing stops the walk, and so does a step that matches more than one element. A
+/// walk that took the first of several would press a button nobody named, and no later read could
+/// tell that it happened.
 public enum LocatorResolver {
   /// Why the walk stopped, and where.
   ///
@@ -83,6 +83,9 @@ public enum LocatorResolver {
     }
     if let title = step.title {
       return ofTheRole.filter { $0.title == title }
+    }
+    if let description = step.description {
+      return ofTheRole.filter { $0.description == description }
     }
     guard let index = step.index else {
       return ofTheRole
