@@ -341,6 +341,26 @@ extension ImportDialog {
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
     }
+    do {
+      try walkThePanel(to: path, limitMs: limitMs, clock: clock, sleeper: sleeper)
+    } catch {
+      // The panel sits in front of the project, and a walk that stopped leaves it there, so a
+      // person is left with a window that the failure says nothing about. A press Logic refuses
+      // does not replace the reason the walk stopped.
+      try? press(Locators.importCancelButton)
+      throw error
+    }
+  }
+
+  /// Walks the open panel to the file and presses Import.
+  ///
+  /// Every refusal in here leaves the panel open, so the caller closes it.
+  private func walkThePanel(
+    to path: ImportPath,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws {
     try bringToFront()
     try press(Locators.importWherePopup)
     let disk = try startUpDisk()
@@ -381,9 +401,6 @@ extension ImportDialog {
         return shown == folder
       }
     } catch let ranOut as Wait.RanOut {
-      // The panel stays in front of the project when the walk stops, so it is closed here. A
-      // press Logic refuses does not replace the reason the walk stopped.
-      try? press(Locators.importCancelButton)
       throw Refusal(
         reason: "The Import panel was asked for \(folder) and showed \(shown) "
           + "\(ranOut.waitedMs)ms later, so the walk to \(path.resolved) stopped and nothing "
@@ -519,28 +536,17 @@ extension ImportDialog {
   /// A row out of view takes the open action and does nothing with it, so the bar is set before
   /// every open. A list of one row holds nothing to scroll, and it needs nothing.
   static func bringTheRowIntoViewInTheLogicOfThisMac(_ name: String) throws {
-    let rows = try ImportDialog.fileList().children.filter { $0.role == "AXRow" }
-    let found = rows.indices.filter { ImportDialog.nameShown(by: rows[$0]) == name }
-    guard found.count == 1, let number = found.first else {
-      throw Refusal(
-        reason: "The Import panel shows \(found.count) rows called \(name) in this folder.")
-    }
-    guard let sits = ImportDialog.scrollValue(forRow: number + 1, of: rows.count) else {
+    let window = try ImportDialog.frontWindow()
+    guard let move = try ImportDialog.scroll(toRowNamed: name, in: window) else {
       return
     }
-    let window = try ImportDialog.frontWindow()
-    guard let bar = ImportDialog.verticalScrollBarOfTheFileList(in: window) else {
-      throw Refusal(
-        reason: "The file list of the Import panel shows no vertical scroll bar, so \(name) "
-          + "cannot be brought into view.")
-    }
-    guard let live = bar as? LiveAXNode else {
+    guard let live = move.bar as? LiveAXNode else {
       throw Refusal(
         reason: "The scroll bar was found in a recorded tree, which nothing can scroll.",
         code: .internalFailure)
     }
     let answered = AXUIElementSetAttributeValue(
-      live.element, kAXValueAttribute as CFString, NSNumber(value: sits) as CFTypeRef)
+      live.element, kAXValueAttribute as CFString, NSNumber(value: move.value) as CFTypeRef)
     guard answered == .success else {
       throw Refusal(
         reason: "Logic refused to scroll the file list of the Import panel, error "
@@ -606,7 +612,7 @@ extension ImportDialog {
 
   /// The row of the file list that shows one name.
   static func rowOfTheFileList(called name: String) throws -> any AXNode {
-    let rows = try ImportDialog.fileList().children.filter { $0.role == "AXRow" }
+    let rows = try ImportDialog.fileList().children.filter { $0.role == ImportDialog.rowRole }
     let found = rows.filter { ImportDialog.nameShown(by: $0) == name }
     guard found.count == 1, let row = found.first else {
       throw Refusal(
@@ -731,6 +737,45 @@ extension ImportDialog {
     }
   }
 
+  /// What the walk moves before it opens a row, when the row is out of view.
+  public struct Scroll {
+    /// The bar of the file list that moves.
+    public let bar: any AXNode
+
+    /// Where the bar goes, from 0 at the top of the list to 1 at the bottom.
+    public let value: Double
+
+    public init(bar: any AXNode, value: Double) {
+      self.bar = bar
+      self.value = value
+    }
+  }
+
+  /// The bar to move and where to move it, before one row of the file list is opened, or
+  /// nothing when the list needs no scroll.
+  ///
+  /// Measured on this Mac at 16:40 on 2026-09-26 (Logic 12.3.1): at the root of the start up
+  /// disk the list holds five rows and the scroll area holds one bar, horizontal. A panel with
+  /// no vertical bar has every row in view already, so there is nothing to move. A row the list
+  /// does not hold is the one thing that stops the walk here.
+  public static func scroll(toRowNamed name: String, in window: any AXNode) throws -> Scroll? {
+    guard let list = ImportDialog.outline(under: window) else {
+      throw Refusal(reason: "The Import panel shows no file list.")
+    }
+    let rows = list.children.filter { $0.role == ImportDialog.rowRole }
+    let found = rows.indices.filter { ImportDialog.nameShown(by: rows[$0]) == name }
+    guard found.count == 1, let number = found.first else {
+      throw Refusal(
+        reason: "The Import panel shows \(found.count) rows called \(name) in this folder.")
+    }
+    guard let value = ImportDialog.scrollValue(forRow: number + 1, of: rows.count),
+      let bar = ImportDialog.verticalScrollBarOfTheFileList(in: window)
+    else {
+      return nil
+    }
+    return Scroll(bar: bar, value: value)
+  }
+
   /// The scroll area the file list sits in, looked for a level at a time.
   private static func scrollAreaOfTheFileList(in window: any AXNode) -> (any AXNode)? {
     var level: [any AXNode] = [window]
@@ -761,6 +806,9 @@ extension ImportDialog {
 
   /// The role both bars of that area carry.
   static let scrollBarRole = "AXScrollBar"
+
+  /// The role of one row of the file list.
+  static let rowRole = "AXRow"
 
   /// What the vertical bar of that area says it is.
   static let verticalOrientation = "AXVerticalOrientation"

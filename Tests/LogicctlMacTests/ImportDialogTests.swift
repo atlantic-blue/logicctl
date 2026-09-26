@@ -61,16 +61,25 @@ private final class ARecordedPanel {
   /// The number the open action answers, as Accessibility answers it.
   private let openAnswer: Int32
 
+  /// Whether the file list refuses to bring a row into view.
+  private let scrollRefuses: Bool
+
   /// The folder the panel says it is in.
   private var folder = "Desktop"
 
   /// The folder the popup shows on its next read, for a panel that moves one read late.
   private var next: String?
 
-  init(importIsEnabled: Bool, popup: WhenThePopupCatchesUp = .atOnce, openAnswer: Int32 = 0) {
+  init(
+    importIsEnabled: Bool,
+    popup: WhenThePopupCatchesUp = .atOnce,
+    openAnswer: Int32 = 0,
+    scrollRefuses: Bool = false
+  ) {
     self.importIsEnabled = importIsEnabled
     self.popup = popup
     self.openAnswer = openAnswer
+    self.scrollRefuses = scrollRefuses
   }
 
   /// The route, with every read taken from the recorded panel.
@@ -90,7 +99,12 @@ private final class ARecordedPanel {
         return self.importIsEnabled
       },
       pressItem: { title in self.folder = title },
-      bringIntoView: { name in self.moves.append(.broughtIntoView(name)) },
+      bringIntoView: { name in
+        self.moves.append(.broughtIntoView(name))
+        if self.scrollRefuses {
+          throw ImportDialog.Refusal(reason: "\(name) could not be brought into view.")
+        }
+      },
       openFolder: { name in
         self.moves.append(.opened(name))
         if let refusal = ImportDialog.refusal(forOpenAnswer: self.openAnswer, folder: name) {
@@ -148,7 +162,9 @@ private final class WalkTime {
 
   #expect(refused?.code == .elementNotFound, "exit 5")
   #expect(refused?.reason.contains("OKButton") == true, "the reason names the control")
-  #expect(panel.pressed == ["import.wherePopup"], "the Import button was never pressed")
+  #expect(
+    panel.pressed == ["import.wherePopup", "import.cancelButton"],
+    "the Import button was never pressed, and the panel was closed")
 }
 
 /// The same panel with the button enabled presses Import, so the test above fails for the button
@@ -271,6 +287,123 @@ private let aPanelWithTwoScrollBars = """
     }
   }
   """
+
+/// One row of the file list, in the form `inspect` writes, holding the name the row shows.
+///
+/// The name sits in a field that carries the open action, which is the element a walk opens and
+/// the element every reader of a row name reads.
+private func aRowNamed(_ name: String) -> String {
+  """
+  {
+    "role": "AXRow",
+    "children": [
+      {
+        "role": "AXCell",
+        "children": [
+          {
+            "role": "AXTextField",
+            "value": "\(name)",
+            "actions": ["AXOpen", "AXShowMenu", "AXConfirm"]
+          }
+        ]
+      }
+    ]
+  }
+  """
+}
+
+/// What the root of the start up disk lists.
+private let theRootOfTheStartUpDisk = ["Applications", "Library", "System", "Users", "Volumes"]
+
+/// A tree in the form `inspect` writes, holding a file list whose rows all fit.
+///
+/// This tree is written here rather than recorded, from the shape the measurement of 2026-09-26
+/// reports: at the root of the start up disk the list holds five rows, and the scroll area holds
+/// one bar, horizontal.
+private let aPanelWithOneScrollBar = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXWindow",
+      "identifier": "open-panel",
+      "title": "Import",
+      "children": [
+        {
+          "role": "AXScrollArea",
+          "children": [
+            {
+              "role": "AXScrollBar",
+              "orientation": "AXHorizontalOrientation",
+              "value": "0"
+            },
+            {
+              "role": "AXOutline",
+              "identifier": "ListView",
+              "description": "list view",
+              "children": [
+                \(theRootOfTheStartUpDisk.map(aRowNamed).joined(separator: ","))
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+  """
+
+/// One tree, read back from the form `inspect` writes.
+private func theTree(of written: String) throws -> any AXNode {
+  try JSONDecoder().decode(RecordedTree.self, from: Data(written.utf8)).root
+}
+
+/// A list whose rows all fit shows no vertical bar, and a row of it needs no scroll.
+///
+/// Measured on this Mac on 2026-09-26 (Logic 12.3.1), on a copy under a temporary folder: the
+/// command answered `element_not_found` and said that the panel shows no vertical scroll bar, at
+/// the root of the start up disk. Every one of the five rows was in view, so there was nothing to
+/// scroll and nothing was wrong. A panel with no vertical bar imports the file.
+@Test func aFileListWithNoVerticalBarNeedsNoScroll() throws {
+  let panel = try theTree(of: aPanelWithOneScrollBar)
+
+  #expect(
+    ImportDialog.verticalScrollBarOfTheFileList(in: panel) == nil,
+    "the panel carries no vertical bar")
+  #expect(try ImportDialog.scroll(toRowNamed: "Users", in: panel) == nil, "so nothing moves")
+}
+
+/// A row the file list does not hold is the one thing a scroll stops for.
+///
+/// A walk that carried on here would open whatever row sits in that place, which is a folder the
+/// person never named.
+@Test func aRowTheFileListDoesNotHoldStopsTheScroll() throws {
+  let panel = try theTree(of: aPanelWithOneScrollBar)
+
+  let refused = #expect(throws: ImportDialog.Refusal.self) {
+    try ImportDialog.scroll(toRowNamed: "Music", in: panel)
+  }
+
+  #expect(refused?.code == .elementNotFound, "exit 5")
+  #expect(refused?.reason.contains("Music") == true, "the reason names the row")
+}
+
+/// A walk that stops inside the panel closes the panel.
+///
+/// Measured on this Mac on 2026-09-26: the Import panel stayed open in front of the project after
+/// the command failed inside it, and the failure said nothing about that window. So every stop
+/// after the panel opens presses Cancel, whatever stopped it.
+@Test func aWalkThatStopsInsideThePanelClosesIt() throws {
+  let panel = ARecordedPanel(importIsEnabled: true, scrollRefuses: true)
+  let route = try panel.dialog()
+
+  let refused = #expect(throws: ImportDialog.Refusal.self) {
+    try route.importTheFile(at: thePath, limitMs: 10, clock: { 0 }, sleeper: { _ in })
+  }
+
+  #expect(refused?.reason.contains("Users") == true, "the reason the walk stopped is the answer")
+  #expect(
+    panel.pressed == ["import.wherePopup", "import.cancelButton"],
+    "and the panel is closed")
+}
 
 /// The bar the walk moves is the vertical one, and it is not the first bar of the scroll area.
 ///
