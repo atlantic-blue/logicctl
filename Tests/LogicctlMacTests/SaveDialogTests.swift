@@ -531,7 +531,7 @@ private final class ATime {
 
   func read() -> Int {
     reads += 1
-    now
+    return now
   }
 
   func sleep(_ span: Int) {
