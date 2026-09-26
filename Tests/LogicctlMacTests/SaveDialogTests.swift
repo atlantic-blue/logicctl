@@ -293,10 +293,16 @@ private func treeRead(from text: String) throws -> RecordedTree {
 /// own, with iTerm in front. After Logic was made the application in front and the project window
 /// was raised, the item read enabled, and the save wrote the project in 9.2 seconds.
 ///
+/// Measured again on the same Mac at 23:50, against the route: the command answered exit 5 at once,
+/// and a read taken straight afterwards showed Logic in front, the project window main, and
+/// the item enabled. Logic enables the item a moment after the raise, and probes with a delay
+/// of one second read it enabled every time. So the route reads the item until it reads
+/// enabled, within the limit of the command, the way every other read of Logic waits.
+///
 /// So a person with the Mixer, the Event List or the Piano Roll in front gets their project on
-/// disk. A person whose Logic leaves the item disabled all the same reads `element_not_found` at
-/// once, names the menu item, and gets their terminal back, rather than waiting out the limit for a
-/// panel that never opens.
+/// disk. A person whose Logic leaves the item disabled for the whole limit reads
+/// `element_not_found` naming the menu item, rather than a `timeout` from a panel that was
+/// never going to open.
 @Test func saveRaisesTheProjectWindowBeforeSaveAs() throws {
   let logic = LogicTree(
     logicVersion: "12.3.1", root: try treeRoot(of: "mixer-and-event-list-in-front.json"))
@@ -325,12 +331,36 @@ private func treeRead(from text: String) throws -> RecordedTree {
     behind.written[Locators.saveNameField.name] == "Song.logicx",
     "so the panel opened and the project was written")
 
+  let late = ARecordedSavePanel(saveAsNeedsTheProjectWindow: true, saveAsTurnsEnabledOnTheRead: 3)
+  let waited = ATime()
+
+  try late.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 5000, clock: waited.read,
+    sleeper: waited.sleep)
+
+  #expect(
+    late.timesTheItemWasRead == 3,
+    "the item was read again until it read enabled, rather than once after the raise")
+  #expect(
+    late.beforeThePanel == [
+      "bring Logic to the front",
+      "raise F-T13.logicx - Tracks",
+      "read Save As",
+      "read Save As",
+      "read Save As",
+      "press File, Save As",
+    ],
+    "and the item was pressed on the read that answered enabled")
+  #expect(
+    late.written[Locators.saveNameField.name] == "Song.logicx",
+    "so a Logic that takes a moment still writes the project")
+
   let stuck = ARecordedSavePanel(saveAsStaysDisabled: true)
   let time = ATime()
 
   let refused = #expect(throws: SaveDialog.Refusal.self) {
     try stuck.dialog().save(
-      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 30_000, clock: time.read,
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 200, clock: time.read,
       sleeper: time.sleep)
   }
 
@@ -338,16 +368,19 @@ private func treeRead(from text: String) throws -> RecordedTree {
   #expect(refusal.failure.code == .elementNotFound, "Logic takes no press of that item")
   #expect(refusal.failure.code.exitCode == 5, "the number the process exits with")
   #expect(refusal.reason.contains("Save As"), "the reason names the item a person reads about")
+  #expect(refusal.reason.contains("200ms"), "and how long Logic was given to enable it")
   #expect(
-    stuck.beforeThePanel == [
+    Array(stuck.beforeThePanel.prefix(3)) == [
       "bring Logic to the front",
       "raise F-T13.logicx - Tracks",
       "read Save As",
     ],
-    "the item was never pressed")
+    "Logic came to the front and the window was raised, before the item was read")
+  #expect(!stuck.beforeThePanel.contains("press File, Save As"), "the item was never pressed")
+  #expect(stuck.timesTheItemWasRead > 1, "and it was read again before the command gave up")
   #expect(stuck.pressed.isEmpty, "nothing in the panel was pressed")
   #expect(stuck.written.isEmpty, "and nothing was written")
-  #expect(time.reads == 0, "the answer cost no wait, so a person is not left for 30 seconds")
+  #expect(time.read() == 200, "the command gave up at the limit, and not before or after it")
 
   let noProject = try treeRead(from: aLogicWithNoProjectWindow).root
   let missing = #expect(throws: SaveDialog.Refusal.self) {
@@ -405,6 +438,13 @@ private final class ARecordedSavePanel {
   /// Whether the menu item stays disabled whatever the route asks of Logic.
   private let saveAsStaysDisabled: Bool
 
+  /// Which read of the menu item is the first to answer enabled. Logic 12.3.1 takes a moment after
+  /// the raise, so the first read of the real Logic answers disabled.
+  private let saveAsTurnsEnabledOnTheRead: Int
+
+  /// How many times the route read the menu item.
+  private(set) var timesTheItemWasRead = 0
+
   /// True once the route made Logic the application in front.
   private var inFront = false
 
@@ -415,12 +455,14 @@ private final class ARecordedSavePanel {
     reachesTheFolder: Bool = true,
     refusesTheOpen: Bool = false,
     saveAsNeedsTheProjectWindow: Bool = false,
-    saveAsStaysDisabled: Bool = false
+    saveAsStaysDisabled: Bool = false,
+    saveAsTurnsEnabledOnTheRead: Int = 1
   ) {
     self.reachesTheFolder = reachesTheFolder
     self.refusesTheOpen = refusesTheOpen
     self.saveAsNeedsTheProjectWindow = saveAsNeedsTheProjectWindow
     self.saveAsStaysDisabled = saveAsStaysDisabled
+    self.saveAsTurnsEnabledOnTheRead = saveAsTurnsEnabledOnTheRead
   }
 
   /// The route, with every read taken from the recorded panel.
@@ -492,8 +534,12 @@ private final class ARecordedSavePanel {
         self.beforeThePanel.append("raise " + (window.title ?? "a window with no title"))
       },
       menuItemEnabled: {
+        self.timesTheItemWasRead += 1
         self.beforeThePanel.append("read Save As")
         guard !self.saveAsStaysDisabled else {
+          return false
+        }
+        guard self.timesTheItemWasRead >= self.saveAsTurnsEnabledOnTheRead else {
           return false
         }
         guard self.saveAsNeedsTheProjectWindow else {
