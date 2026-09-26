@@ -17,8 +17,10 @@ extension TransportCommand {
       commandName: "record",
       abstract: "Start recording in Logic.",
       discussion: """
+        The command presses the Record button of the Control Bar, the one a person presses. \
         The answer carries the transport as Logic reads it back, so a transport that never \
-        started recording is `timeout` and never a report of a take.
+        started recording is `timeout` and never a report of a take. A transport that already \
+        records is left running.
 
         Logic records on the tracks that are armed, and arming a track is a person's to do.
 
@@ -89,13 +91,17 @@ private struct StartRecording: LogicCommand {
   let clock: Wait.Clock
   let sleeper: Wait.Sleeper
 
-  /// Waits until Logic reads as recording, and answers the transport it reads.
+  /// Presses Record, waits until Logic reads as recording, and answers the transport it reads.
+  ///
+  /// A transport that already records is left alone. The Record button is a check box, so a
+  /// second press turns the take off, and the performance of the person goes with it.
   ///
   /// A transport that never starts recording ends at the limit with `timeout` and the
   /// milliseconds it was given, rather than a report of a take that is not running.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let takeIsRunning = try driver.readState().transport.recording
     if !takeIsRunning {
+      try actions.pressInWindow(Locators.transportRecordButton)
       try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
         try driver.readState().transport.recording
       }
