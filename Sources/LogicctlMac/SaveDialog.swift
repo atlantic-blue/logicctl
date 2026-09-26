@@ -206,6 +206,14 @@ extension SaveDialog {
   /// scroll bar of that column first. Setting `AXSelected` on a row is refused, and setting
   /// `AXSelectedChildren` of the list of a column changes nothing, so neither is a way in.
   ///
+  /// Measured on this Mac on 2026-09-26: with the Event List in front, the menu item reads
+  /// disabled, and the command waited out the limit for a panel that never opened. At 23:10, with
+  /// another application in front, the item stayed disabled after the project window was raised on
+  /// its own. It read enabled once Logic was the application in front and the project window was
+  /// raised, and the save then wrote the project. So the route does both before it asks for the
+  /// item, and reads the item rather than trusting that the two worked. An item that still reads
+  /// disabled costs no wait, because the wait is for a panel that a disabled item never opens.
+  ///
   /// A folder the column does not list stops the route before it writes anything. The route closes
   /// the panel and names that folder. The project stays where it is.
   public func save(
@@ -215,6 +223,13 @@ extension SaveDialog {
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws {
     let destination = try self.destination(of: path)
+    try bringToFront()
+    try raiseTheProjectWindow()
+    guard try menuItemEnabled() else {
+      throw Refusal(
+        reason: "Logic shows \(SaveDialog.menuItemTitle) disabled, with Logic in front and the "
+          + "project window raised, so it would take no press and nothing was written.")
+    }
     try openTheMenuItem()
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
@@ -313,7 +328,10 @@ extension SaveDialog {
       folderShown: SaveDialog.theFolderTheLogicOfThisMacShows,
       pressItem: SaveDialog.pressTheOpenMenuItemOfThisMac,
       startUpDisk: SaveDialog.theStartUpDiskOfThisMac,
-      scroll: SaveDialog.scrollTheColumnOfThisMac)
+      scroll: SaveDialog.scrollTheColumnOfThisMac,
+      bringToFront: SaveDialog.bringTheLogicOfThisMacToTheFront,
+      raiseTheProjectWindow: SaveDialog.raiseTheProjectWindowOfThisMac,
+      menuItemEnabled: SaveDialog.theSaveAsOfThisMacIsEnabled)
   }
 
   /// What the menu item of Logic is called, under the File menu.
@@ -356,8 +374,12 @@ extension SaveDialog {
   }
 
   /// The window the open project sits in, in one tree of Logic.
+  ///
+  /// Logic keeps several windows of one project open at once, and the first of the list is the one
+  /// in front, which is whichever editor a person was last working in. The project window is found
+  /// by what it holds, as every other read of logicctl finds it, and its title ends in ` - Tracks`.
   public static func projectWindow(of tree: LogicTree) throws -> any AXNode {
-    guard let project = tree.atTheFrontWindow() else {
+    guard let project = tree.atTheProjectWindow() else {
       throw Refusal(
         reason: "Logic shows no window that holds the tracks, so the project window could not be "
           + "raised before \(menuItemTitle).")
@@ -571,6 +593,72 @@ extension SaveDialog {
           + "\(answered.rawValue).",
         code: .internalFailure)
     }
+  }
+
+  /// Makes the Logic of this Mac the application in front.
+  ///
+  /// The menu bar belongs to the application in front, so a menu item of a Logic that is behind
+  /// something else reads disabled and takes no press.
+  static func bringTheLogicOfThisMacToTheFront() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let application = logic.root as? LiveAXNode else {
+      throw Refusal(
+        reason: "Logic was read from a recorded tree, which nothing can bring to the front.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      application.element, kAXFrontmostAttribute as CFString, true as CFTypeRef)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "macOS refused to bring Logic to the front, error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Raises the window the open project of this Mac sits in.
+  ///
+  /// Logic offers Save As for the project of the window a person raised last, so an editor window
+  /// in front leaves the item disabled. No panel is open at this point, because this runs before
+  /// the item is pressed.
+  static func raiseTheProjectWindowOfThisMac() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let window = try SaveDialog.projectWindow(of: logic) as? LiveAXNode else {
+      throw Refusal(
+        reason: "The project window was read from a recorded tree, which nothing can raise.",
+        code: .internalFailure)
+    }
+    let raised = AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
+    guard raised == .success else {
+      throw Refusal(
+        reason: "Logic refused to raise the project window, error \(raised.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Whether the menu item File, "Save As..." of this Mac reads enabled.
+  ///
+  /// A Logic that answers nothing for the state is read as disabled, because a press of an item
+  /// whose state nothing could read is a press nobody can account for.
+  static func theSaveAsOfThisMacIsEnabled() throws -> Bool {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let item = try SaveDialog.menuItem(in: logic.root) as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(menuItemTitle) was found in a recorded tree, which says nothing about Logic.",
+        code: .internalFailure)
+    }
+    var held: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      item.element, kAXEnabledAttribute as CFString, &held)
+    guard answered == .success else {
+      return false
+    }
+    return held as? Bool ?? false
   }
 
   /// Which folder the panel of this Mac reached, as the Where popup shows it.
