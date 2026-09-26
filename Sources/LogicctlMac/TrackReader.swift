@@ -56,6 +56,37 @@ public enum TrackReader {
     return tracks
   }
 
+  /// What kind of track the Mixer shows for one track, counted from 1.
+  ///
+  /// The track header says nothing about the kind, and the channel strip says it. Measured on this
+  /// Mac on 2026-09-26 against Logic 12.3.1, in the recorded tree `mixer-with-audio-track.json`:
+  /// the strip of a software instrument track holds a button described `MIDI plug-in`, the strip
+  /// of an audio track holds none and holds a button whose help text starts `Input slot`, and the
+  /// output and master strips hold neither.
+  ///
+  /// The strip is found by its place, as the plugins of a strip are, so the name of the strip is
+  /// read back and a strip that carries another track's name answers `other`. Nothing here
+  /// throws: a person scrolls the Mixer where they like, and the kind of a track nobody can see is
+  /// what `other` is for.
+  public static func type(
+    ofTrackNumber number: Int, named track: String, in mixer: any AXNode
+  ) -> Track.Kind {
+    let locator = Locators.mixerStrip(number: number - 1)
+    guard let strip = try? LocatorResolver.element(of: locator, in: mixer),
+      TrackReader.name(ofStrip: strip) == track
+    else {
+      return .other
+    }
+    let slots = strip.children.filter { $0.role == TrackReader.slotRole }
+    if slots.contains(where: { $0.description == TrackReader.midiSlot }) {
+      return .softwareInstrument
+    }
+    if slots.contains(where: { ($0.help ?? "").hasPrefix(TrackReader.inputSlotHelp) }) {
+      return .audio
+    }
+    return .other
+  }
+
   /// The role of one track header, under the group that holds them all.
   private static let headerRole = "AXLayoutItem"
 
@@ -65,6 +96,26 @@ public enum TrackReader {
   /// The first words of the help text of the name field. The description of that field is the
   /// name of the track, so the help text is what says which field it is.
   private static let nameFieldHelp = "Name field"
+
+  /// The role of the slots of a channel strip.
+  private static let slotRole = "AXButton"
+
+  /// The description of the slot that every software instrument strip carries and no audio strip
+  /// carries.
+  private static let midiSlot = "MIDI plug-in"
+
+  /// The first words of the help text of the slot that says where an audio track listens. The
+  /// description of that button is the input it is set to, for example `Input 1`, so the help
+  /// text is what says which button it is.
+  private static let inputSlotHelp = "Input slot"
+
+  /// The description of the field a channel strip carries its name in.
+  private static let stripNameDescription = "name"
+
+  /// The name Logic shows on a channel strip, or nil when the strip carries no name field.
+  private static func name(ofStrip strip: any AXNode) -> String? {
+    strip.children.first { $0.description == TrackReader.stripNameDescription }?.value
+  }
 
   /// One track, read from its header.
   private static func track(number: Int, in root: any AXNode) throws -> Track {
@@ -76,8 +127,8 @@ public enum TrackReader {
     let arm = try TrackReader.isOn(
       Locators.trackRecordEnableButton(number: number), describedAs: "Record Enable", in: root)
     // The header of an audio track and the header of a software instrument track carry the same
-    // nine controls, and neither says which kind the track is. Only a mixer strip says it, and
-    // nothing here opens the mixer, so every row reads as the kind that is neither.
+    // nine controls, and neither says which kind the track is. The strip of the Mixer says it, so
+    // a track read from its header alone carries the kind that is neither.
     return Track(index: number + 1, name: name, type: .other, mute: mute, solo: solo, arm: arm)
   }
 
