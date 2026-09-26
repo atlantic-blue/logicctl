@@ -68,6 +68,15 @@ public struct SaveDialog {
   /// Puts the rows of the column at this number in view, at a place from 0 to 1.
   public typealias Scroll = (Int, Double) throws -> Void
 
+  /// Makes Logic the application in front.
+  public typealias BringToFront = () throws -> Void
+
+  /// Raises the window the open project sits in.
+  public typealias RaiseTheProjectWindow = () throws -> Void
+
+  /// Whether the menu item File, "Save As..." reads enabled.
+  public typealias ReadEnabled = () throws -> Bool
+
   /// Asks Logic for File, "Save As...".
   public let openTheMenuItem: OpenTheMenuItem
 
@@ -101,6 +110,17 @@ public struct SaveDialog {
   /// Puts the rows of one column in view.
   public let scroll: Scroll
 
+  /// Makes Logic the application in front.
+  public let bringToFront: BringToFront
+
+  /// Raises the window the open project sits in.
+  public let raiseTheProjectWindow: RaiseTheProjectWindow
+
+  /// Reads whether the menu item File, "Save As..." is enabled.
+  public let menuItemEnabled: ReadEnabled
+
+  /// A caller that names none of the last three drives a Logic that needs no raise: one already in
+  /// front, with the menu item enabled.
   public init(
     openTheMenuItem: @escaping OpenTheMenuItem,
     showsThePanel: @escaping Read,
@@ -112,7 +132,10 @@ public struct SaveDialog {
     folderShown: @escaping ReadFolder,
     pressItem: @escaping PressItem,
     startUpDisk: @escaping ReadDisk,
-    scroll: @escaping Scroll
+    scroll: @escaping Scroll,
+    bringToFront: @escaping BringToFront = {},
+    raiseTheProjectWindow: @escaping RaiseTheProjectWindow = {},
+    menuItemEnabled: @escaping ReadEnabled = { true }
   ) {
     self.openTheMenuItem = openTheMenuItem
     self.showsThePanel = showsThePanel
@@ -125,6 +148,9 @@ public struct SaveDialog {
     self.pressItem = pressItem
     self.startUpDisk = startUpDisk
     self.scroll = scroll
+    self.bringToFront = bringToFront
+    self.raiseTheProjectWindow = raiseTheProjectWindow
+    self.menuItemEnabled = menuItemEnabled
   }
 }
 
@@ -327,6 +353,16 @@ extension SaveDialog {
       throw Refusal(reason: says + menuItemTitle + ".")
     }
     return item
+  }
+
+  /// The window the open project sits in, in one tree of Logic.
+  public static func projectWindow(of tree: LogicTree) throws -> any AXNode {
+    guard let project = tree.atTheFrontWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window that holds the tracks, so the project window could not be "
+          + "raised before \(menuItemTitle).")
+    }
+    return project.root
   }
 
   /// True while the Logic of this Mac shows the panel that asks where the project goes.

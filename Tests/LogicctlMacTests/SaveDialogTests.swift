@@ -284,6 +284,81 @@ private func treeRead(from text: String) throws -> RecordedTree {
   #expect(refused?.locator == Locators.saveColumn(number: 9).name, "a column that is not there")
 }
 
+/// A save works while a person has an editor window of Logic in front.
+///
+/// Measured on this Mac on 2026-09-26 (Logic 12.3.1, a copy of F-T13 under /tmp): with the Event
+/// List in front, the menu item File, "Save As..." reads disabled, and
+/// `save --path <path> --confirm` waited 30 seconds, answered `timeout`, and wrote nothing.
+/// Measured again at 23:10: the item stayed disabled after the project window was raised on its
+/// own, with iTerm in front. After Logic was made the application in front and the project window
+/// was raised, the item read enabled, and the save wrote the project in 9.2 seconds.
+///
+/// So a person with the Mixer, the Event List or the Piano Roll in front gets their project on
+/// disk. A person whose Logic leaves the item disabled all the same reads `element_not_found` at
+/// once, names the menu item, and gets their terminal back, rather than waiting out the limit for a
+/// panel that never opens.
+@Test func saveRaisesTheProjectWindowBeforeSaveAs() throws {
+  let logic = LogicTree(
+    logicVersion: "12.3.1", root: try treeRoot(of: "mixer-and-event-list-in-front.json"))
+
+  #expect(
+    logic.atTheFrontWindow()?.root.title == "F-T13.logicx - MIDI Region - Event List",
+    "the window in front is the editor a person was working in")
+  #expect(
+    try SaveDialog.projectWindow(of: logic).title == "F-T13.logicx - Tracks",
+    "and the window the save raises is the one the project sits in")
+
+  let behind = ARecordedSavePanel(saveAsNeedsTheProjectWindow: true)
+
+  try behind.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 10, clock: { 0 }, sleeper: { _ in })
+
+  #expect(
+    behind.beforeThePanel == [
+      "bring Logic to the front",
+      "raise F-T13.logicx - Tracks",
+      "read Save As",
+      "press File, Save As",
+    ],
+    "Logic came to the front and the project window was raised, before the item was pressed")
+  #expect(
+    behind.written[Locators.saveNameField.name] == "Song.logicx",
+    "so the panel opened and the project was written")
+
+  let stuck = ARecordedSavePanel(saveAsStaysDisabled: true)
+  let time = ATime()
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try stuck.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 30_000, clock: time.read,
+      sleeper: time.sleep)
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .elementNotFound, "Logic takes no press of that item")
+  #expect(refusal.failure.code.exitCode == 5, "the number the process exits with")
+  #expect(refusal.reason.contains("Save As"), "the reason names the item a person reads about")
+  #expect(
+    stuck.beforeThePanel == [
+      "bring Logic to the front",
+      "raise F-T13.logicx - Tracks",
+      "read Save As",
+    ],
+    "the item was never pressed")
+  #expect(stuck.pressed.isEmpty, "nothing in the panel was pressed")
+  #expect(stuck.written.isEmpty, "and nothing was written")
+  #expect(time.reads == 0, "the answer cost no wait, so a person is not left for 30 seconds")
+
+  let noProject = try treeRead(from: aLogicWithNoProjectWindow).root
+  let missing = #expect(throws: SaveDialog.Refusal.self) {
+    try SaveDialog.projectWindow(of: LogicTree(logicVersion: "12.3.1", root: noProject))
+  }
+
+  #expect(
+    missing?.reason.contains("Save As") == true,
+    "a Logic with no project window is named, rather than the window in front being raised")
+}
+
 /// A route over the recorded Save panel, walked the way Logic answers it.
 ///
 /// The columns are the ones Logic listed, so a folder this panel does not hold is a folder the walk
@@ -308,6 +383,9 @@ private final class ARecordedSavePanel {
   /// Everything the route did to the panel, in one order, so a test reads what came before what.
   private(set) var did: [String] = []
 
+  /// Everything the route did before the panel opened, in one order.
+  private(set) var beforeThePanel: [String] = []
+
   /// True while the panel is open, which the press of Save ends.
   private var showing = true
 
@@ -320,16 +398,38 @@ private final class ARecordedSavePanel {
   /// Whether Logic refuses the open, the way it does for any answer that is not -25205.
   private let refusesTheOpen: Bool
 
-  init(reachesTheFolder: Bool = true, refusesTheOpen: Bool = false) {
+  /// Whether the menu item reads enabled only once Logic is in front and the project window is
+  /// raised, which is what Logic 12.3.1 does with an editor window in front.
+  private let saveAsNeedsTheProjectWindow: Bool
+
+  /// Whether the menu item stays disabled whatever the route asks of Logic.
+  private let saveAsStaysDisabled: Bool
+
+  /// True once the route made Logic the application in front.
+  private var inFront = false
+
+  /// The title of the window the route raised, or nothing while it raised none.
+  private var raised: String?
+
+  init(
+    reachesTheFolder: Bool = true,
+    refusesTheOpen: Bool = false,
+    saveAsNeedsTheProjectWindow: Bool = false,
+    saveAsStaysDisabled: Bool = false
+  ) {
     self.reachesTheFolder = reachesTheFolder
     self.refusesTheOpen = refusesTheOpen
+    self.saveAsNeedsTheProjectWindow = saveAsNeedsTheProjectWindow
+    self.saveAsStaysDisabled = saveAsStaysDisabled
   }
 
   /// The route, with every read taken from the recorded panel.
   func dialog() throws -> SaveDialog {
     let panel = try treeRoot(of: "save-panel-expanded.json")
     return SaveDialog(
-      openTheMenuItem: {},
+      openTheMenuItem: {
+        self.beforeThePanel.append("press File, Save As")
+      },
       showsThePanel: { self.showing },
       write: { locator, text in
         // The walk has to find the field in the recorded panel before it can be written into.
@@ -376,8 +476,35 @@ private final class ARecordedSavePanel {
         _ = try LocatorResolver.element(of: Locators.saveColumn(number: number), in: panel)
         self.scrolled.append(AScroll(column: number, place: place))
         self.did.append("scroll column \(number + 1)")
+      },
+      bringToFront: {
+        self.inFront = true
+        self.beforeThePanel.append("bring Logic to the front")
+      },
+      raiseTheProjectWindow: {
+        // The tree is the one a person leaves behind: four windows of one project, with the Event
+        // List in front. So the route has to pick the window out of that list, and a route that
+        // took the first window would raise the editor again.
+        let logic = LogicTree(
+          logicVersion: "12.3.1", root: try treeRoot(of: "mixer-and-event-list-in-front.json"))
+        let window = try SaveDialog.projectWindow(of: logic)
+        self.raised = window.title
+        self.beforeThePanel.append("raise " + (window.title ?? "a window with no title"))
+      },
+      menuItemEnabled: {
+        self.beforeThePanel.append("read Save As")
+        guard !self.saveAsStaysDisabled else {
+          return false
+        }
+        guard self.saveAsNeedsTheProjectWindow else {
+          return true
+        }
+        return self.inFront && self.raised == ARecordedSavePanel.theProjectWindow
       })
   }
+
+  /// What the window of the project in the recorded tree is called.
+  static let theProjectWindow = "F-T13.logicx - Tracks"
 
   /// What the start up disk of the Mac under this test is called.
   ///
@@ -399,7 +526,11 @@ private struct AScroll: Equatable {
 private final class ATime {
   private var now = 0
 
+  /// How many times a wait read the clock. A route that answered without waiting read it never.
+  private(set) var reads = 0
+
   func read() -> Int {
+    reads += 1
     now
   }
 
@@ -548,6 +679,22 @@ private let aColumnWithTwoScrollBars = """
             }
           ]
         }
+      ]
+    }
+  }
+  """
+
+/// A Logic that shows one window, and that window holds no tracks.
+///
+/// Every recorded tree of a project holds the header of the tracks somewhere, so this one is
+/// written here. It stands for a Logic between projects, where there is no project window to raise.
+private let aLogicWithNoProjectWindow = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXApplication",
+      "children": [
+        { "role": "AXWindow", "title": "Logic Pro" }
       ]
     }
   }
