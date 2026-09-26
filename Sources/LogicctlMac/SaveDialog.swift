@@ -211,8 +211,9 @@ extension SaveDialog {
   /// another application in front, the item stayed disabled after the project window was raised on
   /// its own. It read enabled once Logic was the application in front and the project window was
   /// raised, and the save then wrote the project. So the route does both before it asks for the
-  /// item, and reads the item rather than trusting that the two worked. An item that still reads
-  /// disabled costs no wait, because the wait is for a panel that a disabled item never opens.
+  /// item, and reads the item rather than trusting that the two worked. Logic enables the item a
+  /// moment after the raise, so the read is a wait like every other read of Logic, and an item that
+  /// is disabled for the whole limit is named rather than pressed at.
   ///
   /// A folder the column does not list stops the route before it writes anything. The route closes
   /// the panel and names that folder. The project stays where it is.
@@ -225,11 +226,7 @@ extension SaveDialog {
     let destination = try self.destination(of: path)
     try bringToFront()
     try raiseTheProjectWindow()
-    guard try menuItemEnabled() else {
-      throw Refusal(
-        reason: "Logic shows \(SaveDialog.menuItemTitle) disabled, with Logic in front and the "
-          + "project window raised, so it would take no press and nothing was written.")
-    }
+    try reachTheMenuItem(limitMs: limitMs, clock: clock, sleeper: sleeper)
     try openTheMenuItem()
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
@@ -276,6 +273,32 @@ extension SaveDialog {
       return nil
     }
     return Double(row) / Double(count - 1)
+  }
+
+  /// Waits for the menu item to read enabled, and names it when it never does.
+  ///
+  /// Measured on this Mac at 23:50 on 2026-09-26: the item read disabled straight after the raise,
+  /// and a read taken a moment later read it enabled, with Logic in front and the project window
+  /// main. So one read of the state is a read of the moment before Logic caught up, the same way
+  /// every other change of Logic lands in the tree after the event that made it.
+  ///
+  /// The failure is `element_not_found` and not `timeout`, because the thing a person acts on is
+  /// the item Logic will not offer, and no panel was ever going to open to wait for.
+  private func reachTheMenuItem(
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws {
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try menuItemEnabled()
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "Logic left \(SaveDialog.menuItemTitle) disabled for \(ranOut.waitedMs)ms, with "
+          + "Logic in front and the project window raised, so it would take no press and nothing "
+          + "was written.")
+    }
   }
 
   /// Waits for the Where popup to show one folder, and fails with `timeout` when it never does.
