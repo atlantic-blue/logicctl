@@ -4,7 +4,7 @@ import LogicctlCore
 import LogicctlJournal
 import LogicctlMac
 
-/// Makes a new empty project and starts the session that records the work on it.
+/// Makes a new project with its first track and starts the session that records the work on it.
 ///
 /// This is the first command of logicctl that writes into the journal, and it is the only command
 /// that may write into a project without `--confirm`, because it is the command that made the
@@ -14,10 +14,13 @@ import LogicctlMac
 struct NewProject: ParsableCommand {
   static let configuration = CommandConfiguration(
     commandName: "new-project",
-    abstract: "Make a new empty project and start the session that records it.",
+    abstract: "Make a new project with one track and start the session that records it.",
     discussion: """
       Logic shows the project chooser while no project is open. The command takes the empty \
-      project template, and answers once Logic shows a project with no tracks.
+      project template. Logic then asks for the first track of the project, and it refuses to \
+      save the project until that sheet is answered. So the command presses Create, which takes \
+      the defaults of the sheet, and answers once Logic shows a project with one software \
+      instrument track.
 
       Example: logicctl new-project
       """)
@@ -46,8 +49,8 @@ struct NewProject: ParsableCommand {
 }
 
 extension NewProject {
-  /// Takes Logic to an empty project, prints the envelope, and answers the number the process
-  /// exits with.
+  /// Takes Logic to a project with its first track, prints the envelope, and answers the number
+  /// the process exits with.
   ///
   /// The chooser and the driver are given rather than reached for, so the pipeline drives the
   /// same command against a Logic of its own.
@@ -73,10 +76,10 @@ extension NewProject {
       format: format, standardOutput: standardOutput, standardError: standardError)
 
     do {
-      let empty = try NewProject.emptyProject(
+      let made = try NewProject.projectWithTracks(
         through: chooser, and: driver, limitMs: limitMs, clock: clock, sleeper: sleeper)
       let path = try driver.projectPath()
-      let session = NewProject.session(of: empty, at: path, version: version, startedAt: started)
+      let session = NewProject.session(of: made, at: path, version: version, startedAt: started)
       let repository = try SessionRepository.start(
         session: session, root: root, git: git, lock: lock)
       let taken = NewProject.picture(ofTheLogicOf: driver, through: capturer)
@@ -85,7 +88,7 @@ extension NewProject {
       // The record holds the envelope that was printed, so both carry one duration. Only the
       // commit of the step is added afterwards, because a commit cannot name itself.
       let answer = Envelope.success(
-        data: NewProject.answered(empty, at: path, session: session, in: repository.folder),
+        data: NewProject.answered(made, at: path, session: session, in: repository.folder),
         meta: AnswerMeta.run(
           version: version, session: session.id, step: nil, externalChange: nil, from: started,
           to: finished, details: taken.details))
@@ -98,12 +101,12 @@ extension NewProject {
         finishedAt: finished,
         exitCode: Int(answer.exitCode),
         envelope: answer.json,
-        stateAfter: CanonicalJSON.sha256(of: empty))
-      let commit = try repository.write(step, state: empty, screenshot: taken.bytes)
+        stateAfter: CanonicalJSON.sha256(of: made))
+      let commit = try repository.write(step, state: made, screenshot: taken.bytes)
 
       return printer.write(
         Envelope.success(
-          data: NewProject.answered(empty, at: path, session: session, in: repository.folder),
+          data: NewProject.answered(made, at: path, session: session, in: repository.folder),
           meta: AnswerMeta.run(
             version: version, session: session.id, step: commit, externalChange: nil,
             from: started, to: finished, details: taken.details)))
@@ -117,21 +120,22 @@ extension NewProject {
     }
   }
 
-  /// The empty project Logic has open once the chooser is answered.
+  /// The project Logic has open once the chooser and the sheet are answered.
   ///
   /// The window is read first, and the tracks after it. Logic puts the sheet that asks for a track
-  /// on a project the moment it makes one, and the tracks of the project are what say whether it
-  /// is empty, so both have to hold before the project is the one this command promises.
-  static func emptyProject(
+  /// on a project the moment it makes one, and the tracks of the project are what say that the
+  /// sheet was answered, so both have to hold before the project is the one this command promises.
+  static func projectWithTracks(
     through chooser: ProjectChooser,
     and driver: any LogicDriver,
     limitMs: Int,
     clock: @escaping Wait.Clock,
     sleeper: @escaping Wait.Sleeper
   ) throws -> State {
-    try chooser.reachAnEmptyProject(limitMs: limitMs, clock: clock, sleeper: sleeper)
+    try chooser.reachAProjectWithTracks(limitMs: limitMs, clock: clock, sleeper: sleeper)
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      try driver.readState().tracks.isEmpty
+      let read = try driver.readState()
+      return !read.tracks.isEmpty
     }
     return try driver.readState()
   }
