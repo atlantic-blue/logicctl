@@ -1,4 +1,5 @@
 import ApplicationServices
+import CoreGraphics
 import Foundation
 import LogicctlCore
 
@@ -52,6 +53,13 @@ public struct TrackActions {
   /// Presses the one element a locator names.
   public typealias Press = (Locator) throws -> Void
 
+  /// Clicks the one control a locator names, through the input gate.
+  public typealias Click = (Locator) throws -> Void
+
+  /// Reads where one control sits: the element the window server finds under the point, and the
+  /// point itself.
+  public typealias TargetRead = (Locator) throws -> (element: AXUIElement, centre: CGPoint)
+
   /// Writes one text into the field a locator names, in place of what is in it.
   public typealias Write = (Locator, String) throws -> Void
 
@@ -66,6 +74,15 @@ public struct TrackActions {
   /// never reaches the menu bar.
   public let pressInWindow: Press
 
+  /// Clicks one control of the window Logic shows in front.
+  ///
+  /// It is a third closure and not `pressInWindow`, because the two reach Logic by different
+  /// roads. A press asks one element to act on itself. A click asks the window server to deliver a
+  /// mouse event where that element sits. Logic 12.3.1 answers a press on the mute check box of a
+  /// track header with success and leaves the check box as it was, so the two are not two ways of
+  /// doing one thing.
+  public let clickInWindow: Click
+
   /// Writes into one field of a track header.
   public let write: Write
 
@@ -73,9 +90,12 @@ public struct TrackActions {
   ///
   /// A command that only presses a menu item gives one closure, and a test of it says nothing
   /// about a window it never touches.
-  public init(press: Press? = nil, pressInWindow: Press? = nil, write: Write? = nil) {
+  public init(
+    press: Press? = nil, pressInWindow: Press? = nil, click: Click? = nil, write: Write? = nil
+  ) {
     self.press = press ?? TrackActions.noMenuPressWasGiven
     self.pressInWindow = pressInWindow ?? TrackActions.noWindowPressWasGiven
+    self.clickInWindow = click ?? TrackActions.noClickWasGiven
     self.write = write ?? TrackActions.noWriteWasGiven
   }
 
@@ -107,6 +127,17 @@ public struct TrackActions {
       reason: "No menu press was given for \(locator.name), so nothing could press it.",
       code: .internalFailure)
   }
+
+  /// What a caller that asked for a press alone gets when something asks it to click.
+  ///
+  /// It refuses for the reason the other two refuse. A click that quietly went nowhere would leave
+  /// the command reading the old state back, and it would report a timeout that names Logic for a
+  /// wire that was never joined here.
+  private static func noClickWasGiven(_ locator: Locator) throws {
+    throw Refusal(
+      reason: "No click was given for \(locator.name), so nothing could click it.",
+      code: .internalFailure)
+  }
 }
 
 extension TrackActions {
@@ -127,28 +158,35 @@ extension TrackActions {
     try write(Locators.trackNameField(number: number), name)
   }
 
-  /// Presses the mute button in the header of one track.
+  /// Clicks the mute button in the header of one track.
   ///
-  /// The button is a check box, so the press turns the mute on when it is off and off when it is
-  /// on. Nothing here says which of the two happened. The caller decides whether to press at all,
+  /// Logic 12.3.1 offers one action on that check box, `AXPress`, and it answers the press with
+  /// success and leaves the value at 0, so the track stays as it was. A click at the centre of the
+  /// same check box changes it, so the click is the whole of the action here.
+  ///
+  /// The button is a check box, so the click turns the mute on when it is off and off when it is
+  /// on. Nothing here says which of the two happened. The caller decides whether to click at all,
   /// and reads the track again afterwards.
   ///
   /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
   /// types `--index`.
   public func mute(trackNumber number: Int) throws {
-    try pressInWindow(Locators.trackMuteButton(number: number))
+    try clickInWindow(Locators.trackMuteButton(number: number))
   }
 
-  /// Presses the solo button in the header of one track.
+  /// Clicks the solo button in the header of one track.
   ///
-  /// The button is a check box, so the press turns the solo on when it is off and off when it is
-  /// on. Nothing here says which of the two happened. The caller decides whether to press at all,
+  /// It is clicked and not pressed for the reason the mute button is. Logic takes the press,
+  /// answers success, and leaves the check box as it was.
+  ///
+  /// The button is a check box, so the click turns the solo on when it is off and off when it is
+  /// on. Nothing here says which of the two happened. The caller decides whether to click at all,
   /// and reads the track again afterwards.
   ///
   /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
   /// types `--index`.
   public func solo(trackNumber number: Int) throws {
-    try pressInWindow(Locators.trackSoloButton(number: number))
+    try clickInWindow(Locators.trackSoloButton(number: number))
   }
 
   /// The item of the Track menu that makes one track of this type.
@@ -168,6 +206,7 @@ extension TrackActions {
     TrackActions(
       press: TrackActions.pressInTheMenuBarOfThisMac,
       pressInWindow: TrackActions.pressInTheWindowOfThisMac,
+      click: TrackActions.clickInTheWindowOfThisMac,
       write: TrackActions.writeIntoTheLogicOfThisMac)
   }
 
@@ -255,6 +294,106 @@ extension TrackActions {
         reason: "Logic refused the press of \(locator.name), error \(answered.rawValue).",
         code: .internalFailure)
     }
+  }
+}
+
+extension TrackActions {
+  /// Clicks the centre of the control a locator names, through the gate that proves the aim.
+  ///
+  /// The gate carries the control as the target, so the two events reach Logic only while the
+  /// element the window server finds under the point is that control. A click of a check box that
+  /// landed anywhere else would change another track, and no later read could say that it had, so a
+  /// refusal of the gate travels out of here and stops the command.
+  public static func clickThroughTheGate(
+    _ gate: InputGate, readingTheTargetWith read: @escaping TargetRead
+  ) -> Click {
+    { locator in
+      let target = try read(locator)
+      try gate.post(.click(target.centre, target: target.element))
+    }
+  }
+}
+
+extension TrackActions {
+  /// Clicks the centre of one control of the window the project sits in, in the Logic of this Mac.
+  ///
+  /// The gate is built for each click, because it reads the Logic that runs now and a command can
+  /// start before Logic does.
+  public static func clickInTheWindowOfThisMac(_ locator: Locator) throws {
+    let logic = try AXDriver.processIDOfRunningLogic()
+    let click = TrackActions.clickThroughTheGate(
+      InputGate.live(logic: logic),
+      readingTheTargetWith: TrackActions.targetInTheWindowOfThisMac)
+    try click(locator)
+  }
+
+  /// The element a locator names in the window of the project, and the middle of it.
+  private static func targetInTheWindowOfThisMac(
+    _ locator: Locator
+  ) throws -> (element: AXUIElement, centre: CGPoint) {
+    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window with the tracks of a project in it, so "
+          + "\(Locators.mainWindow.name) reached nothing to click.")
+    }
+    let element = try LocatorResolver.element(of: locator, in: project.root)
+    guard let live = element as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which nothing can click.",
+        code: .internalFailure)
+    }
+    guard let centre = TrackActions.centre(of: live.element) else {
+      throw Refusal(
+        reason: "Logic does not say where \(locator.name) sits, so nothing could click its centre.")
+    }
+    return (element: live.element, centre: centre)
+  }
+
+  /// The middle of one element, or nothing when Logic answers no position or no size for it.
+  ///
+  /// The point is in the coordinates of the screen, which is what the window server reads and what
+  /// Accessibility answers, so the gate finds the element it is aimed at under the same point.
+  private static func centre(of element: AXUIElement) -> CGPoint? {
+    guard let position = TrackActions.position(of: element),
+      let size = TrackActions.size(of: element)
+    else {
+      return nil
+    }
+    return CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
+  }
+
+  /// Where the top left corner of one element sits, or nothing when Logic does not say.
+  private static func position(of element: AXUIElement) -> CGPoint? {
+    var read = CGPoint.zero
+    guard let value = TrackActions.axValue(kAXPositionAttribute, of: element),
+      AXValueGetValue(value, .cgPoint, &read)
+    else {
+      return nil
+    }
+    return read
+  }
+
+  /// How big one element is, or nothing when Logic does not say.
+  private static func size(of element: AXUIElement) -> CGSize? {
+    var read = CGSize.zero
+    guard let value = TrackActions.axValue(kAXSizeAttribute, of: element),
+      AXValueGetValue(value, .cgSize, &read)
+    else {
+      return nil
+    }
+    return read
+  }
+
+  /// One attribute of an element that carries a point, a size or a range, or nothing when the read
+  /// fails or the attribute carries something else.
+  private static func axValue(_ name: String, of element: AXUIElement) -> AXValue? {
+    var found: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, name as CFString, &found) == .success,
+      let read = found, CFGetTypeID(read) == AXValueGetTypeID()
+    else {
+      return nil
+    }
+    return (read as! AXValue)
   }
 }
 

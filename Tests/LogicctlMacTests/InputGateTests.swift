@@ -152,3 +152,35 @@ private let somewhere = CGPoint(x: 120, y: 340)
     #expect(!text.contains("CGEventPost"), "\(file.lastPathComponent) posts an event of its own")
   }
 }
+
+/// Logic says whether Logic is in front, and nothing else is asked.
+///
+/// The gate sends an event to the window server, and the window server hands it to whichever
+/// application is in front. So the gate reads that before it sends, and the read has to be a read
+/// Logic answers. Measured on Logic 12.3.1 on 2026-09-27, with Logic in front and `status`
+/// answering frontmost true: `kAXFocusedApplicationAttribute` on the system wide element answered
+/// error -25204 five times out of five, and `kAXFrontmostAttribute` on the application element of
+/// Logic answered success and true five times out of five. `tracks mute --index 1 --on` refused
+/// with `logicIsNotFrontmost` while Logic was in front.
+///
+/// Only a successful read of a true says Logic is in front. An error says nothing. A missing value
+/// says nothing. A value of another kind says nothing. The gate reads all three as not frontmost,
+/// because an event sent on a value nobody answered reaches whatever application is there, and no
+/// later read of Logic can tell that it happened.
+@Test func theGateReadsFrontmostFromTheLogicApplicationElement() {
+  let answered = AXError.success.rawValue
+  let refused = AXError.cannotComplete.rawValue
+
+  #expect(
+    InputGate.isFrontmost(read: answered, value: true as CFTypeRef),
+    "Logic answers that it is in front, so the gate may send the event")
+  #expect(
+    InputGate.isFrontmost(read: answered, value: false as CFTypeRef) == false,
+    "Logic answers that another application is in front")
+  #expect(
+    InputGate.isFrontmost(read: answered, value: "true" as CFTypeRef) == false,
+    "a value that is not a boolean is not an answer about the front application")
+  #expect(
+    InputGate.isFrontmost(read: refused, value: nil) == false,
+    "the read that answered -25204 on this Mac says nothing about the front application")
+}

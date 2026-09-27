@@ -100,6 +100,26 @@ public struct InputGate {
 }
 
 extension InputGate {
+  /// Whether one read of the frontmost attribute of Logic says Logic is the application in front.
+  ///
+  /// An event goes to the window server, and the window server hands it to the application in
+  /// front, so the gate asks before it sends. It asks Logic. Measured on Logic 12.3.1 on
+  /// 2026-09-27, with Logic in front: `kAXFrontmostAttribute` on the application element of Logic
+  /// answered success and true five times out of five, while `kAXFocusedApplicationAttribute` on
+  /// the system wide element answered error -25204 five times out of five and named no
+  /// application at all.
+  ///
+  /// Only a successful read of a true says Logic is in front. An error says nothing, a missing
+  /// value says nothing, and a value of another kind says nothing. Each of those answers false,
+  /// because an event sent on a value nobody answered reaches whatever application is there, and
+  /// no later read of Logic can tell that it happened.
+  public static func isFrontmost(read code: Int32, value: CFTypeRef?) -> Bool {
+    guard code == AXError.success.rawValue, let value else {
+      return false
+    }
+    return value as? Bool == true
+  }
+
   /// The gate that reads the real Logic and sends to the real window server.
   ///
   /// The pipeline has no Logic, so no test in the pipeline drives this gate. The live suite proves
@@ -107,7 +127,7 @@ extension InputGate {
   public static func live(logic pid: pid_t) -> InputGate {
     let application = AXUIElementCreateApplication(pid)
     return InputGate(
-      frontmost: { frontmostProcess() == pid },
+      frontmost: { logicIsFrontmost(application) },
       modal: { windows(of: application).contains(where: isModal) },
       elementAtPoint: { point in element(of: application, at: point) },
       focus: { element(named: kAXFocusedUIElementAttribute, of: application) },
@@ -115,19 +135,11 @@ extension InputGate {
   }
 }
 
-/// The process the window server sends events to, or nil when Accessibility reads none.
-private func frontmostProcess() -> pid_t? {
-  guard
-    let application = element(
-      named: kAXFocusedApplicationAttribute, of: AXUIElementCreateSystemWide())
-  else {
-    return nil
-  }
-  var pid: pid_t = 0
-  guard AXUIElementGetPid(application, &pid) == .success else {
-    return nil
-  }
-  return pid
+/// Whether Logic says it is the application in front.
+private func logicIsFrontmost(_ application: AXUIElement) -> Bool {
+  var value: CFTypeRef?
+  let read = AXUIElementCopyAttributeValue(application, kAXFrontmostAttribute as CFString, &value)
+  return InputGate.isFrontmost(read: read.rawValue, value: value)
 }
 
 /// The windows of an application, or an empty list when Accessibility reads none.
