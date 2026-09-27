@@ -203,6 +203,50 @@ private func aRegion(_ index: Int, from start: String, to end: String) -> Region
   #expect(RegionReader.borders(of: "Region starts at 1 bar and never ends").end == "")
 }
 
+/// A person reads the regions of a track that sits after the fourth row, and finds them.
+///
+/// Logic writes a description on some of the areas under `Tracks contents` and none on the rest,
+/// and the numbers in the ones it writes do not follow the rows. So the only thing that says which
+/// track an area belongs to is its place in the group. A person who imports a MIDI file of seven
+/// tracks reads the regions the import made on every one of them, and not on the first four alone.
+@Test func theRegionReaderFindsATrackByItsPlace() throws {
+  let window = try treeRead(from: aWindowOfSevenTracks)
+
+  let onTheSixth = RegionReader.regions(ofTrack: 6, in: window)
+  let sixth = try #require(onTheSixth.first, "the sixth track carries the region of the sixth area")
+  #expect(onTheSixth.count == 1)
+  #expect(sixth.name == "Sixth")
+  #expect(sixth.start == "3 bars")
+  #expect(sixth.end == "4 bars")
+
+  let onTheSeventh = RegionReader.regions(ofTrack: 7, in: window)
+  let seventh = try #require(onTheSeventh.first, "and the seventh the region of the seventh area")
+  #expect(seventh.name == "Seventh")
+  #expect(seventh.start == "58 bars")
+  #expect(seventh.end == "59 bars")
+
+  #expect(
+    RegionReader.regions(ofTrack: 8, in: window).isEmpty,
+    "eight areas give seven tracks, because the last area is the room under the last track")
+
+  let onTheFifth = RegionReader.regions(ofTrack: 5, in: window)
+  #expect(
+    onTheFifth.map(\.name) == ["Fifth"],
+    "the first area with no description is a track and not the room")
+  #expect(
+    (1...4).allSatisfy { RegionReader.regions(ofTrack: $0, in: window).isEmpty },
+    "the four described areas keep their place and carry nothing")
+
+  let recorded = try treeRoot(of: "mixer-and-event-list-in-front.json")
+
+  #expect(
+    RegionReader.regions(ofTrack: 4, in: recorded).map(\.start) == ["1 bar"],
+    "the fourth track of the recorded project carries the region the recording shows on it")
+  #expect(
+    RegionReader.regions(ofTrack: 5, in: recorded).map(\.start) == ["58 bars"],
+    "and the fifth carries its own, which no other track of that recording carries")
+}
+
 /// A window of two tracks, the second carrying two regions, and the room under the last track.
 private let aWindowOfTwoRegions = """
   {
@@ -228,6 +272,67 @@ private let aWindowOfTwoRegions = """
                   "role": "AXLayoutItem",
                   "description": "Verse",
                   "help": "Region starts at 3 bars  and ends at 5 bars , MIDI region. "
+                }
+              ]
+            },
+            { "role": "AXLayoutArea" }
+          ]
+        }
+      ]
+    }
+  }
+  """
+
+/// A window of seven tracks, described the way Logic 12.3.1 describes them after a MIDI import.
+///
+/// Measured on 2026-09-27: the group holds eight layout areas in the order of the rows from the
+/// top, the first four carry a description whose number does not follow its row, the last four
+/// carry none, the eighth is the room under the last track, and children of other roles stand
+/// between some of the areas. Rows 5, 6 and 7 carry one region each.
+private let aWindowOfSevenTracks = """
+  {
+    "logicVersion": "12.3.1",
+    "root": {
+      "role": "AXWindow",
+      "children": [
+        {
+          "role": "AXGroup",
+          "description": "Tracks contents",
+          "children": [
+            { "role": "AXLayoutArea", "description": "Track 1 \\u201cDeluxe Classic\\u201d" },
+            { "role": "AXButton", "description": "Mute" },
+            { "role": "AXLayoutArea", "description": "Track 3 \\u201cStudio Grand\\u201d" },
+            { "role": "AXLayoutItem" },
+            { "role": "AXLayoutArea", "description": "Track 5 \\u201cStudio Grand\\u201d" },
+            { "role": "AXLayoutArea", "description": "Track 7 \\u201cEpic Cloud Formation\\u201d" },
+            {
+              "role": "AXLayoutArea",
+              "children": [
+                {
+                  "role": "AXLayoutItem",
+                  "description": "Fifth",
+                  "help": "Region starts at 1 bar  and ends at 2 bars , MIDI region. "
+                }
+              ]
+            },
+            { "role": "AXButton", "description": "Solo" },
+            {
+              "role": "AXLayoutArea",
+              "children": [
+                {
+                  "role": "AXLayoutItem",
+                  "description": "Sixth",
+                  "help": "Region starts at 3 bars  and ends at 4 bars , MIDI region. "
+                }
+              ]
+            },
+            {
+              "role": "AXLayoutArea",
+              "children": [
+                {
+                  "role": "AXLayoutItem",
+                  "description": "Seventh",
+                  "help": "Region starts at 58 bars  and ends at 59 bars , MIDI region. "
                 }
               ]
             },
