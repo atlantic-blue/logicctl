@@ -104,6 +104,10 @@ private func recorded(_ tree: String) throws -> any AXNode {
 /// press, and the tree it recorded of the same region with three points in it afterwards. So the
 /// points can only reach the answer through the two presses, and a command that read the Event
 /// List before pressing, or after only the first press, finds no point at all.
+///
+/// Logic draws in the Event List the region that is selected, and it keeps drawing what it drew
+/// until the selection changes. So a scenario says what the list waits for. The default is the
+/// second press, and a scenario of the redraw waits for the region to be taken again after it.
 private final class AFakeLogic {
   /// The title of the item that makes the points at the borders of the selected region.
   static let createTitle = "Create 2 Automation Points at Region Borders"
@@ -153,9 +157,20 @@ private final class AFakeLogic {
   /// the command named.
   private let selection: AutomationMenus.RegionSelection?
 
+  /// What the Event List waits for after the second press, beside the press itself.
+  private let theEventListShowsThePoints: () -> Bool
+
+  /// The regions this Logic holds selected, as it describes each one.
+  ///
+  /// A scenario that gives a selection of its own drives the items of its own window. A scenario
+  /// that drives a window `inspect` recorded holds no such item, so its selection is the one this
+  /// fake answers with.
+  private var heldRegions: Set<String> = []
+
   init(
     tracks: any AXNode, before: any AXNode, after: any AXNode,
     selection: AutomationMenus.RegionSelection? = nil,
+    theEventListShowsThePoints: @escaping () -> Bool = { true },
     theEventListHasTheFocus: Bool = false,
     itDoesNotOffer notOffered: Set<String> = [],
     itIsOfferedAfterWalks offeredAfterWalks: [String: Int] = [:],
@@ -165,6 +180,7 @@ private final class AFakeLogic {
     self.before = before
     self.after = after
     self.selection = selection
+    self.theEventListShowsThePoints = theEventListShowsThePoints
     self.notOffered = notOffered
     self.offeredAfterWalks = offeredAfterWalks
     self.theRaiseTakesTheFocus = theRaiseTakesTheFocus
@@ -174,6 +190,40 @@ private final class AFakeLogic {
   /// How many times the walk of the menu bar resolved one item.
   func walksOf(_ item: String) -> Int {
     walks[item] ?? 0
+  }
+
+  /// The clock every wait of the command reads. The fake moves it itself, so a wait of any length
+  /// costs the suite no time.
+  var clock: Wait.Clock {
+    time.read
+  }
+
+  /// The sleep every wait of the command takes between two reads, which moves that same clock.
+  var sleeper: Wait.Sleeper {
+    time.sleep
+  }
+
+  /// The selection the command drives when it takes the region again.
+  ///
+  /// It is the selection of the scenario when it gave one, so the writes of the command land on
+  /// the items the first select wrote on, and one scenario counts them in one place. The selection
+  /// of the running Logic answers nothing on a recorded node, so a scenario that gave none drives
+  /// the one below.
+  var selectionForTheCommand: AutomationMenus.RegionSelection {
+    selection
+      ?? AutomationMenus.RegionSelection(
+        holds: { item in self.heldRegions.contains(item.description ?? "") },
+        write: { item in self.toggle(item.description ?? "") },
+        same: { one, other in one.description == other.description })
+  }
+
+  /// One write of `AXSelected` on a region of a recorded window, which toggles that region.
+  private func toggle(_ region: String) {
+    if heldRegions.contains(region) {
+      heldRegions.remove(region)
+    } else {
+      heldRegions.insert(region)
+    }
   }
 
   /// The title of the window the tracks sit in, which is the window a press has to land in.
@@ -187,7 +237,13 @@ private final class AFakeLogic {
       logicVersion: recordedVersion,
       root: Element(
         role: "AXApplication",
-        children: [tracks, converted ? after : before, theMenuBar]))
+        children: [tracks, theEventList, theMenuBar]))
+  }
+
+  /// The Event List window Logic is showing: the region with its points once both presses landed
+  /// and the list redrew, and the region with its notes alone until then.
+  private var theEventList: any AXNode {
+    converted && theEventListShowsThePoints() ? after : before
   }
 
   /// The menu bar of Logic, with the two items of the Mix menu this command presses.
@@ -262,7 +318,11 @@ private final class AFakeLogic {
       select: { region in
         self.did.append("select")
         self.selected.append(region.description ?? "")
-        try self.selection?.makeTheOnlySelection(region, under: self.tracks)
+        if let selection = self.selection {
+          try selection.makeTheOnlySelection(region, under: self.tracks)
+        } else {
+          self.heldRegions = [region.description ?? ""]
+        }
       },
       raiseTheTracksWindow: {
         self.raises += 1
@@ -311,7 +371,10 @@ private func automationAdd(
     of: { logic.tree },
     confirmed: add.guarded.confirm,
     menus: logic.menus,
+    selection: logic.selectionForTheCommand,
     root: root ?? URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
+    clock: logic.clock,
+    sleeper: logic.sleeper,
     standardOutput: { out += $0 },
     standardError: { err += $0 })
   return Answer(out: out, err: err, status: status)
@@ -571,7 +634,9 @@ private func aProjectOfSevenImportedTracks() -> [Track] {
   #expect(
     shown.regions.filter({ $0.value.held }).keys.sorted() == [3],
     "Logic holds the region of track 3, and it holds no other region")
-  #expect(shown.regions[3]?.writes == 1, "the named region is written once, which selects it")
+  #expect(
+    shown.regions[3]?.writes == 3,
+    "the named region is written once to select it, and twice more to make Logic draw it again")
   #expect(
     shown.regions[6]?.writes == 1 && shown.regions[7]?.writes == 1,
     "each region Logic held is written once, which lets it go")
@@ -832,4 +897,90 @@ private func aProjectOfFourRegions() -> [Track] {
     gave?["waitedMs"] as? Int == 5000,
     "the wait says how long it gave Logic, and five seconds is the limit of a wait that names none")
   #expect(deaf.did.isEmpty, "no region was selected and no item of the Mix menu was pressed")
+}
+
+/// A person adds automation points, and reads the points Logic made rather than a sentence that
+/// says it made none.
+///
+/// Measured on this Mac on 2026-09-27, on a fresh copy after `midi import`, with both items of the
+/// Mix menu pressed. The Event List draws the region that is selected. It kept the notes of the
+/// region for more than 30 seconds after the convert, and `automation list` read no point in it. A
+/// wait alone does not redraw it. A write of `AXSelected` on the region item, and a second write
+/// half a second later, drew the points at once. The region held four Volume points at value 90.
+///
+/// So today the command presses both items, reads the Event List once, finds the notes, and
+/// answers `element_not_found`. Its sentence says Logic made no point. The region holds the points
+/// by then, so the answer and the project disagree. A person reads that nothing happened and runs
+/// the command again, and the region gains a second set of points at values nobody chose. An agent
+/// reads a failure and stops.
+///
+/// The three parts are the three ways that ends. The command lets the region go, takes it again,
+/// and then reads the points. The same Logic answers no point to a command that does not take the
+/// region again. A list that never draws a point costs the command its wait and no more, and the
+/// command says so with `timeout` rather than with an element that is missing.
+@Test func automationSelectsTheRegionAgainBeforeItReadsThePoints() throws {
+  let shown = aTracksWindowOfFourRegions(holding: [6, 7])
+  let named = try #require(shown.regions[3], "the region of track 3 is the one the person names")
+  let logic = AFakeLogic(
+    tracks: shown.window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    selection: aSelectionThatAnswersLikeLogic(),
+    theEventListShowsThePoints: { named.writes == 3 && named.held })
+
+  let answer = try automationAdd(
+    ["--track", "3", "--region", "1"], logic: logic, tracks: aProjectOfFourRegions())
+
+  #expect(answer.status == 0, "the command goes through")
+  #expect(try answer.points().count == 3, "and it answers every point Logic made")
+  #expect(
+    try answer.points().map { $0["value"] as? Int } == [60, 90, 110],
+    "each point carries the value the Event List shows on its row")
+  #expect(
+    named.writes == 3,
+    "the region is written once to select it, and twice more to let it go and take it again")
+  #expect(
+    shown.regions.filter({ $0.value.held }).keys.sorted() == [3],
+    "and the region the person named is the only region Logic holds at the end")
+
+  // The same Logic, driven through the two presses and no second selection. Its Event List holds
+  // no automation row, so the points above reached the answer through that selection and through
+  // nothing else.
+  let quiet = aTracksWindowOfFourRegions(holding: [6, 7])
+  let alone = try #require(quiet.regions[3])
+  let unrefreshed = AFakeLogic(
+    tracks: quiet.window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    selection: aSelectionThatAnswersLikeLogic(),
+    theEventListShowsThePoints: { alone.writes == 3 && alone.held })
+  let itsRegion = try #require(
+    AutomationMenus.regionItem(number: 1, ofTrack: 3, in: quiet.window))
+
+  try unrefreshed.menus.addPoints(atTheBordersOf: itsRegion)
+
+  let list = try #require(EventList.window(of: unrefreshed.tree), "Logic shows the Event List")
+  #expect(
+    try AutomationMenus.points(in: list).isEmpty,
+    "both items were pressed, and the list still draws the notes of the region alone")
+
+  // A Logic that never draws a point. The command gives it the limit of a wait and then says how
+  // long it gave it, on a clock this test moves itself.
+  let silent = AFakeLogic(
+    tracks: try recorded("region.json"),
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    theEventListShowsThePoints: { false })
+
+  let waited = try automationAdd(["--track", "3", "--region", "1"], logic: silent)
+
+  #expect(waited.status == 6, "the number the design system gives timeout")
+  #expect(try waited.error()["code"] as? String == "timeout")
+  let gave = try waited.error()["details"] as? [String: Any] ?? [:]
+  #expect(gave["track"] as? Int == 3, "the details carry the track the person named")
+  #expect(gave["region"] as? Int == 1, "and the region on it, so an agent reads which region")
+  #expect(
+    gave["waitedMs"] as? Int == 5000,
+    "with the time it gave Logic, which is the limit of a wait that names none")
+  #expect(try waited.printed()["data"] is NSNull, "a failure carries no data")
 }
