@@ -511,6 +511,22 @@ extension PhaseFour {
     }
   }
 
+  /// A folder of its own for one acceptance run, in the home folder of this Mac.
+  ///
+  /// The Import panel of Logic lists the visible folders of a path and opens only what it lists.
+  /// The temporary folder of this Mac resolves under `/var/folders`, and `/var` is hidden, so a
+  /// MIDI file written there is a file the panel can never reach. Measured on this Mac on
+  /// 2026-09-27: `midi import` answered `invalid_argument` for a file under `/var/folders`, and
+  /// all nine scenarios of the phase stopped on it. The home folder is listed, and it is not the
+  /// music folder, so the run works there and takes the folder away when it ends.
+  static func folderOfTheRun(
+    under home: URL = FileManager.default.homeDirectoryForCurrentUser
+  ) throws -> URL {
+    let folder = home.appending(path: "logicctl-live-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
+  }
+
   /// Asks a person at the Mac for something, and waits until it is there.
   ///
   /// Two things in this phase need a hand. Logic shows the notes and the points of a region in
@@ -579,7 +595,8 @@ private final class AcceptanceRun: @unchecked Sendable {
   }
 
   private func start() throws -> Opened {
-    let folder = try LiveHarness.temporaryFolder()
+    let folder = try PhaseFour.folderOfTheRun()
+    print("phase 4 works in: \(folder.path)")
     let copy = try LiveHarness.copyOfTheScratchProject(into: folder)
     try LiveHarness.openInLogic(copy)
 
@@ -869,6 +886,10 @@ struct Phase4LiveScenarios {
     #expect(status == 20, "an edit that meets two rows exits 20")
     #expect(named.sorted() == rows.sorted(), "and it names both rows: \(named)")
     #expect(moved.isEmpty, "and it wrote nothing: \(moved)")
+
+    // This is the last edit of the flow, so the home folder of this Mac is left as it was found.
+    // A run that stopped earlier leaves its folder, and the line it printed says where.
+    try? FileManager.default.removeItem(at: run.folder)
   }
 }
 
@@ -944,9 +965,20 @@ extension PhaseFour {
     "the scenarios are off unless a person turns the live suite on, one at a time when it is on")
   let onACopy =
     source.contains("LiveHarness.copyOfTheScratchProject(into: folder)")
-    && source.contains("LiveHarness.temporaryFolder()")
+    && source.contains("PhaseFour.folderOfTheRun()")
   #expect(
     onACopy, "and they work on a copy, in a folder of the run, never on the project of a person")
+
+  let home = try LiveHarness.temporaryFolder()
+  let ofTheRun = try PhaseFour.folderOfTheRun(under: home)
+  let above = ofTheRun.deletingLastPathComponent().standardizedFileURL.path
+  #expect(
+    above == home.standardizedFileURL.path,
+    "the run works directly under the home folder, which the Import panel of Logic lists")
+  #expect(
+    ofTheRun.lastPathComponent.hasPrefix(".") == false,
+    "and the folder it makes there is visible, or the panel lists everything but it")
+  try? FileManager.default.removeItem(at: home)
 
   let writes = [
     PhaseFour.importOf(file: URL(fileURLWithPath: "/tmp/phase-four.mid")),
