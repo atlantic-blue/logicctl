@@ -103,12 +103,20 @@ extension Midi.Import {
       format: format, standardOutput: standardOutput, standardError: standardError)
 
     let facts: ImportFile.Facts
+    let channels: [Int]
     do {
       facts = try disk.facts(of: file)
+      channels = MidiImportCommand.channels(usedIn: [UInt8](try disk.read(facts.path.resolved)))
     } catch {
       return printer.write(
         Envelope.failure(
           Midi.Import.failure(for: error),
+          meta: AnswerMeta.refusal(version: version, from: started, to: now())))
+    }
+    guard !channels.isEmpty else {
+      return printer.write(
+        Envelope.failure(
+          Midi.Import.namesNoChannel(file),
           meta: AnswerMeta.refusal(version: version, from: started, to: now())))
     }
 
@@ -123,6 +131,7 @@ extension Midi.Import {
     let command = MidiImportCommand(
       argv: argv,
       facts: facts,
+      channels: channels,
       dialog: dialog,
       limitMs: limitMs,
       clock: clock,
@@ -140,6 +149,19 @@ extension Midi.Import {
       message: "--file must name a file that can be read: \(error)",
       details: .object(["field": .string("--file")]))
   }
+
+  /// What the command refuses a file with when its bytes name no MIDI channel.
+  ///
+  /// Logic makes one track for each channel a file uses, so a file that uses none gives the
+  /// command nothing to wait for. A run that pressed Import here would wait out its limit and
+  /// answer a timeout for a file that carries no notes at all.
+  static func namesNoChannel(_ file: String) -> Failure {
+    Failure(
+      code: .invalidArgument,
+      message: "--file must name a MIDI file that carries notes, and \(file) carries no event "
+        + "on any MIDI channel.",
+      details: .object(["field": .string("--file")]))
+  }
 }
 
 /// The import of one MIDI file, as the run of a command sees it.
@@ -155,6 +177,10 @@ struct MidiImportCommand: LogicCommand {
   /// Where the file is and what its bytes hash to.
   let facts: ImportFile.Facts
 
+  /// The MIDI channels the events of the file use, from 1, lowest first. Logic makes one track
+  /// for each of them, so this is how many tracks the command waits for.
+  let channels: [Int]
+
   /// The route through the panel of Logic.
   let dialog: ImportDialog
 
@@ -167,48 +193,91 @@ struct MidiImportCommand: LogicCommand {
   /// How a wait sleeps between two reads.
   let sleeper: Wait.Sleeper
 
-  /// Walks the panel to the file, presses Import, and answers the track Logic made for it.
+  /// Walks the panel to the file, presses Import, and answers every track Logic made for it.
+  ///
+  /// Logic makes one software instrument track for each MIDI channel the file uses. Measured on
+  /// this Mac on 2026-09-27: a copy of 5 tracks held 7 after a file of two channels was imported.
+  /// So the command waits for one new track for each channel of the file, and answers all of
+  /// them. A command that waited for one would wait out its limit and report that nothing
+  /// happened, while the notes were in the project and the person had tracks nobody asked for.
   ///
   /// A press that Logic took proves nothing by itself, so the command reads the project
-  /// afterwards. It reports success only once the project holds the new track and that track holds
-  /// a region. A press that made no track, and a track that came up empty, both mean the notes are
-  /// not in the project, and a person reading a success there would go looking for a region that
-  /// is not there.
+  /// afterwards. It reports success only once every one of those tracks holds a region. A press
+  /// that made no track, and a track that came up empty, both mean notes are missing from the
+  /// project, and a person reading a success there would go looking for a region that is not
+  /// there.
+  ///
+  /// `track` and `region` carry the first of the tracks, which is what they carried when the
+  /// answer named one track, so a caller written against that answer reads the same two fields.
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let before = try driver.readState().tracks
     try dialog.importTheFile(at: facts.path, limitMs: limitMs, clock: clock, sleeper: sleeper)
 
     try waitForTheProject {
-      try driver.readState().tracks.count == before.count + 1
+      try driver.readState().tracks.count == before.count + channels.count
     }
     let after = try driver.readState().tracks
-    guard var added = TracksAddCommand.theTrack(gainedFrom: before, in: after) else {
+    let made = TracksAddCommand.theTracks(gainedFrom: before, in: after)
+    guard made.count == channels.count else {
       throw MidiImportCommand.didNotReachTheProject
     }
 
     try waitForTheProject {
-      try MidiImportCommand.theRegion(ofTrackNumbered: added.index, in: driver) != nil
+      let rows = try driver.readState().tracks
+      return made.allSatisfy { track in
+        rows.first(where: { $0.index == track.index })?.regions.first != nil
+      }
     }
-    guard let region = try MidiImportCommand.theRegion(ofTrackNumbered: added.index, in: driver)
-    else {
+
+    var landed: [(track: Track, region: Region)] = []
+    for row in made {
+      guard let region = try MidiImportCommand.theRegion(ofTrackNumbered: row.index, in: driver)
+      else {
+        throw MidiImportCommand.didNotReachTheProject
+      }
+      // The header of a track says nothing about its kind, so a row read back from Logic reads
+      // as the kind that is neither. Logic makes a software instrument track for each channel of
+      // a MIDI file, and there is no other kind it could have made.
+      var track = row
+      track.type = .softwareInstrument
+      landed.append((track: track, region: region))
+    }
+    guard let first = landed.first else {
       throw MidiImportCommand.didNotReachTheProject
     }
 
-    // The header of a track says nothing about its kind, so a row read back from Logic reads as
-    // the kind that is neither. Logic makes a software instrument track for a MIDI file, and there
-    // is no other kind it could have made.
-    added.type = .softwareInstrument
     return .object([
-      "track": .object([
-        "index": .number(Double(added.index)),
-        "name": .string(added.name),
-        "type": .string(added.type.rawValue),
-      ]),
-      "region": .object([
-        "startBar": MidiImportCommand.bar(in: region.start),
-        "endBar": MidiImportCommand.bar(in: region.end),
-      ]),
+      "track": MidiImportCommand.row(of: first.track),
+      "region": MidiImportCommand.bars(of: first.region),
+      "tracks": .array(landed.map { MidiImportCommand.entry(of: $0.track, with: $0.region) }),
       "sha256": .string(facts.sha256),
+    ])
+  }
+
+  /// One track of the answer: its number, its name and its kind.
+  static func row(of track: Track) -> JSONValue {
+    .object([
+      "index": .number(Double(track.index)),
+      "name": .string(track.name),
+      "type": .string(track.type.rawValue),
+    ])
+  }
+
+  /// Where a region starts and ends, as bars.
+  static func bars(of region: Region) -> JSONValue {
+    .object([
+      "startBar": MidiImportCommand.bar(in: region.start),
+      "endBar": MidiImportCommand.bar(in: region.end),
+    ])
+  }
+
+  /// One entry of `tracks`: a track Logic made, and where the region on it sits.
+  static func entry(of track: Track, with region: Region) -> JSONValue {
+    .object([
+      "index": .number(Double(track.index)),
+      "name": .string(track.name),
+      "type": .string(track.type.rawValue),
+      "region": MidiImportCommand.bars(of: region),
     ])
   }
 
@@ -247,5 +316,145 @@ struct MidiImportCommand: LogicCommand {
       return .null
     }
     return .number(Double(number))
+  }
+}
+
+extension MidiImportCommand {
+  /// One chunk of a standard MIDI file: its name, and where its bytes start and end.
+  struct Chunk {
+    let name: String
+    let start: Int
+    let end: Int
+  }
+
+  /// The MIDI channels the events of a standard MIDI file use, from 1, lowest first.
+  ///
+  /// The bytes are walked and not searched. A file may write a run of notes in running status,
+  /// where the status byte is left out and the data bytes follow on their own, so a search for
+  /// bytes from 0x80 to 0xEF would read a data byte as a status byte and count a channel nobody
+  /// used. The walk reads a delta time, then the event, and it knows how long each event is.
+  ///
+  /// Bytes the walk cannot read end the walk and keep what it read up to there. A file that is
+  /// not a standard MIDI file names no channel, and the caller refuses it before Logic is asked
+  /// anything.
+  static func channels(usedIn bytes: [UInt8]) -> [Int] {
+    var used: Set<Int> = []
+    var place = 0
+    while let chunk = MidiImportCommand.chunk(at: place, in: bytes) {
+      if chunk.name == "MTrk" {
+        MidiImportCommand.readEvents(of: Array(bytes[chunk.start..<chunk.end]), into: &used)
+      }
+      place = chunk.end
+    }
+    return used.sorted()
+  }
+
+  /// The chunk that starts at one place, or nothing when the bytes carry no whole chunk there.
+  ///
+  /// A chunk is four bytes of name, four bytes of length with the highest byte first, and then
+  /// that many bytes.
+  static func chunk(at place: Int, in bytes: [UInt8]) -> Chunk? {
+    guard place >= 0, place + 8 <= bytes.count else {
+      return nil
+    }
+    let name = String(decoding: bytes[place..<(place + 4)], as: UTF8.self)
+    var length = 0
+    for step in 0..<4 {
+      length = (length << 8) | Int(bytes[place + 4 + step])
+    }
+    let start = place + 8
+    let end = start + length
+    guard end <= bytes.count else {
+      return nil
+    }
+    return Chunk(name: name, start: start, end: end)
+  }
+
+  /// Every channel the events of one track chunk use, added to what is known already.
+  ///
+  /// A meta event and a system exclusive event each carry their own length and are stepped over.
+  /// A byte under 0x80 where a status byte belongs is running status: the event repeats the
+  /// status of the event before it, and only a channel event may be repeated that way.
+  static func readEvents(of bytes: [UInt8], into used: inout Set<Int>) {
+    var place = 0
+    var running: UInt8?
+    while place < bytes.count {
+      guard let time = MidiImportCommand.variableLength(at: place, in: bytes) else {
+        return
+      }
+      place = time.after
+      guard place < bytes.count else {
+        return
+      }
+
+      var status = bytes[place]
+      if status < 0x80 {
+        guard let repeated = running else {
+          return
+        }
+        status = repeated
+      } else {
+        place += 1
+      }
+
+      if status < 0xf0 {
+        running = status
+        used.insert(Int(status & 0x0f) + 1)
+        place += MidiImportCommand.dataBytes(after: status)
+        continue
+      }
+
+      running = nil
+      switch status {
+      case 0xff:
+        guard place < bytes.count else {
+          return
+        }
+        place += 1
+        guard let length = MidiImportCommand.variableLength(at: place, in: bytes) else {
+          return
+        }
+        place = length.after + length.value
+      case 0xf0, 0xf7:
+        guard let length = MidiImportCommand.variableLength(at: place, in: bytes) else {
+          return
+        }
+        place = length.after + length.value
+      case 0xf2:
+        place += 2
+      case 0xf3:
+        place += 1
+      default:
+        break
+      }
+    }
+  }
+
+  /// How many data bytes follow one channel status byte. A program change and a channel pressure
+  /// carry one, and every other channel message carries two.
+  static func dataBytes(after status: UInt8) -> Int {
+    let kind = status & 0xf0
+    return (kind == 0xc0 || kind == 0xd0) ? 1 : 2
+  }
+
+  /// A variable length quantity read at one place: its value, and the place after it.
+  ///
+  /// The format writes seven bits of the number in each byte, with the top bit set on every byte
+  /// but the last, and four bytes at most.
+  static func variableLength(at place: Int, in bytes: [UInt8]) -> (value: Int, after: Int)? {
+    var value = 0
+    var here = place
+    for _ in 0..<4 {
+      guard here >= 0, here < bytes.count else {
+        return nil
+      }
+      let byte = bytes[here]
+      here += 1
+      value = (value << 7) | Int(byte & 0x7f)
+      if byte & 0x80 == 0 {
+        return (value, here)
+      }
+    }
+    return nil
   }
 }
