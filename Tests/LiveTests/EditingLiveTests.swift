@@ -464,9 +464,15 @@ extension PhaseFour {
     return read[3] == 1
   }
 
-  /// Whether these positions rise, read as the numbers Logic shows and not as text.
+  /// Whether each of these positions is no earlier than the one before it.
   ///
-  /// Text is the wrong order, because bar 10 sorts before bar 9 as words.
+  /// Two of them can read the same. Logic makes two automation points at the start of a region,
+  /// and it did on this Mac on 2026-09-27: `automation list` read `58 1 1 1`, `58 1 1 1`,
+  /// `58 4 4 240` and `59 1 1 1` for one region, and the live run of step 8.27 read the same four.
+  /// So a pair that reads the same is Logic, and a later position in front of an earlier one is
+  /// a list nothing can be numbered from.
+  ///
+  /// The numbers are compared and never the text, because bar 10 sorts before bar 9 as words.
   static func inTimeOrder(_ positions: [String]) -> Bool {
     let read = positions.compactMap(numbers(of:))
     guard read.count == positions.count else {
@@ -475,16 +481,19 @@ extension PhaseFour {
     guard read.count > 1 else {
       return true
     }
-    for index in 1..<read.count where !rises(from: read[index - 1], to: read[index]) {
+    for index in 1..<read.count where isEarlier(read[index], than: read[index - 1]) {
       return false
     }
     return true
   }
 
-  /// Whether one position comes after another, place by place.
-  static func rises(from earlier: [Int], to later: [Int]) -> Bool {
-    for (was, now) in zip(earlier, later) where now != was {
-      return now > was
+  /// Whether one position comes before another, place by place.
+  ///
+  /// Two positions that read the same are neither before nor after each other, so this answers no
+  /// for them, and a list that holds a pair of them stays in order.
+  static func isEarlier(_ position: [Int], than other: [Int]) -> Bool {
+    for (one, another) in zip(position, other) where one != another {
+      return one < another
     }
     return false
   }
@@ -1055,7 +1064,12 @@ extension PhaseFour {
   #expect(
     PhaseFour.inTimeOrder(["9 1 1 1", "10 1 1 1"]),
     "bar 10 comes after bar 9, which it does not as words")
-  #expect(PhaseFour.inTimeOrder(["10 1 1 1", "9 1 1 1"]) == false, "and never the other way")
+  #expect(
+    PhaseFour.inTimeOrder(["10 1 1 1", "9 1 1 1"]) == false,
+    "a later position in front of an earlier one is a list nothing can be numbered from")
+  #expect(
+    PhaseFour.inTimeOrder(["58 1 1 1", "58 1 1 1", "58 4 4 240", "59 1 1 1"]),
+    "and the four points Logic made on this Mac are in order, two of them at the same place")
 
   let strip = [
     PhaseFour.Plugin(slot: 1, name: "Piano"), PhaseFour.Plugin(slot: 2, name: "Channel EQ"),
