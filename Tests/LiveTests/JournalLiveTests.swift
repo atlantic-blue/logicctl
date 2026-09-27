@@ -280,6 +280,10 @@ struct Phase7LiveScenarios {
 
     let copy = try JournalLive.copyForTheRun(into: folder)
     let name = copy.deletingPathExtension().lastPathComponent
+
+    // The mute leaves changes nobody saved, and Logic then asks to save them, which stops the
+    // scenario after this one on its first read. The quit discards them and closes the copy.
+    defer { Phase2Live.quitLogic() }
     try LiveHarness.openInLogic(copy)
 
     let read = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
@@ -340,11 +344,10 @@ struct Phase7LiveScenarios {
 
     let session = try JournalLive.replaySession()
 
-    let folder = try LiveHarness.temporaryFolder()
-    defer { try? FileManager.default.removeItem(at: folder) }
-
-    let copy = try JournalLive.copyForTheRun(into: folder)
-    try LiveHarness.openInLogic(copy)
+    // replay makes a project of its own, and new-project refuses while Logic shows one, so this
+    // scenario opens no copy and closes whatever Logic reopened as it started.
+    try Phase2Live.logicWithNoProject()
+    defer { Phase2Live.quitLogic() }
 
     let answer = try LiveHarness.logicctl(["replay", session])
     let carried = try LiveHarness.envelope(
@@ -380,6 +383,9 @@ struct Phase7LiveScenarios {
 
     let copy = try JournalLive.copyForTheRun(into: folder)
     let name = copy.deletingPathExtension().lastPathComponent
+
+    // The knob leaves the copy open, so the quit closes it for the scenario after this one.
+    defer { Phase2Live.quitLogic() }
     try LiveHarness.openInLogic(copy)
 
     // The watcher watches the project of a session, so the copy needs a session before it starts.
@@ -422,12 +428,14 @@ struct Phase7LiveScenarios {
 ///
 /// `make accept PART=7` is what proves this step, and it runs on this Mac and nowhere else. The
 /// pipeline has no Logic, so this is the scenario the pipeline runs, and it holds the acceptance to
-/// the four things that make its result worth reading. Each thing the step proves is a live
-/// scenario of its own, and each one says its name as it starts, because the target counts those
-/// lines and a phase whose scenarios were all left out would otherwise read as a phase that
-/// passed. The phase is off unless a person turns it on. It works on a copy in a folder of the run
-/// and never on the work of a person. And the target accepts phase 7 at all, because a phase it
-/// refuses is a phase nobody can accept.
+/// the things that make its result worth reading. Each thing the step proves is a live scenario of
+/// its own, and each one says its name as it starts, because the target counts those lines and a
+/// phase whose scenarios were all left out would otherwise read as a phase that passed. Each
+/// scenario ends with no project open, because Logic asks to save a copy that one scenario left
+/// changed and that question stops the scenario after it. The replay check opens no copy at all,
+/// because replay makes a project of its own. The phase is off unless a person turns it on. It
+/// works on a copy in a folder of the run and never on the work of a person. And the target
+/// accepts phase 7 at all, because a phase it refuses is a phase nobody can accept.
 @Test func journalAgainstLogic() throws {
   let source = try String(contentsOf: phaseFile, encoding: .utf8)
 
