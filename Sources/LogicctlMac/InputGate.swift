@@ -16,16 +16,41 @@ public struct InputGate {
   public enum Request {
     /// A click of the left button at a point, with the element that must be under that point.
     case click(CGPoint, target: AXUIElement)
+    /// Two clicks of the left button at one point, with the element that must be under it.
+    case doubleClick(CGPoint, target: AXUIElement)
     /// A key, with the element that must hold the focus, or nil when the caller names none.
     case key(CGKeyCode, flags: CGEventFlags, focus: AXUIElement?)
   }
 
   /// One event the gate sends once every check holds.
+  ///
+  /// The second press and release of a double click are cases of their own, because the window
+  /// server tells one click from two by the click state an event carries and not by how close
+  /// together two events arrive.
   public enum Event: Equatable {
     case mouseDown(CGPoint)
     case mouseUp(CGPoint)
+    case secondMouseDown(CGPoint)
+    case secondMouseUp(CGPoint)
     case keyDown(CGKeyCode, CGEventFlags)
     case keyUp(CGKeyCode, CGEventFlags)
+
+    /// How many clicks the window server reads this event as part of, or nothing when the event
+    /// carries no click at all.
+    ///
+    /// Logic opens the name editor of a track header on a double click, and a double click is two
+    /// clicks where the second one says it is the second. A pair of events that both said 1 is two
+    /// single clicks, which Logic answers by selecting the track twice.
+    public var clickState: Int64? {
+      switch self {
+      case .mouseDown, .mouseUp:
+        return 1
+      case .secondMouseDown, .secondMouseUp:
+        return 2
+      case .keyDown, .keyUp:
+        return nil
+      }
+    }
   }
 
   /// Why the gate sent nothing.
@@ -87,6 +112,14 @@ public struct InputGate {
       }
       sendOne(.mouseDown(point))
       sendOne(.mouseUp(point))
+    case .doubleClick(let point, let target):
+      guard let found = readElementAtPoint(point), CFEqual(found, target) else {
+        throw Refusal.theElementAtThePointIsNotTheTarget
+      }
+      sendOne(.mouseDown(point))
+      sendOne(.mouseUp(point))
+      sendOne(.secondMouseDown(point))
+      sendOne(.secondMouseUp(point))
     case .key(let code, let flags, let focus):
       if let focus {
         guard let holder = readFocus(), CFEqual(holder, focus) else {
@@ -100,6 +133,26 @@ public struct InputGate {
 }
 
 extension InputGate {
+  /// Whether one read of the frontmost attribute of Logic says Logic is the application in front.
+  ///
+  /// An event goes to the window server, and the window server hands it to the application in
+  /// front, so the gate asks before it sends. It asks Logic. Measured on Logic 12.3.1 on
+  /// 2026-09-27, with Logic in front: `kAXFrontmostAttribute` on the application element of Logic
+  /// answered success and true five times out of five, while `kAXFocusedApplicationAttribute` on
+  /// the system wide element answered error -25204 five times out of five and named no
+  /// application at all.
+  ///
+  /// Only a successful read of a true says Logic is in front. An error says nothing, a missing
+  /// value says nothing, and a value of another kind says nothing. Each of those answers false,
+  /// because an event sent on a value nobody answered reaches whatever application is there, and
+  /// no later read of Logic can tell that it happened.
+  public static func isFrontmost(read code: Int32, value: CFTypeRef?) -> Bool {
+    guard code == AXError.success.rawValue, let value else {
+      return false
+    }
+    return value as? Bool == true
+  }
+
   /// The gate that reads the real Logic and sends to the real window server.
   ///
   /// The pipeline has no Logic, so no test in the pipeline drives this gate. The live suite proves
@@ -107,7 +160,7 @@ extension InputGate {
   public static func live(logic pid: pid_t) -> InputGate {
     let application = AXUIElementCreateApplication(pid)
     return InputGate(
-      frontmost: { frontmostProcess() == pid },
+      frontmost: { logicIsFrontmost(application) },
       modal: { windows(of: application).contains(where: isModal) },
       elementAtPoint: { point in element(of: application, at: point) },
       focus: { element(named: kAXFocusedUIElementAttribute, of: application) },
@@ -115,19 +168,11 @@ extension InputGate {
   }
 }
 
-/// The process the window server sends events to, or nil when Accessibility reads none.
-private func frontmostProcess() -> pid_t? {
-  guard
-    let application = element(
-      named: kAXFocusedApplicationAttribute, of: AXUIElementCreateSystemWide())
-  else {
-    return nil
-  }
-  var pid: pid_t = 0
-  guard AXUIElementGetPid(application, &pid) == .success else {
-    return nil
-  }
-  return pid
+/// Whether Logic says it is the application in front.
+private func logicIsFrontmost(_ application: AXUIElement) -> Bool {
+  var value: CFTypeRef?
+  let read = AXUIElementCopyAttributeValue(application, kAXFrontmostAttribute as CFString, &value)
+  return InputGate.isFrontmost(read: read.rawValue, value: value)
 }
 
 /// The windows of an application, or an empty list when Accessibility reads none.
@@ -177,14 +222,17 @@ private func attribute(named name: String, of element: AXUIElement) -> CFTypeRef
 }
 
 /// Makes one event and sends it to the window server.
+///
+/// The click state travels on the event, so the second press and release of a double click carry a
+/// 2 and the window server hands Logic a double click rather than two single clicks.
 private func sendToTheWindowServer(_ event: InputGate.Event) {
   let made: CGEvent?
   switch event {
-  case .mouseDown(let point):
+  case .mouseDown(let point), .secondMouseDown(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point,
       mouseButton: .left)
-  case .mouseUp(let point):
+  case .mouseUp(let point), .secondMouseUp(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point,
       mouseButton: .left)
@@ -192,6 +240,9 @@ private func sendToTheWindowServer(_ event: InputGate.Event) {
     made = keyEvent(code, flags: flags, down: true)
   case .keyUp(let code, let flags):
     made = keyEvent(code, flags: flags, down: false)
+  }
+  if let state = event.clickState {
+    made?.setIntegerValueField(.mouseEventClickState, value: state)
   }
   made?.post(tap: .cghidEventTap)
 }
