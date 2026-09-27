@@ -80,6 +80,9 @@ private enum Move: Equatable {
   /// Logic was brought to the front and the panel was raised.
   case broughtToTheFront
 
+  /// The file list was scrolled until a row was in view, by the name it shows.
+  case broughtIntoView(String)
+
   /// A folder row was opened, by the name it shows.
   case opened(String)
 
@@ -159,6 +162,7 @@ private final class APanel {
         self.moves.append(.wherePopup(title))
         self.folder = title
       },
+      bringIntoView: { name in self.moves.append(.broughtIntoView(name)) },
       openFolder: { name in
         self.moves.append(.opened(name))
         self.folder = self.landsIn ?? name
@@ -174,12 +178,12 @@ private final class APanel {
   }
 }
 
-/// The track Logic makes for a MIDI file, with the region it puts on it.
+/// The track Logic makes for the notes on the first channel of the file, with its region.
 ///
 /// The kind reads as `other`, because the header of a track says nothing about its kind and that
 /// is what the reader answers for every track. The command carries `software-instrument` into the
 /// answer, because that is the one kind Logic makes for a MIDI file.
-private func theTrackLogicMakes() -> Track {
+private func theTrackForTheFirstChannel() -> Track {
   Track(
     index: 2,
     name: "Studio Grand",
@@ -187,18 +191,57 @@ private func theTrackLogicMakes() -> Track {
     regions: [Region(index: 1, name: "MIDI Region", start: "1 bar", end: "2 bars")])
 }
 
-/// The import Logic does: a new track with the region on it.
+/// The track Logic makes for the notes on the second channel of the file, with its region.
+private func theTrackForTheSecondChannel() -> Track {
+  Track(
+    index: 3,
+    name: "Classic Electric Piano",
+    type: .other,
+    regions: [Region(index: 1, name: "MIDI Region", start: "4 bars", end: "5 bars")])
+}
+
+/// The import Logic does for `notes.mid`: one new track for each channel the file uses, each with
+/// the region of the notes on that channel.
+///
+/// Measured on this Mac on 2026-09-27: a copy that held 5 tracks held 7 after this file was
+/// imported. The file uses channels 1 and 2, and Logic makes one software instrument track for
+/// each channel of a MIDI file.
 private func anImportThatLands(_ driver: FakeLogicDriver) {
-  driver.state?.tracks.append(theTrackLogicMakes())
+  driver.state?.tracks.append(theTrackForTheFirstChannel())
+  driver.state?.tracks.append(theTrackForTheSecondChannel())
+}
+
+/// The track the project of these tests starts with.
+private func anInstrumentTrack() -> Track {
+  Track(index: 1, name: "Inst 1", type: .softwareInstrument)
+}
+
+/// The bytes of a MIDI file whose notes are all on one channel, so Logic makes one track for it.
+private func aFileOfOneChannel() -> Data {
+  Data(
+    MidiFile.bytes(
+      of: NotesFile(
+        tempo: 120,
+        notes: [NoteRequest(pitch: 60, velocity: 100, start: 0, length: 1, channel: 1)])))
+}
+
+/// The bytes of a file that carries a header and no event at all, so it names no channel.
+private func aFileOfNoChannel() -> Data {
+  Data([0x4d, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, 0x01, 0xe0])
+}
+
+/// A disk that answers one file, wherever the command asks for it.
+private func aDiskCarrying(_ bytes: Data) -> ImportFile {
+  ImportFile(resolve: { $0 }, hidden: { _ in false }, read: { _ in bytes })
 }
 
 /// The project Logic has open: one software instrument track, and nothing else.
-private func aProject() -> State {
+private func aProject(tracks: [Track] = [anInstrumentTrack()]) -> State {
   State(
     logic: LogicVersion(version: "12.3.1"),
     project: Project(name: "Sketch"),
     transport: Transport(tempo: 120),
-    tracks: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
+    tracks: tracks)
 }
 
 /// The session of that project, as an earlier command started it.
@@ -217,10 +260,13 @@ private struct ALogic {
   let driver: FakeLogicDriver
 }
 
-private func aLogic(madeByLogicctl: Bool = true) throws -> ALogic {
+private func aLogic(
+  madeByLogicctl: Bool = true,
+  tracks: [Track] = [anInstrumentTrack()]
+) throws -> ALogic {
   let root = try aFolderOfItsOwn()
   let git = try gitThatSigns(inside: root)
-  let project = aProject()
+  let project = aProject(tracks: tracks)
   return ALogic(
     root: root,
     git: git,
@@ -385,17 +431,19 @@ private func midiImport(
   #expect(
     try answer.data()?["sha256"] as? String == MidiFile.sha256(of: [UInt8](bytes)),
     "the hash of the bytes Logic was given, which is the hash midi write-file prints for them")
-  #expect(try answer.data()?.keys.sorted() == ["region", "sha256", "track"], "and nothing else")
+  #expect(
+    try answer.data()?.keys.sorted() == ["region", "sha256", "track", "tracks"],
+    "and nothing else")
 
   #expect(
     panel.moves == [
       .menu, .broughtToTheFront, .pressed(Locators.importWherePopup.name), .wherePopup(theDisk),
     ]
-      + folders(of: theFile).map(Move.opened)
+      + folders(of: theFile).flatMap { [Move.broughtIntoView($0), Move.opened($0)] }
       + [.selected([theFile.lastPathComponent]), .pressed(Locators.importButton.name)],
-    "the panel was walked to the file where the file is, and then Import was pressed")
+    "each folder was scrolled to and then opened, and then Import was pressed")
 
-  #expect(logic.driver.state?.tracks.count == 2, "the project holds the track Logic made")
+  #expect(logic.driver.state?.tracks.count == 3, "the project holds the tracks Logic made")
 
   let commit = try #require(try answer.meta()["step"] as? String, "the import is one step")
   #expect(!commit.isEmpty, "the step is a commit of the session")
@@ -419,6 +467,136 @@ private func midiImport(
   #expect(
     !FileManager.default.fileExists(atPath: inputs.path),
     "and nothing was written under inputs")
+}
+
+/// An agent imports a file whose notes are on more than one channel, and reads back every track
+/// they landed on.
+///
+/// Logic makes one software instrument track for each channel a MIDI file uses. A person who
+/// wrote a melody on one channel and a bass on another gets two tracks, and an agent that was
+/// told about one of them has lost the other: it cannot quantize it, cannot rename it and cannot
+/// say what the import did. So the answer carries `tracks`, one entry for each track Logic made,
+/// in the order Logic shows them, and each entry says where the region on that track sits.
+///
+/// `track` and `region` stay as the first of them, so an agent written against the answer of
+/// yesterday reads the same two fields and needs no change.
+@Test func importAnswersATrackForEachChannelOfTheFile() throws {
+  let logic = try aLogic()
+  defer { try? FileManager.default.removeItem(at: logic.root) }
+
+  let panel = APanel(carriedBy: logic.driver, onImport: anImportThatLands)
+  let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
+
+  #expect(status == 0, "the notes reached the project")
+  #expect(try answer.failureCode() == nil, "and nothing failed")
+
+  let tracks = try #require(try answer.data()?["tracks"] as? [[String: Any]])
+  try #require(tracks.count == 2, "one entry for each of the two channels the file uses")
+
+  #expect(tracks[0]["index"] as? Int == 2, "the track Logic made for the first channel")
+  #expect(tracks[0]["name"] as? String == "Studio Grand", "by the name Logic gave it")
+  #expect(
+    tracks[0]["type"] as? String == "software-instrument",
+    "Logic makes a software instrument track for each channel")
+  let firstRegion = try #require(tracks[0]["region"] as? [String: Any])
+  #expect(firstRegion["startBar"] as? Int == 1, "the bar its region starts at")
+  #expect(firstRegion["endBar"] as? Int == 2, "and the bar it ends at")
+  #expect(
+    tracks[0].keys.sorted() == ["index", "name", "region", "type"],
+    "and nothing else")
+
+  #expect(tracks[1]["index"] as? Int == 3, "the track Logic made for the second channel")
+  #expect(tracks[1]["name"] as? String == "Classic Electric Piano", "by its own name")
+  #expect(tracks[1]["type"] as? String == "software-instrument")
+  let secondRegion = try #require(tracks[1]["region"] as? [String: Any])
+  #expect(secondRegion["startBar"] as? Int == 4, "the bar its own region starts at")
+  #expect(secondRegion["endBar"] as? Int == 5, "and the bar it ends at")
+
+  let track = try #require(try answer.data()?["track"] as? [String: Any])
+  #expect(track["index"] as? Int == 2, "track is the first of the tracks Logic made")
+  #expect(track["name"] as? String == "Studio Grand")
+  let region = try #require(try answer.data()?["region"] as? [String: Any])
+  #expect(region["startBar"] as? Int == 1, "and region is the region on that track")
+  #expect(region["endBar"] as? Int == 2)
+
+  #expect(logic.driver.state?.tracks.count == 3, "the project holds both tracks Logic made")
+
+  let second = try aLogic()
+  defer { try? FileManager.default.removeItem(at: second.root) }
+
+  let onePanel = APanel(carriedBy: second.driver) { driver in
+    driver.state?.tracks.append(theTrackForTheFirstChannel())
+  }
+  let (oneStatus, oneAnswer) = midiImport(
+    file: "/Users/someone/Music/one-channel.mid",
+    logic: second,
+    panel: onePanel,
+    disk: aDiskCarrying(aFileOfOneChannel()))
+
+  #expect(oneStatus == 0, "a file whose notes are all on one channel makes one track")
+  let one = try #require(try oneAnswer.data()?["tracks"] as? [[String: Any]])
+  #expect(one.count == 1, "so tracks holds one entry")
+  #expect(one.first?["index"] as? Int == 2, "which is the track Logic made")
+  #expect(second.driver.state?.tracks.count == 2, "and the project holds it")
+}
+
+/// Logic puts the tracks it makes under the track that is selected, so the rows below them move
+/// down, and the answer names the tracks Logic made and not the rows that moved.
+///
+/// An agent that read the last rows of the list would rename, quantize or delete a track a person
+/// had already recorded, because that track is now where the new one used to be.
+@Test func theAnswerNamesTheTracksLogicMadeAndNotTheRowsBelowThem() throws {
+  let logic = try aLogic(
+    tracks: [anInstrumentTrack(), Track(index: 2, name: "Drums", type: .softwareInstrument)])
+  defer { try? FileManager.default.removeItem(at: logic.root) }
+
+  let panel = APanel(carriedBy: logic.driver) { driver in
+    driver.state?.tracks = [
+      anInstrumentTrack(),
+      theTrackForTheFirstChannel(),
+      theTrackForTheSecondChannel(),
+      Track(index: 4, name: "Drums", type: .softwareInstrument),
+    ]
+  }
+  let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
+
+  #expect(status == 0, "the notes reached the project")
+  let tracks = try #require(try answer.data()?["tracks"] as? [[String: Any]])
+  try #require(tracks.count == 2, "the two tracks Logic made")
+  #expect(tracks[0]["name"] as? String == "Studio Grand", "in the order Logic shows them")
+  #expect(tracks[1]["name"] as? String == "Classic Electric Piano")
+  #expect(
+    tracks.contains(where: { $0["name"] as? String == "Drums" }) == false,
+    "the track that moved down is not one of them")
+
+  let track = try #require(try answer.data()?["track"] as? [String: Any])
+  #expect(track["index"] as? Int == 2, "and track is the first of the two")
+}
+
+/// A file that names no MIDI channel is refused before Logic is asked anything.
+///
+/// Logic makes a track for each channel a file uses, so a file that uses none is a file the
+/// command cannot say anything about. A run that pressed Import here would wait for a track that
+/// is never coming, and the person would be left reading a timeout for a file that carries no
+/// notes. The message names the field, so the fix is to write the file again.
+@Test func aFileThatNamesNoChannelIsRefusedBeforeLogic() throws {
+  let logic = try aLogic()
+  defer { try? FileManager.default.removeItem(at: logic.root) }
+
+  let panel = APanel(carriedBy: logic.driver, onImport: anImportThatLands)
+  let (status, answer) = midiImport(
+    file: "/Users/someone/Music/silent.mid",
+    logic: logic,
+    panel: panel,
+    disk: aDiskCarrying(aFileOfNoChannel()))
+
+  #expect(status == 2, "an argument that is wrong")
+  #expect(try answer.failureCode() == "invalid_argument")
+  #expect(try answer.failureDetails()["field"] as? String == "--file")
+  #expect(panel.moves.isEmpty, "Logic was asked nothing")
+  #expect(logic.driver.state?.tracks.count == 1, "so the project did not change")
+  #expect(try answer.meta()["step"] is NSNull, "and the session gained no step")
+  #expect(steps(in: logic.session.folder) == 0)
 }
 
 /// A file Logic cannot be walked to is refused before Logic is asked anything.
@@ -478,16 +656,21 @@ private func midiImport(
   #expect(step["exitCode"] as? Int == 5)
 }
 
-/// Logic made the track and put no region on it, so the command says the import did not land.
+/// Logic made the tracks and put no region on one of them, so the command says the import did not
+/// land.
 ///
 /// A track with no region carries none of the notes. This is its own case, because a command that
-/// counted tracks alone passes the test above and still reports success here.
+/// counted tracks alone passes the test above and still reports success here. Every track Logic
+/// made is read, and not the first one alone: the notes of the second channel are as much the
+/// import as the notes of the first.
 @Test func anImportThatMakesATrackWithNoRegionFails() throws {
   let logic = try aLogic()
   defer { try? FileManager.default.removeItem(at: logic.root) }
 
   let panel = APanel(carriedBy: logic.driver) { driver in
-    driver.state?.tracks.append(Track(index: 2, name: "Studio Grand", type: .other))
+    driver.state?.tracks.append(theTrackForTheFirstChannel())
+    driver.state?.tracks.append(
+      Track(index: 3, name: "Classic Electric Piano", type: .other))
   }
   let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
 
@@ -574,7 +757,9 @@ private func midiImport(
 /// The panel opened a folder and landed somewhere else, so nothing is imported.
 ///
 /// A file of the same name sits in more than one folder on any Mac. A route that pressed Import
-/// here would put somebody else's notes in the project and report the path the person typed.
+/// here would put somebody else's notes in the project and report the path the person typed. The
+/// Where popup is the only thing that says where the panel is, so a popup that never shows the
+/// folder ends the walk, and the panel it left open is closed.
 @Test func aPanelThatLandsInTheWrongFolderImportsNothing() throws {
   let logic = try aLogic()
   defer { try? FileManager.default.removeItem(at: logic.root) }
@@ -582,13 +767,19 @@ private func midiImport(
   let panel = APanel(
     carriedBy: logic.driver, landsIn: "Somewhere Else", onImport: anImportThatLands)
   let (status, answer) = midiImport(file: theFile.path, logic: logic, panel: panel)
+  let asked = try ImportFile.live().facts(of: theFile.path).path.folders.first
 
-  #expect(status == 5, "the walk stopped")
-  #expect(try answer.failureCode() == "element_not_found")
+  #expect(status == 6, "the walk stopped")
+  #expect(try answer.failureCode() == "timeout")
   #expect(try answer.failureMessage().contains("Somewhere Else"), "the message says where it is")
+  #expect(try answer.failureDetails()["folder"] as? String == asked, "the folder it asked for")
+  #expect(try answer.failureDetails()["waitedMs"] as? Int == theLimit, "and what it was given")
   #expect(
     !panel.moves.contains(.pressed(Locators.importButton.name)),
     "and Import was never pressed")
+  #expect(
+    panel.moves.contains(.pressed(Locators.importCancelButton.name)),
+    "the panel it left open is closed")
   #expect(logic.driver.state?.tracks.count == 1, "so the project did not change")
 }
 

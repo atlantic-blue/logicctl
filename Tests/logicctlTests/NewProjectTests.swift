@@ -87,6 +87,11 @@ private struct APicture: WindowCapturer {
   }
 }
 
+/// The track the sheet makes for its own defaults, which are one Software Instrument track.
+private func theTrackTheSheetMakes() -> Track {
+  Track(index: 1, name: "Inst 1", type: .softwareInstrument)
+}
+
 /// The Logic a test drives: what it shows, and what it has open behind that.
 ///
 /// It starts where a person starts, with the chooser in front and no project open at all, so every
@@ -101,51 +106,63 @@ private final class Mac {
   /// The Logic the command reads the project through. It refuses until the project exists.
   let driver = FakeLogicDriver()
 
-  /// The tracks the project has when Logic opens it.
-  let tracksOnOpening: [Track]
+  /// The tracks the sheet makes when Create is pressed.
+  let tracksCreateMakes: [Track]
 
   /// The process this Logic runs as, which is the Logic the picture is taken of.
   let processID: Int32 = 981
 
-  init(tracksOnOpening: [Track] = []) {
-    self.tracksOnOpening = tracksOnOpening
+  init(tracksCreateMakes: [Track] = [theTrackTheSheetMakes()]) {
+    self.tracksCreateMakes = tracksCreateMakes
   }
 
-  /// The chooser the command drives. Choosing the template opens the project, as Logic does.
+  /// The chooser the command drives. Choosing the template opens the project and Logic asks for the
+  /// first track of it, and Create answers that sheet, as Logic does.
   func chooser() -> ProjectChooser {
     ProjectChooser(
       read: { self.showing },
       press: { locator in
         self.pressed.append(locator.name)
-        guard locator.name == Locators.chooserChooseButton.name else {
+        if locator.name == Locators.chooserChooseButton.name {
+          self.driver.state = self.project(holding: [])
+          self.driver.runningProcessID = self.processID
+          self.showing = .emptyProject
           return
         }
-        self.driver.state = State(
-          logic: LogicVersion(version: "12.3.1"),
-          project: Project(name: "Untitled"),
-          transport: Transport(tempo: 120),
-          tracks: self.tracksOnOpening)
-        self.driver.runningProcessID = self.processID
-        self.showing = .emptyProject
+        guard locator.name == Locators.newTrackCreateButton.name else {
+          return
+        }
+        self.driver.state = self.project(holding: self.tracksCreateMakes)
+        self.showing = self.tracksCreateMakes.isEmpty ? .emptyProject : .project
       })
+  }
+
+  /// The project Logic has open, holding these tracks.
+  private func project(holding tracks: [Track]) -> State {
+    State(
+      logic: LogicVersion(version: "12.3.1"),
+      project: Project(name: "Untitled"),
+      transport: Transport(tempo: 120),
+      tracks: tracks)
   }
 }
 
-/// A person or an agent gets a new, empty project with one command, and everything they do to it
-/// from that moment is written down.
+/// A person or an agent gets a new project with one command, and everything they do to it from that
+/// moment is written down.
 ///
-/// The project has no tracks, so the work that follows starts from nothing and a replay of the
-/// session gives the same result. The session is the record of that work: it exists before the
-/// first change, so no command of logicctl on this project is ever unrecorded, and its first
-/// commit says `createdByLogicctl` true. That one field is what lets every later command change
-/// this project without `--confirm`, and it is what makes the same command stop on a project a
-/// person made. The answer carries the session and the folder it sits in, so a person reads the
-/// history of their work without going to look for it.
+/// Logic asks for the first track of a project it has just made, and it refuses Save until that
+/// sheet is answered. So the command answers it: the project a person is left with holds the one
+/// Software Instrument track the sheet makes, and Logic will save it. The session is the record of
+/// the work: it exists before the first change, so no command of logicctl on this project is ever
+/// unrecorded, and its first commit says `createdByLogicctl` true. That one field is what lets
+/// every later command change this project without `--confirm`, and it is what makes the same
+/// command stop on a project a person made. The answer carries the session and the folder it sits
+/// in, so a person reads the history of their work without going to look for it.
 ///
-/// A Logic that opens something other than an empty project is the other half of the promise. The
-/// command reads the project back rather than trusting the press, so a project that came up with a
-/// track in it fails with `timeout`, which exits 6, and no session is started for it. A session
-/// that recorded a project as empty when it was not would replay into a different project.
+/// A Logic that never reaches that project is the other half of the promise. The command reads the
+/// project back rather than trusting the press, so a Create that makes no track fails with
+/// `timeout`, which exits 6, and no session is started for it. A session that recorded a project
+/// with a track it does not have would replay into a different project.
 @Test func newProjectStartsASession() throws {
   let typed = try Logicctl.parseAsRoot(["new-project"])
   #expect(typed is NewProject, "a person can type logicctl new-project")
@@ -172,11 +189,16 @@ private final class Mac {
   #expect(made.err.isEmpty, "standard error is empty on success")
   #expect(made.out.filter(\.isNewline).count == 1, "one JSON object and a newline")
   #expect(
-    logic.pressed == [Locators.chooserEmptyProjectTile.name, Locators.chooserChooseButton.name],
-    "the command took the empty project template and opened it, and pressed nothing else")
+    logic.pressed == [
+      Locators.chooserEmptyProjectTile.name, Locators.chooserChooseButton.name,
+      Locators.newTrackCreateButton.name,
+    ],
+    "the command opened the empty project template, answered the sheet, and pressed nothing else")
 
   let state = try logic.driver.readState()
-  #expect(state.tracks.isEmpty, "the project a person is left with has no tracks")
+  #expect(
+    state.tracks == [theTrackTheSheetMakes()],
+    "the project a person is left with holds the track the sheet makes")
 
   let answered = try made.data()
   let project = answered["project"] as? [String: Any]
@@ -209,7 +231,8 @@ private final class Mac {
   let written = try readJSON(at: repository.appendingPathComponent("state.json"))
   let tracks = members(of: written)?["tracks"]
   #expect(
-    tracks == JSONValue.array([]), "the session recorded the project as it is, with no tracks")
+    tracks == JSONValue.array([theTrackTheSheetMakes().json]),
+    "the session recorded the project as it is, with the track the sheet made")
 
   let kept = repository.appendingPathComponent("steps/000001")
   let wrote = try readJSON(at: kept.appendingPathComponent("step.json"))
@@ -229,10 +252,10 @@ private final class Mac {
     stepNamedInTheRecordedEnvelope(fields["envelope"]) == nil,
     "the step keeps the envelope that was printed, and a commit cannot name itself")
 
-  // A Logic that opens a project with a track in it is not the project this command promises.
+  // A Logic where Create makes no track never reaches the project this command promises.
   let otherRoot = try temporaryFolder()
   let otherGit = try gitThatSigns(inside: otherRoot)
-  let busy = Mac(tracksOnOpening: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
+  let busy = Mac(tracksCreateMakes: [])
   let otherTime = Time()
   let refused = Answer()
 
@@ -254,11 +277,155 @@ private final class Mac {
   #expect(stopped["data"] is NSNull)
   #expect((stopped["error"] as? [String: Any])?["code"] as? String == "timeout")
   let none = try refused.meta()
-  #expect(none["session"] is NSNull, "a project that is not empty starts no session")
+  #expect(none["session"] is NSNull, "a project with no track starts no session")
   #expect(none["step"] is NSNull)
   let sessions = SessionRepository.sessionsFolder(underRoot: otherRoot)
   let left = (try? FileManager.default.contentsOfDirectory(atPath: sessions.path)) ?? []
   #expect(left.isEmpty, "and nothing was written for it")
+}
+
+/// The Logic of a person: a project they made, open in front, with their work in it.
+///
+/// This is the Mac the measured run of 2026-09-27 found. Logic shows a project, so the route of
+/// the chooser has nothing to press, and everything the command reads is the project of the person
+/// rather than a project it made.
+private func theLogicOfAPerson(savedAt path: String?) -> Mac {
+  let logic = Mac()
+  logic.showing = .project
+  logic.driver.state = State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: "F-T13"),
+    transport: Transport(tempo: 120),
+    tracks: [Track(index: 1, name: "Deluxe Classic", type: .softwareInstrument)])
+  logic.driver.path = path
+  logic.driver.runningProcessID = logic.processID
+  return logic
+}
+
+/// A project a person made stays theirs, and `new-project` never takes it over.
+///
+/// `createdByLogicctl` is the one field that tells a project logicctl made from a project a person
+/// made, and it is the field the guard reads before any later command changes a project without
+/// `--confirm`. This command is the only thing that ever writes it true. So a `new-project` that
+/// found the work of a person already open, and started a session over it, would hand logicctl the
+/// run of that work from the first command they typed, and say nothing about it.
+///
+/// The command reads what Logic shows before it presses anything. A project in front is a refusal.
+/// It names the project, and the path when the project has one, so the person reads which project
+/// it means and quits it. It presses nothing, so Logic is as they left it, and it writes no
+/// session, so nothing on disk claims their work. A project they never saved is refused the same
+/// way, because a session over one of those is the same claim over the same work.
+///
+/// The refusal takes nothing from the route this command exists for. A Logic showing the chooser
+/// still gets a project, a first track, and a session that says logicctl made it.
+@Test func newProjectRefusesWhileLogicShowsAProject() throws {
+  let root = try temporaryFolder()
+  let git = try gitThatSigns(inside: root)
+  let theirs = theLogicOfAPerson(savedAt: "/private/tmp/F-T13.logicx")
+  let time = Time()
+  let refused = Answer()
+
+  let exited = NewProject.answer(
+    chooser: theirs.chooser(),
+    driver: theirs.driver,
+    root: root,
+    limitMs: 500,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: git,
+    capturer: APicture(bytes: Data("a window".utf8)),
+    standardOutput: refused.write,
+    standardError: refused.writeError)
+
+  #expect(exited == 2, "invalid_argument exits 2")
+  #expect(
+    refused.err.hasPrefix("logicctl: invalid_argument: "),
+    "standard error carries the one line a person reads")
+  let stopped = try refused.printed()
+  #expect(stopped["data"] is NSNull, "the command answered no project, because it made none")
+  let failure = try #require(stopped["error"] as? [String: Any])
+  #expect(failure["code"] as? String == "invalid_argument")
+  let said = try #require(failure["message"] as? String)
+  #expect(said.contains("F-T13"), "the refusal names the project the person has open")
+  #expect(said.contains("/private/tmp/F-T13.logicx"), "and where it sits, so they know which")
+  let details = failure["details"] as? [String: Any]
+  #expect(
+    details?["project"] as? String == "/private/tmp/F-T13.logicx",
+    "the path is in the details too, for whatever reads the answer")
+
+  #expect(theirs.pressed.isEmpty, "nothing was pressed, so their project is as they left it")
+  #expect(theirs.showing == ProjectWindow.project, "and it is still what Logic shows")
+
+  let none = try refused.meta()
+  #expect(none["session"] is NSNull, "no session was started over a project logicctl did not make")
+  #expect(none["step"] is NSNull)
+  let sessions = SessionRepository.sessionsFolder(underRoot: root)
+  let left = (try? FileManager.default.contentsOfDirectory(atPath: sessions.path)) ?? []
+  #expect(left.isEmpty, "and nothing on disk claims it")
+
+  // A project a person never saved is the same work under the same claim, so it is refused too.
+  let unsavedRoot = try temporaryFolder()
+  let unsavedGit = try gitThatSigns(inside: unsavedRoot)
+  let unsaved = theLogicOfAPerson(savedAt: nil)
+  let unsavedTime = Time()
+  let alsoRefused = Answer()
+
+  let stoppedToo = NewProject.answer(
+    chooser: unsaved.chooser(),
+    driver: unsaved.driver,
+    root: unsavedRoot,
+    limitMs: 500,
+    clock: unsavedTime.read,
+    sleeper: unsavedTime.sleep,
+    git: unsavedGit,
+    capturer: APicture(bytes: Data("a window".utf8)),
+    standardOutput: alsoRefused.write,
+    standardError: alsoRefused.writeError)
+
+  #expect(stoppedToo == 2, "a project they never saved is refused the same way")
+  let answeredAgain = try alsoRefused.printed()
+  let refusal = try #require(answeredAgain["error"] as? [String: Any])
+  #expect(refusal["code"] as? String == "invalid_argument")
+  #expect(
+    (refusal["message"] as? String)?.contains("F-T13") == true,
+    "a project with no path is still named by what Logic calls it")
+  #expect(unsaved.pressed.isEmpty)
+  let overThere = SessionRepository.sessionsFolder(underRoot: unsavedRoot)
+  let wrote = (try? FileManager.default.contentsOfDirectory(atPath: overThere.path)) ?? []
+  #expect(wrote.isEmpty, "and no session was written for that one either")
+
+  // The refusal takes nothing away from the route this command exists for.
+  let ownRoot = try temporaryFolder()
+  let ownGit = try gitThatSigns(inside: ownRoot)
+  let waiting = Mac()
+  let ownTime = Time()
+  let made = Answer()
+
+  let answered = NewProject.answer(
+    chooser: waiting.chooser(),
+    driver: waiting.driver,
+    root: ownRoot,
+    limitMs: 500,
+    clock: ownTime.read,
+    sleeper: ownTime.sleep,
+    git: ownGit,
+    capturer: APicture(bytes: Data("a window".utf8)),
+    standardOutput: made.write,
+    standardError: made.writeError)
+
+  #expect(answered == 0, "a Logic showing the chooser still gets a project")
+  #expect(
+    waiting.pressed == [
+      Locators.chooserEmptyProjectTile.name, Locators.chooserChooseButton.name,
+      Locators.newTrackCreateButton.name,
+    ],
+    "by the route it always took")
+  let gained = try made.data()
+  let folder = try #require(gained["repository"] as? String, "the answer says where it sits")
+  let onDisk = try readJSON(
+    at: URL(fileURLWithPath: folder).appendingPathComponent("session.json"))
+  let recorded = try #require(Session(json: onDisk))
+  #expect(recorded.project.createdByLogicctl, "logicctl made this one, and the session says so")
 }
 
 /// One JSON file of a session, read back.
@@ -294,10 +461,10 @@ private let fixtureFolder = URL(fileURLWithPath: #filePath)
 /// logicctl reads what Logic shows from the window, and never from its title.
 ///
 /// The route of `new-project` turns on that one reading: a chooser gets the empty project template
-/// pressed, and a project with no tracks is the answer the command was asked for. A title would
-/// say neither in a Logic of another language, and the name of a project a person opened could say
-/// anything at all. So each of the three is read from an element the window carries, and these are
-/// the trees that Logic wrote for each one.
+/// pressed, a project with the sheet on it gets Create pressed, and a project with tracks is the
+/// answer the command was asked for. A title would say none of the three in a Logic of another
+/// language, and the name of a project a person opened could say anything at all. So each one is
+/// read from an element the window carries, and these are the trees that Logic wrote for each one.
 @Test func theWindowOfLogicSaysWhatItShows() throws {
   #expect(try whatLogicShows(in: "project-chooser.json") == ProjectWindow.chooser)
   #expect(
