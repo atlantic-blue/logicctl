@@ -42,8 +42,9 @@ private let phaseThreeScenarios: [PhaseThreeScenario] = [
 /// Phase 3 is accepted when every command of it moved the real Logic on this Mac.
 ///
 /// The pipeline proves each of these commands against a tree that `inspect` recorded from Logic
-/// 12.3.1. A recorded tree says nothing about whether Logic still answers a Machine Control
-/// message, still shows the tempo field where it was, or still makes a track for an imported file.
+/// 12.3.1. A recorded tree says nothing about whether Logic still moves when its Control Bar
+/// button is pressed, still takes a note on the bus, still shows the tempo field where it was, or
+/// still makes a track for an imported file.
 /// `make accept PART=3` is where the running application answers, and the output of that run, with
 /// the picture of the tempo field, is what proves this step.
 ///
@@ -117,8 +118,8 @@ private func endOfScenario(in suite: Substring, after point: Substring.Index) ->
 struct Phase3LiveScenarios {
   /// The bus phase 3 sends on is on this Mac, and Logic is listening to it (story S3.1).
   ///
-  /// Every other scenario of the phase reaches Logic over this port. A Mac with the driver off
-  /// takes nothing, and the transport scenarios would then report a Logic that never moved.
+  /// The notes of the phase reach Logic over this port. A Mac with the driver off takes nothing,
+  /// and the take would then hold none of the keys this phase played into it.
   @Test func setupFindsTheBusOnThisMac() throws {
     LiveHarness.liveScenario("setupFindsTheBusOnThisMac")
 
@@ -127,22 +128,22 @@ struct Phase3LiveScenarios {
     #expect(found.seenByLogic, "the port is not offline, so what this phase sends reaches Logic")
   }
 
-  /// Logic starts playing when logicctl sends the Machine Control play message (story S3.2).
+  /// Logic starts playing when logicctl presses the Play button of the Control Bar (story S3.2).
   @Test func playStartsTheTransport() throws {
     LiveHarness.liveScenario("playStartsTheTransport")
     _ = try ScratchCopy.open()
 
     let moving = try answered(TransportAnswer.self, from: ["transport", "play"])
-    #expect(moving.playing, "Logic reads back as playing after the play message")
+    #expect(moving.playing, "Logic reads back as playing after the press of Play")
 
     let still = try answered(TransportAnswer.self, from: ["transport", "stop"])
     #expect(still.playing == false, "and the scenario leaves the transport still for the next one")
   }
 
-  /// Logic stops when logicctl sends the Machine Control stop message (story S3.2).
+  /// Logic stops when logicctl presses the Stop button of the Control Bar (story S3.2).
   ///
-  /// It plays first, because a transport that was never moving reads as stopped whatever the stop
-  /// message did.
+  /// It plays first, because a transport that was never moving reads as stopped whatever the press
+  /// of Stop did.
   @Test func stopStopsTheTransport() throws {
     LiveHarness.liveScenario("stopStopsTheTransport")
     _ = try ScratchCopy.open()
@@ -151,7 +152,7 @@ struct Phase3LiveScenarios {
     #expect(moving.playing, "the transport is moving, so the stop has something to stop")
 
     let still = try answered(TransportAnswer.self, from: ["transport", "stop"])
-    #expect(still.playing == false, "Logic reads back as stopped after the stop message")
+    #expect(still.playing == false, "Logic reads back as stopped after the press of Stop")
   }
 
   /// The notes logicctl sends while Logic records land in a region of the track (stories S3.2,
@@ -160,7 +161,8 @@ struct Phase3LiveScenarios {
   /// This is the one scenario where the bus, the transport and the project meet. A note reaches
   /// the port, Logic takes it as a performance, and what it wrote is read back out of the Event
   /// List. Logic records onto the selected software instrument track, so the scratch copy holds
-  /// track 3 selected and the Event List open before the run.
+  /// track 3 selected and the Event List open before the run. A take writes into the project, and
+  /// the project belongs to a person, so the record goes through `--confirm`.
   @Test func recordTakesTheNotesIntoARegion() throws {
     LiveHarness.liveScenario("recordTakesTheNotesIntoARegion")
     _ = try ScratchCopy.open()
@@ -183,8 +185,8 @@ struct Phase3LiveScenarios {
 
     let before = try regionsOnTrack(LiveNames.recordedTrack)
 
-    let recording = try answered(TransportAnswer.self, from: ["transport", "record"])
-    #expect(recording.recording, "Logic reads back as recording after the record message")
+    let recording = try answered(TransportAnswer.self, from: ["transport", "record", "--confirm"])
+    #expect(recording.recording, "Logic reads back as recording after the press of Record")
 
     _ = try answered(
       SentAnswer.self,
