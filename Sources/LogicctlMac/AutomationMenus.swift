@@ -123,14 +123,18 @@ public struct AutomationMenus {
   /// stops the command at the item a person can act on, rather than at the empty Event List
   /// after it. Nothing after a refused item is pressed, because the refusal stops `addPoints`.
   ///
-  /// Measured again on 2026-09-27, against this pull request: straight after the create item was
-  /// pressed, the convert item answered false, and the command refused. A few seconds later,
-  /// with nothing else done, the same item answered true, the Tracks window still held the focus
-  /// and the same row was still the only selection. So Logic offers the item a moment after the
-  /// press before it, the way every other change of Logic lands in the tree after the event that
-  /// made it. One read is a read of the moment before Logic caught up, so the read repeats until
-  /// the limit, and an item that is not offered for the whole of it is named rather than pressed
-  /// at.
+  /// Logic offers an item a moment after the press before it, the way every other change of
+  /// Logic lands in the tree after the event that made it, so one read is a read of the moment
+  /// before Logic caught up and the read repeats until the limit.
+  ///
+  /// It decides the state of an item while the menu is walked, and an element held from an
+  /// earlier walk keeps the answer of that walk. Measured on Logic 12.3.1 on 2026-09-27, after
+  /// the create press with the Tracks window focused and one region selected: one element of the
+  /// convert item, resolved once and read again and again, answered false for the whole of ten
+  /// seconds, and a walk from the application before each read answered true one second in. So
+  /// the locator is walked again from the application for every read, and the element that is
+  /// pressed is the one from the walk that answered true. An element from an earlier walk would
+  /// be a press at an item Logic offered at a moment that has passed.
   ///
   /// An item that reads true and still does nothing is a different fault, and the window the
   /// press lands in is what answers that one. `TracksWindow` reaches it.
@@ -139,22 +143,37 @@ public struct AutomationMenus {
   /// bar of its own and the pipeline needs no Logic.
   public static func pressTheItem(
     _ locator: Locator,
-    in application: any AXNode,
+    of application: @escaping () throws -> any AXNode,
     offered: (any AXNode) throws -> Bool,
     act: (any AXNode) throws -> Void,
     limitMs: Int = Wait.defaultLimitMs,
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws {
-    let element = try LocatorResolver.element(of: locator, in: application)
+    var itemOffered: (any AXNode)?
     do {
       try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-        try offered(element)
+        let item = try LocatorResolver.element(of: locator, in: application())
+        guard try offered(item) else {
+          itemOffered = nil
+          return false
+        }
+        itemOffered = item
+        return true
       }
     } catch let ranOut as Wait.RanOut {
-      throw ItemNotOffered(item: element.title ?? locator.name, waitedMs: ranOut.waitedMs)
+      throw ItemNotOffered(item: title(of: locator), waitedMs: ranOut.waitedMs)
     }
-    try act(element)
+    guard let item = itemOffered else {
+      throw ItemNotOffered(item: title(of: locator), waitedMs: limitMs)
+    }
+    try act(item)
+  }
+
+  /// The title Logic shows on the item a locator names, or the name of the locator when it names
+  /// the item by something other than its title.
+  static func title(of locator: Locator) -> String {
+    locator.path.last?.title ?? locator.name
   }
 
   /// The item of one region, in the tree Logic answers with, or nothing when the tree holds none.
@@ -582,10 +601,11 @@ extension AutomationMenus {
   ///
   /// `AXEnabled` of the item is read before the press, and an item Logic answers false on is
   /// named rather than pressed at, the way `save` reads its own menu item before pressing it.
+  /// The tree is read again for every one of those reads, which is what `pressTheItem` says.
   public static func pressInTheMenuBarOfThisMac(_ locator: Locator) throws {
-    let tree = try LogicTree.ofRunningLogic()
     try pressTheItem(
-      locator, in: tree.root,
+      locator,
+      of: { try LogicTree.ofRunningLogic().root },
       offered: { try AutomationMenus.theLogicOfThisMacOffers($0, named: locator) },
       act: { try AutomationMenus.pressInTheLogicOfThisMac($0, named: locator) })
   }
