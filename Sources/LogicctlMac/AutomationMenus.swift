@@ -240,6 +240,33 @@ public struct AutomationMenus {
 }
 
 extension AutomationMenus {
+  /// How one region of the Tracks window is made the only region Logic holds selected.
+  public struct RegionSelection {
+    /// Reads whether Logic holds one region item selected.
+    public typealias Holds = (any AXNode) throws -> Bool
+
+    /// Writes `AXSelected` on one region item once.
+    public typealias Write = (any AXNode) throws -> Void
+
+    /// Answers whether two nodes are the one element of the tree.
+    public typealias Same = (any AXNode, any AXNode) -> Bool
+
+    public let holds: Holds
+    public let write: Write
+    public let same: Same
+
+    public init(holds: @escaping Holds, write: @escaping Write, same: @escaping Same) {
+      self.holds = holds
+      self.write = write
+      self.same = same
+    }
+
+    /// Makes one region the only region Logic holds selected, under the element given.
+    public func makeTheOnlySelection(_ region: any AXNode, under root: any AXNode) throws {}
+  }
+}
+
+extension AutomationMenus {
   /// The Logic of this Mac, selected in its window and pressed through its menu bar.
   public static func live() -> AutomationMenus {
     AutomationMenus(
