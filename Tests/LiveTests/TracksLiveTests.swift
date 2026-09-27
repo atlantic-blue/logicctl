@@ -98,9 +98,23 @@ enum Phase2Live {
   /// which is why `--index 1` names a track before the phase adds anything.
   static let tracksOfANewProject = 1
 
+  /// The command that starts Logic when a scenario finds it not running.
+  static let launchCommand = ["launch"]
+
+  /// The command that closes the project of a scenario at the end of it.
+  ///
+  /// `--discard` throws the changes away, because the journal of the session holds every step and
+  /// the project itself is a copy. The design system says `--discard` needs `--confirm`.
+  static let quitCommand = ["quit", "--discard", "--confirm"]
+
   /// The folder where a person keeps their projects of Logic.
   static var logicFolder: URL {
     LiveHarness.musicFolder.appending(path: "Logic")
+  }
+
+  /// The folder a scenario makes its own folder in.
+  static var homeOfTheRun: URL {
+    FileManager.default.homeDirectoryForCurrentUser
   }
 
   /// The name Logic puts at the start of the title of the window of the project of a scenario.
@@ -147,6 +161,61 @@ enum Phase2Live {
   /// Whether Logic is showing the project of a scenario, in any one of its windows.
   static func showsTheProject(in tree: RecordedTree) -> Bool {
     LiveHarness.showsTheProject(named: windowName, in: tree)
+  }
+
+  /// A folder of its own for one scenario, under the home folder of this Mac.
+  ///
+  /// The Save panel of Logic walks the columns of the browser, one folder of the path per column,
+  /// and it opens only what a column lists. The temporary folder of this Mac resolves to a path
+  /// under the hidden `/var`, which the first column does not list, so a save into it can never
+  /// land: measured on this Mac on 2026-09-27 against Logic 12.3.1, save answered that column 1 of
+  /// the panel did not list `var` within 5057ms. The home folder is listed, and it is not the music
+  /// folder.
+  static func folderOfTheScenario(under home: URL = Phase2Live.homeOfTheRun) throws -> URL {
+    let folder = home.appending(path: "logicctl-phase2-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
+  }
+
+  /// Takes the folder of one scenario away at the end of it.
+  ///
+  /// The project in it is a copy that logicctl made, and the session keeps every step of the work
+  /// on it, so nothing there is the work of a person. It goes, rather than leaving one folder per
+  /// scenario in the home folder.
+  static func removeFolderOfTheScenario(_ folder: URL, fileManager: FileManager = .default) {
+    try? fileManager.removeItem(at: folder)
+  }
+
+  /// Starts Logic when this Mac is not running it.
+  ///
+  /// Phase 2 runs after phase 1, which ends by quitting Logic, so a scenario meets a Mac with no
+  /// Logic and `new-project` waits for a chooser that never comes. `status` answers whether Logic
+  /// runs and exits 0 either way, so the phase reads it and starts Logic only when it must.
+  static func launchLogicWhenItDoesNotRun() throws {
+    let read = try ran(RunningAnswer.self, ["status"])
+    guard read.running == false else {
+      print("live logic: already running")
+      return
+    }
+    let started = try ran(RunningAnswer.self, launchCommand)
+    print("live logic: launched, running \(started.running)")
+  }
+
+  /// Closes the project of a scenario, whichever way the scenario went.
+  ///
+  /// `new-project` refuses while Logic shows a project, so a scenario that left its project open
+  /// would stop every scenario after it before it started anything. The next one then finds a Logic
+  /// that does not run, and starts it.
+  ///
+  /// A quit that fails does not fail the scenario that ran. It says what it answered, and the
+  /// scenario after this one reports the state this one left Logic in.
+  static func quitLogic() {
+    do {
+      let closed = try ran(RunningAnswer.self, quitCommand)
+      print("live logic: quit, running \(closed.running)")
+    } catch {
+      print("live logic: quit did not close Logic: \(String(describing: error))")
+    }
   }
 
   /// The names directly under the folder of Logic projects, and nothing deeper.
@@ -291,13 +360,16 @@ enum Phase2Live {
   ) throws {
     announce(command)
     let before = namesUnderTheLogicFolder()
+    let folder = try folderOfTheScenario()
     defer {
+      quitLogic()
+      removeFolderOfTheScenario(folder)
       for line in newEntryLines(before: before, after: namesUnderTheLogicFolder()) {
         print(line)
       }
     }
 
-    let folder = try LiveHarness.temporaryFolder()
+    try launchLogicWhenItDoesNotRun()
     let project = try newProject(in: folder)
     try work(project)
   }
@@ -314,6 +386,10 @@ enum Phase2Live {
 /// The `type` of a row is read from the channel strip of the track in the Mixer, so the Mixer is
 /// open while the phase runs. A track whose strip the reader cannot find reads `other`, which is
 /// what the two scenarios that add a track name in their failure.
+///
+/// Each scenario starts Logic when it finds none, and closes its project at the end, whichever way
+/// it went. Phase 1 quits Logic, and `new-project` refuses while Logic shows a project, so a phase
+/// that did neither would drive nothing after its first scenario.
 @Suite(.serialized, .enabled(if: Phase2Live.runsOnThisMac()))
 struct Phase2LiveScenarios {
   /// The operator adds a software instrument track to the project `new-project` made (story S2.2).
@@ -466,9 +542,10 @@ struct Phase2LiveScenarios {
 /// So this scenario asserts the acceptance of phase 2. The phase drives every command of phase 2,
 /// in the order a person drives them. Each command answers for itself on the output, so the count
 /// of those lines says how many of them ran. The phase drives Logic nowhere by accident. It works
-/// on a project in a folder of the run, and it refuses the folder a person keeps their own work in.
-/// It finds that project in any window of Logic. And it names the session it leaves behind, because
-/// the journal part replays that session.
+/// on a project in a folder of its own under the home folder, which the Save panel can walk, and it
+/// refuses the folder a person keeps their work in. It finds that project in any window of Logic.
+/// It starts Logic when it finds none, and it takes the folder away at the end. And it names the
+/// session it leaves behind, because the journal part replays that session.
 @Test func phaseTwoAgainstLogic() throws {
   let typed = Phase2Flow.inOrder.map(\.typed)
   #expect(
@@ -501,14 +578,36 @@ struct Phase2LiveScenarios {
     Phase2Live.runsOnThisMac(["LOGICCTL_LIVE": "1"]),
     "and a person turns the phase on with the one variable, on the Mac that has Logic")
 
-  let folder = try LiveHarness.temporaryFolder()
-  defer { try? FileManager.default.removeItem(at: folder) }
+  let home = try LiveHarness.temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: home) }
 
+  let folder = try Phase2Live.folderOfTheScenario(under: home)
   let target = try Phase2Live.saveTarget(in: folder)
   #expect(
     LiveHarness.isUnder(folder, target),
-    "the project of a scenario is saved in the folder of the run: \(target.path)")
+    "the project of a scenario is saved in the folder of that scenario: \(target.path)")
   #expect(target.pathExtension == "logicx", "and it is a project of Logic: \(target.path)")
+  #expect(
+    folder.lastPathComponent.hasPrefix(".") == false,
+    "the Save panel lists one column per folder of the path, so no part of it is hidden")
+  #expect(
+    Phase2Live.homeOfTheRun == FileManager.default.homeDirectoryForCurrentUser,
+    "a scenario saves under the home folder, which the first column of the panel lists")
+  #expect(
+    LiveHarness.isUnder(Phase2Live.homeOfTheRun, FileManager.default.temporaryDirectory) == false,
+    "and never under the temporary folder, whose own first column the panel does not list")
+
+  Phase2Live.removeFolderOfTheScenario(folder)
+  #expect(
+    FileManager.default.fileExists(atPath: folder.path) == false,
+    "the folder of a scenario goes at the end of it, rather than one folder staying per scenario")
+
+  #expect(
+    Phase2Live.launchCommand == ["launch"],
+    "a scenario starts Logic when it finds none, because the phase before it quit Logic")
+  #expect(
+    Phase2Live.quitCommand == ["quit", "--discard", "--confirm"],
+    "and it closes its project at the end, because new-project refuses while one is open")
 
   var refused: Error?
   do {
@@ -576,6 +675,12 @@ private func logicWithWindows(_ titles: [String]) throws -> RecordedTree {
     }
     """
   return try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
+}
+
+/// What `status`, `launch` and `quit` each answer about the Logic on this Mac.
+private struct RunningAnswer: Decodable {
+  /// Whether Logic runs.
+  let running: Bool
 }
 
 /// What `new-project` answers.
