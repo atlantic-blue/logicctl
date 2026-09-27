@@ -60,6 +60,7 @@ extension Automation.Set {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     events: EventList.Actions = EventList.Actions.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -86,6 +87,7 @@ extension Automation.Set {
       point: target,
       value: value,
       events: events,
+      selection: selection,
       source: source,
       argv: argv)
     return printer.write(run.run(change: command, confirmed: confirmed))
@@ -112,6 +114,9 @@ struct AutomationSetCommand: LogicCommand {
 
   /// What Logic is asked to do to the rows of the Event List.
   let events: EventList.Actions
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it. It is read again after the step, because a tree
   /// read before a change describes the Logic of a moment ago.
@@ -141,7 +146,7 @@ struct AutomationSetCommand: LogicCommand {
             + "for, and Logic shows no Event List, so the points cannot be read. Open the Event "
             + "List and read them with automation list."
           : "Logic shows no Event List, so the automation points of region \(region) on track "
-            + "\(track) cannot be changed. Select the region and open the Event List.",
+            + "\(track) cannot be changed. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -244,6 +249,8 @@ struct AutomationSetCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: track, region: region.index, changed: false)
     }

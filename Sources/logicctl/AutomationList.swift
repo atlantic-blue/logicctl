@@ -46,6 +46,7 @@ extension Automation.List {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -68,20 +69,25 @@ extension Automation.List {
       lock: lock,
       capturer: capturer)
     return printer.write(
-      run.run(command: AutomationListCommand(target: region, source: source, argv: argv)))
+      run.run(
+        command: AutomationListCommand(
+          target: region, selection: selection, source: source, argv: argv)))
   }
 }
 
 /// The reading of the automation points of one region, as the run of a command sees it.
 ///
-/// It changes nothing in Logic. It asks the driver which region the two numbers name, and reads
-/// the points out of the window Logic is showing the events in. The run takes the lock, records
-/// the step and answers the envelope around it.
+/// It changes no music. It asks the driver which region the two numbers name, makes that region the
+/// only region Logic holds selected, and reads the points out of the window Logic shows the events
+/// in. The run takes the lock, records the step and answers the envelope around it.
 struct AutomationListCommand: LogicCommand {
   let name = "automation list"
 
   /// The two numbers that name the region.
   let target: RegionOption
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it.
   let source: () throws -> LogicTree
@@ -104,7 +110,7 @@ struct AutomationListCommand: LogicCommand {
         code: .elementNotFound,
         message:
           "Logic shows no Event List, so the automation points of region \(region) on track "
-          + "\(track) cannot be read. Select the region and open the Event List.",
+          + "\(track) cannot be read. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -115,6 +121,8 @@ struct AutomationListCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: track, region: region.index)
     }
