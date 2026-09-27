@@ -79,13 +79,20 @@ public struct AutomationMenus {
   /// Selects one region of the Tracks window, and nothing else.
   public typealias Select = (any AXNode) throws -> Void
 
+  /// Raises the Tracks window of the project, and answers once that window holds the focus.
+  public typealias RaiseTheTracksWindow = () throws -> Void
+
   public let press: Press
   public let select: Select
+  public let raiseTheTracksWindow: RaiseTheTracksWindow
 
   /// A caller names the closures its command needs, and what it leaves out refuses.
-  public init(press: Press? = nil, select: Select? = nil) {
+  public init(
+    press: Press? = nil, select: Select? = nil, raiseTheTracksWindow: RaiseTheTracksWindow? = nil
+  ) {
     self.press = press ?? AutomationMenus.noPressWasGiven
     self.select = select ?? AutomationMenus.noSelectWasGiven
+    self.raiseTheTracksWindow = raiseTheTracksWindow ?? AutomationMenus.noRaiseWasGiven
   }
 
   /// Makes the points at the borders of one region, and moves them into the region.
@@ -99,6 +106,20 @@ public struct AutomationMenus {
     try select(region)
     try press(Locators.createAutomationPointsAtRegionBorders)
     try press(Locators.convertTrackAutomationToRegionAutomation)
+  }
+
+  /// Presses the one item a locator names, in the tree given.
+  ///
+  /// The walk is here rather than in the live press, so a test drives the same walk over a menu
+  /// bar of its own and the pipeline needs no Logic.
+  public static func pressTheItem(
+    _ locator: Locator,
+    in application: any AXNode,
+    offered: (any AXNode) throws -> Bool,
+    act: (any AXNode) throws -> Void
+  ) throws {
+    let element = try LocatorResolver.element(of: locator, in: application)
+    try act(element)
   }
 
   /// The item of one region, in the tree Logic answers with, or nothing when the tree holds none.
@@ -257,6 +278,43 @@ public struct AutomationMenus {
     throw Refusal(
       reason: "No selection was given, so no region could be selected.",
       code: .internalFailure)
+  }
+
+  private static func noRaiseWasGiven() throws {
+    throw Refusal(
+      reason: "No raise was given, so the Tracks window could not be reached.",
+      code: .internalFailure)
+  }
+}
+
+extension AutomationMenus {
+  /// How the Tracks window of the project is raised and read back.
+  ///
+  /// The raise and the read are closures the caller gives, so a test drives the wait with a
+  /// clock of its own and the pipeline needs no Logic.
+  public struct TracksWindow {
+    /// Brings Logic to the front and raises the window the project sits in.
+    public typealias Raise = () throws -> Void
+
+    /// Reads whether Logic holds the focus on that window.
+    public typealias HasTheFocus = () throws -> Bool
+
+    public let raise: Raise
+    public let hasTheFocus: HasTheFocus
+
+    public init(raise: @escaping Raise, hasTheFocus: @escaping HasTheFocus) {
+      self.raise = raise
+      self.hasTheFocus = hasTheFocus
+    }
+
+    /// Raises the window, and answers once Logic holds the focus on it.
+    public func reach(
+      limitMs: Int = Wait.defaultLimitMs,
+      clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+      sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
+    ) throws {
+      try raise()
+    }
   }
 }
 

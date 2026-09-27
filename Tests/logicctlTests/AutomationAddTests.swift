@@ -53,6 +53,45 @@ private struct Element: AXNode {
   var children: [any AXNode] = []
 }
 
+/// One item of a menu of the fake Logic, with what Accessibility answers for `AXEnabled` on it.
+///
+/// Logic carries that answer on every item of its menu bar. An item it answers `false` on takes
+/// no press, so the state of the item is part of what a press of it means.
+private struct AMenuItem: AXNode {
+  let role = "AXMenuItem"
+  let title: String?
+  let identifier: String? = nil
+  let value: String? = nil
+  let valueDescription: String? = nil
+  let description: String? = nil
+  let help: String? = nil
+  let actions = ["AXPress"]
+  let children: [any AXNode] = []
+
+  /// What Logic answers for `AXEnabled` on this item.
+  let enabled: Bool
+}
+
+/// One item of the Mix menu that opens a submenu, holding the one item of that submenu.
+private func aSubmenu(_ title: String, holding item: any AXNode) -> Element {
+  Element(
+    role: "AXMenuItem", title: title,
+    children: [Element(role: "AXMenu", children: [item])])
+}
+
+/// A clock and a sleep the test moves itself, so a wait of any length costs the suite no time.
+private final class Time {
+  var now = 0
+
+  func read() -> Int {
+    now
+  }
+
+  func sleep(_ span: Int) {
+    now += span
+  }
+}
+
 /// One recorded window, read from the tree `inspect` wrote.
 private func recorded(_ tree: String) throws -> any AXNode {
   try RecordedTree(contentsOf: recordedTrees.appending(path: tree)).root
@@ -66,6 +105,12 @@ private func recorded(_ tree: String) throws -> any AXNode {
 /// points can only reach the answer through the two presses, and a command that read the Event
 /// List before pressing, or after only the first press, finds no point at all.
 private final class AFakeLogic {
+  /// The title of the item that makes the points at the borders of the selected region.
+  static let createTitle = "Create 2 Automation Points at Region Borders"
+
+  /// The title of the item that moves those points into the region.
+  static let convertTitle = "Convert Visible Track Automation to Region Automation"
+
   private let tracks: any AXNode
   private let before: any AXNode
   private let after: any AXNode
@@ -77,8 +122,26 @@ private final class AFakeLogic {
   /// The regions the command selected, as Logic names each one.
   private(set) var selected: [String] = []
 
+  /// The window that held the focus at each press, in the order the presses went in.
+  private(set) var focusedAtEachPress: [String] = []
+
+  /// How many times the command raised the Tracks window.
+  private(set) var raises = 0
+
+  /// The window Logic holds the focus on.
+  private var focused: String
+
   /// True once both items of the Mix menu were pressed.
   private var converted = false
+
+  /// The items Logic answers `AXEnabled` false on, whichever window holds the focus.
+  private let notOffered: Set<String>
+
+  /// Whether the raise gives the Tracks window the focus.
+  private let theRaiseTakesTheFocus: Bool
+
+  /// A clock the fake moves itself, so a wait of any length costs the suite no time.
+  private let time = Time()
 
   /// How the Tracks window is selected, or nothing when the scenario only records which region
   /// the command named.
@@ -86,36 +149,96 @@ private final class AFakeLogic {
 
   init(
     tracks: any AXNode, before: any AXNode, after: any AXNode,
-    selection: AutomationMenus.RegionSelection? = nil
+    selection: AutomationMenus.RegionSelection? = nil,
+    theEventListHasTheFocus: Bool = false,
+    itDoesNotOffer notOffered: Set<String> = [],
+    theRaiseTakesTheFocus: Bool = true
   ) {
     self.tracks = tracks
     self.before = before
     self.after = after
     self.selection = selection
+    self.notOffered = notOffered
+    self.theRaiseTakesTheFocus = theRaiseTakesTheFocus
+    self.focused = theEventListHasTheFocus ? (before.title ?? "") : (tracks.title ?? "")
   }
 
-  /// The windows Logic is showing.
+  /// The title of the window the tracks sit in, which is the window a press has to land in.
+  var tracksWindowTitle: String {
+    tracks.title ?? ""
+  }
+
+  /// The windows Logic is showing, and the menu bar it keeps beside them.
   var tree: LogicTree {
     LogicTree(
       logicVersion: recordedVersion,
       root: Element(
         role: "AXApplication",
-        children: [tracks, converted ? after : before]))
+        children: [tracks, converted ? after : before, theMenuBar]))
+  }
+
+  /// The menu bar of Logic, with the two items of the Mix menu this command presses.
+  ///
+  /// Measured on this Mac on 2026-09-27: Logic answers `AXEnabled` false on the convert item
+  /// while the Event List window holds the focus, and true once the Tracks window holds it with
+  /// a region selected. The create item answered true in both, and a press of it from the Event
+  /// List still made nothing, so the state of the item is not the whole of what a press needs.
+  private var theMenuBar: any AXNode {
+    let create = AMenuItem(title: AFakeLogic.createTitle, enabled: offers(AFakeLogic.createTitle))
+    let convert = AMenuItem(
+      title: AFakeLogic.convertTitle,
+      enabled: offers(AFakeLogic.convertTitle) && focused == tracksWindowTitle)
+    return Element(
+      role: "AXMenuBar",
+      children: [
+        Element(
+          role: "AXMenuBarItem", title: "Mix",
+          children: [
+            Element(
+              role: "AXMenu",
+              children: [
+                aSubmenu("Create Track Automation", holding: create),
+                aSubmenu("Convert Automation", holding: convert),
+              ])
+          ])
+      ])
+  }
+
+  /// Whether Logic offers one item at all. A scenario names the items it answers false on.
+  private func offers(_ title: String) -> Bool {
+    !notOffered.contains(title)
   }
 
   /// What the command drives Logic through.
   var menus: AutomationMenus {
     AutomationMenus(
       press: { locator in
-        self.did.append(locator.path.last?.title ?? locator.name)
-        if locator.name == Locators.convertTrackAutomationToRegionAutomation.name {
-          self.converted = true
-        }
+        try AutomationMenus.pressTheItem(
+          locator, in: self.tree.root,
+          offered: { item in (item as? AMenuItem)?.enabled ?? false },
+          act: { item in
+            self.did.append(item.title ?? locator.name)
+            self.focusedAtEachPress.append(self.focused)
+            if locator.name == Locators.convertTrackAutomationToRegionAutomation.name {
+              self.converted = true
+            }
+          })
       },
       select: { region in
         self.did.append("select")
         self.selected.append(region.description ?? "")
         try self.selection?.makeTheOnlySelection(region, under: self.tracks)
+      },
+      raiseTheTracksWindow: {
+        self.raises += 1
+        let window = AutomationMenus.TracksWindow(
+          raise: {
+            if self.theRaiseTakesTheFocus {
+              self.focused = self.tracksWindowTitle
+            }
+          },
+          hasTheFocus: { self.focused == self.tracksWindowTitle })
+        try window.reach(clock: self.time.read, sleeper: self.time.sleep)
       })
   }
 }
@@ -558,4 +681,87 @@ private func aProjectOfFourRegions() -> [Track] {
     }
     return track
   }
+}
+
+/// A person adds automation while Logic shows the Event List in front, and Logic makes the points.
+///
+/// Measured on this Mac at 02:08 on 2026-09-27, on a copy of F-T13 with one region selected. With
+/// the Event List window focused, a press of each of the two items of the Mix menu made nothing:
+/// the Undo History of Logic gained no row and the region held no point. With the Tracks window
+/// raised and focused, the same two presses made both actions and the region then held three
+/// volume points. Logic also answers `AXEnabled` false on the convert item while the Event List
+/// holds the focus.
+///
+/// So the window a press lands in is part of the press, and `automation add` raised no window.
+/// The two runs on this Mac recorded the create and never the convert, the command exited 0, and
+/// the region held nothing. A person reads three points from a region that has none, and every
+/// later `automation set --point 1` then edits a point that is not there. Nothing later in the
+/// session says where that went wrong, because the answer already said the points were made.
+///
+/// The three parts are the three ways that ends. The command reaches the window before it
+/// presses. An item Logic will not offer stops the command at that item, by name. A window that
+/// never takes the focus stops it with the time it gave Logic.
+@Test func automationPressesOnlyAnEnabledItemInTheTracksWindow() throws {
+  let logic = AFakeLogic(
+    tracks: try recorded("region.json"),
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    theEventListHasTheFocus: true)
+
+  let answer = try automationAdd(["--track", "3", "--region", "1"], logic: logic)
+
+  #expect(answer.status == 0, "the command goes through from a Logic showing the Event List")
+  #expect(logic.raises == 1, "the Tracks window is raised once")
+  #expect(
+    logic.focusedAtEachPress == [logic.tracksWindowTitle, logic.tracksWindowTitle],
+    "both items are pressed while the Tracks window holds the focus, which is where they work")
+  #expect(
+    logic.did == [
+      "select",
+      AFakeLogic.createTitle,
+      AFakeLogic.convertTitle,
+    ],
+    "the region is selected, the points are made, and then they move into the region")
+  #expect(try answer.points().count == 3, "and the answer carries every point Logic made")
+
+  // Logic will not offer the first item. The command says which item, and stops there.
+  let refusing = AFakeLogic(
+    tracks: try recorded("region.json"),
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    itDoesNotOffer: [AFakeLogic.createTitle])
+
+  let refused = try automationAdd(["--track", "3", "--region", "1"], logic: refusing)
+
+  #expect(refused.status == 5, "the number the design system gives element_not_found")
+  #expect(try refused.error()["code"] as? String == "element_not_found")
+  #expect(
+    try (refused.error()["message"] as? String ?? "").contains(AFakeLogic.createTitle),
+    "the sentence names the item Logic would take no press of")
+  let named = try refused.error()["details"] as? [String: Any]
+  #expect(
+    named?["item"] as? String == AFakeLogic.createTitle,
+    "and the details carry that item, so an agent reads which press never happened")
+  #expect(
+    refusing.did == ["select"],
+    "the item is not pressed, and nor is the item after it")
+  #expect(try refused.printed()["data"] is NSNull, "a failure carries no data")
+
+  // Logic never gives the Tracks window the focus. Nothing is selected and nothing is pressed.
+  let deaf = AFakeLogic(
+    tracks: try recorded("region.json"),
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    theEventListHasTheFocus: true,
+    theRaiseTakesTheFocus: false)
+
+  let waited = try automationAdd(["--track", "3", "--region", "1"], logic: deaf)
+
+  #expect(waited.status == 6, "the number the design system gives timeout")
+  #expect(try waited.error()["code"] as? String == "timeout")
+  let gave = try waited.error()["details"] as? [String: Any]
+  #expect(
+    gave?["waitedMs"] as? Int == 5000,
+    "the wait says how long it gave Logic, and five seconds is the limit of a wait that names none")
+  #expect(deaf.did.isEmpty, "no region was selected and no item of the Mix menu was pressed")
 }
