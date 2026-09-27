@@ -131,6 +131,27 @@ public struct AutomationMenus {
     return items[region - 1]
   }
 
+  /// Every region item the Tracks window shows, in the order Accessibility answers them.
+  ///
+  /// The walk reads every item of the region role under the group, at any depth, and not only
+  /// the ones an area holds. Logic makes the automation points at the borders of every region
+  /// that is selected, so a region this walk does not read stays selected and gains points of
+  /// its own.
+  public static func regionItems(under root: any AXNode) -> [any AXNode] {
+    guard let group = contents(of: root) else {
+      return []
+    }
+    return regionItems(inside: group)
+  }
+
+  /// Every element of the region role under one element. A region holds no region, so the walk
+  /// stops at the first one it finds on a branch.
+  private static func regionItems(inside node: any AXNode) -> [any AXNode] {
+    node.children.flatMap { child -> [any AXNode] in
+      child.role == RegionReader.regionRole ? [child] : regionItems(inside: child)
+    }
+  }
+
   /// The points the Event List shows, read from the window it is showing them in.
   ///
   /// Every `Fader` row is one point, and the number of a point is its place among those rows in
@@ -240,6 +261,99 @@ public struct AutomationMenus {
 }
 
 extension AutomationMenus {
+  /// Logic holds a selection that is not the one region the command named.
+  ///
+  /// Logic makes the automation points at the borders of every region that is selected, so a
+  /// press now writes points into a region nobody named, and the answer would read as though one
+  /// region changed. Nothing is pressed after this. The regions go out with the failure, because
+  /// a person who reads it needs to know what Logic holds before they select again by hand.
+  public struct SelectionRefused: FailureCarrying, Equatable, Sendable {
+    /// The region the command named, as Logic describes it.
+    public let named: String
+
+    /// Every region Logic holds after the writes, in the order Accessibility answers them.
+    public let selected: [String]
+
+    public init(named: String, selected: [String]) {
+      self.named = named
+      self.selected = selected
+    }
+
+    public var failure: Failure {
+      Failure(
+        code: .internalFailure,
+        message:
+          "Logic holds \(SelectionRefused.words(of: selected)) selected after \(named) was "
+          + "selected alone, so nothing was pressed and no automation point was made.",
+        details: .object([
+          "named": .string(named),
+          "selected": .array(selected.map { JSONValue.string($0) }),
+        ]))
+    }
+
+    /// The regions of a selection as the message reads them, and `no region` when Logic holds
+    /// none.
+    private static func words(of selected: [String]) -> String {
+      selected.isEmpty ? "no region" : selected.joined(separator: ", ")
+    }
+  }
+
+  /// How one region of the Tracks window is made the only region Logic holds selected.
+  ///
+  /// A write of `AXSelected` on a region item does not take the value it is given. It toggles
+  /// that item, and it leaves every other region as it was. Measured against Logic 12.3.1 on
+  /// 2026-09-27. `midi import` leaves every region it made selected, so a command that pressed
+  /// the menu item as it found Logic would make points in a region nobody named.
+  ///
+  /// The read, the write and the comparison are closures the caller gives, as they are for
+  /// `InputGate` and `SelectionGuard`. A recorded tree carries no selection, so a test drives
+  /// the same walk over a group of its own and the pipeline needs no Logic.
+  public struct RegionSelection {
+    /// Reads whether Logic holds one region item selected.
+    public typealias Holds = (any AXNode) throws -> Bool
+
+    /// Writes `AXSelected` on one region item once, which toggles that item.
+    public typealias Write = (any AXNode) throws -> Void
+
+    /// Answers whether two nodes are the one element of the tree.
+    public typealias Same = (any AXNode, any AXNode) -> Bool
+
+    public let holds: Holds
+    public let write: Write
+    public let same: Same
+
+    public init(holds: @escaping Holds, write: @escaping Write, same: @escaping Same) {
+      self.holds = holds
+      self.write = write
+      self.same = same
+    }
+
+    /// Makes one region the only region Logic holds selected, under the element given.
+    ///
+    /// Every region is read before anything is written, because a write changes what the next
+    /// read answers. A region that is already as it should be is not written at all: the write
+    /// would toggle it the other way.
+    ///
+    /// The selection is read back after the writes, which is the read RUN-2 asks for. A readback
+    /// that is not the one named region throws, and the caller presses nothing.
+    public func makeTheOnlySelection(_ region: any AXNode, under root: any AXNode) throws {
+      let items = AutomationMenus.regionItems(under: root)
+      let wanted = items.map { same($0, region) }
+      let held = try items.map(holds)
+      for place in items.indices where held[place] != wanted[place] {
+        try write(items[place])
+      }
+      let now = try items.map(holds)
+      guard now == wanted, wanted.contains(true) else {
+        throw AutomationMenus.SelectionRefused(
+          named: region.description ?? "",
+          selected: zip(items, now).filter { $0.1 }.map { $0.0.description ?? "" })
+      }
+    }
+  }
+}
+
+extension AutomationMenus {
   /// The Logic of this Mac, selected in its window and pressed through its menu bar.
   public static func live() -> AutomationMenus {
     AutomationMenus(
@@ -274,23 +388,73 @@ extension AutomationMenus {
     }
   }
 
-  /// Selects one region of the Tracks window, by writing `AXSelected` on its item.
+  /// Makes one region of the Tracks window the only region the running Logic holds selected.
   ///
-  /// This is how the Piano Roll selects a note, and the probe of Logic 12.3.1 did not try it on a
-  /// region. So a Logic that refuses the write comes back as the error the Mac gave, and the live
-  /// acceptance of phase 4 is what says which of the two happens.
+  /// The tree is read again here, because the caller hands in one region and the walk needs every
+  /// region of the window. `pressInTheMenuBarOfThisMac` reads it again for the same reason. The
+  /// one region is found in the new tree by its element, the way the input gate finds the element
+  /// under the pointer.
   public static func selectInTheLogicOfThisMac(_ region: any AXNode) throws {
-    guard let live = region as? LiveAXNode else {
+    guard region is LiveAXNode else {
       throw Refusal(
         reason: "the region was found in a recorded tree, which nothing can select.",
+        code: .internalFailure)
+    }
+    let tree = try LogicTree.ofRunningLogic()
+    try RegionSelection.live().makeTheOnlySelection(region, under: tree.root)
+  }
+
+  /// Reads whether the running Logic holds one region item selected.
+  ///
+  /// An item that answers nothing reads as an item Logic does not hold, because an attribute that
+  /// is not there is not a selection.
+  public static func heldInTheLogicOfThisMac(_ item: any AXNode) throws -> Bool {
+    guard let live = item as? LiveAXNode else {
+      return false
+    }
+    var carried: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      live.element, kAXSelectedAttribute as CFString, &carried)
+    guard answered == .success else {
+      return false
+    }
+    return carried as? Bool == true
+  }
+
+  /// Writes `AXSelected` on one region item of the running Logic, once.
+  ///
+  /// The value written is `true` and it decides nothing. Logic 12.3.1 toggles the item whichever
+  /// value the write carries, so the caller writes only on an item whose state is wrong.
+  public static func writeSelectedInTheLogicOfThisMac(_ item: any AXNode) throws {
+    guard let live = item as? LiveAXNode else {
+      throw Refusal(
+        reason: "a region was found in a recorded tree, which nothing can select.",
         code: .internalFailure)
     }
     let answered = AXUIElementSetAttributeValue(
       live.element, kAXSelectedAttribute as CFString, kCFBooleanTrue as CFTypeRef)
     guard answered == .success else {
       throw Refusal(
-        reason: "Logic refused the selection of the region, error \(answered.rawValue).",
+        reason: "Logic refused the selection of a region, error \(answered.rawValue).",
         code: .internalFailure)
     }
+  }
+
+  /// Whether two nodes are the one element of the running Logic.
+  public static func oneElementOfThisMac(_ one: any AXNode, _ other: any AXNode) -> Bool {
+    guard let left = one as? LiveAXNode, let right = other as? LiveAXNode else {
+      return false
+    }
+    return CFEqual(left.element, right.element)
+  }
+}
+
+extension AutomationMenus.RegionSelection {
+  /// The selection of the Tracks window of the Logic that runs on this Mac.
+  public static func live() -> AutomationMenus.RegionSelection {
+    AutomationMenus.RegionSelection(
+      holds: AutomationMenus.heldInTheLogicOfThisMac,
+      write: AutomationMenus.writeSelectedInTheLogicOfThisMac,
+      same: AutomationMenus.oneElementOfThisMac)
   }
 }

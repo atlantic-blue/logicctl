@@ -80,10 +80,18 @@ private final class AFakeLogic {
   /// True once both items of the Mix menu were pressed.
   private var converted = false
 
-  init(tracks: any AXNode, before: any AXNode, after: any AXNode) {
+  /// How the Tracks window is selected, or nothing when the scenario only records which region
+  /// the command named.
+  private let selection: AutomationMenus.RegionSelection?
+
+  init(
+    tracks: any AXNode, before: any AXNode, after: any AXNode,
+    selection: AutomationMenus.RegionSelection? = nil
+  ) {
     self.tracks = tracks
     self.before = before
     self.after = after
+    self.selection = selection
   }
 
   /// The windows Logic is showing.
@@ -107,6 +115,7 @@ private final class AFakeLogic {
       select: { region in
         self.did.append("select")
         self.selected.append(region.description ?? "")
+        try self.selection?.makeTheOnlySelection(region, under: self.tracks)
       })
   }
 }
@@ -311,7 +320,7 @@ private func automationAdd(
 }
 
 /// One layout area of the Tracks window, with the description Logic gave it and what it carries.
-private func anArea(_ description: String? = nil, holding regions: [Element] = []) -> Element {
+private func anArea(_ description: String? = nil, holding regions: [any AXNode] = []) -> Element {
   Element(role: RegionReader.trackRole, description: description, children: regions)
 }
 
@@ -369,6 +378,183 @@ private func aProjectOfSevenImportedTracks() -> [Track] {
     var track = Track(index: index, name: "Studio Grand", type: .softwareInstrument)
     if let region = imported[index] {
       track.regions = [region]
+    }
+    return track
+  }
+}
+
+/// A person adds automation to one region while Logic holds two other regions selected.
+///
+/// `midi import` leaves every region it made selected, and Logic makes the automation points at
+/// the borders of every region that is selected. So a command that pressed the menu item as it
+/// found Logic writes points into three regions, prints the points of the one the person named,
+/// and reads as though it changed that one alone. The two other regions then carry a volume shape
+/// nobody asked for, and nothing later in the session says where it came from.
+///
+/// A write of `AXSelected` on a region item does not take the value it is given. It toggles that
+/// item. So a walk that wrote `true` on every region would let go of the ones Logic already holds,
+/// and the items of this window answer the same way the Mac answered on 2026-09-27.
+///
+/// The second half is the Logic that does not take the selection. The command stops there and
+/// presses nothing, because a press now makes the points at the borders of somebody else's
+/// region.
+@Test func automationSelectsTheNamedRegionAlone() throws {
+  let shown = aTracksWindowOfFourRegions(holding: [6, 7])
+  let logic = AFakeLogic(
+    tracks: shown.window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    selection: aSelectionThatAnswersLikeLogic())
+
+  let answer = try automationAdd(
+    ["--track", "3", "--region", "1"], logic: logic, tracks: aProjectOfFourRegions())
+
+  #expect(answer.status == 0, "the command goes through")
+  #expect(
+    shown.regions.filter({ $0.value.held }).keys.sorted() == [3],
+    "Logic holds the region of track 3, and it holds no other region")
+  #expect(shown.regions[3]?.writes == 1, "the named region is written once, which selects it")
+  #expect(
+    shown.regions[6]?.writes == 1 && shown.regions[7]?.writes == 1,
+    "each region Logic held is written once, which lets it go")
+  #expect(
+    shown.regions[5]?.writes == 0,
+    "a region that is already as it should be is not written, because a write would select it")
+  #expect(
+    logic.did == [
+      "select",
+      "Create 2 Automation Points at Region Borders",
+      "Convert Visible Track Automation to Region Automation",
+    ],
+    "the selection comes before the two items of the Mix menu")
+  #expect(try answer.points().count == 3, "and the answer carries every point Logic made")
+
+  let deaf = aTracksWindowOfFourRegions(holding: [6, 7], answering: false)
+  let stubborn = AFakeLogic(
+    tracks: deaf.window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    selection: aSelectionThatAnswersLikeLogic())
+
+  let refused = try automationAdd(
+    ["--track", "3", "--region", "1"], logic: stubborn, tracks: aProjectOfFourRegions())
+
+  #expect(refused.status == 70, "the number the design system gives internal")
+  #expect(try refused.error()["code"] as? String == "internal")
+
+  let message = try refused.error()["message"] as? String ?? ""
+  #expect(
+    message.contains("Sixth, Seventh"),
+    "the answer names every region Logic still holds, so a person knows what to let go of")
+
+  let details = try refused.error()["details"] as? [String: Any] ?? [:]
+  #expect(
+    details["selected"] as? [String] == ["Sixth", "Seventh"],
+    "and the details carry them in the order the window answers them")
+  #expect(stubborn.did == ["select"], "no item of the Mix menu was pressed")
+  #expect(try refused.printed()["data"] is NSNull, "a failure carries no data")
+}
+
+/// One region item of a fake Tracks window, with the selection Logic holds on it and the number
+/// of writes it took.
+///
+/// A write of `AXSelected` on a region item of Logic 12.3.1 does not take the value it is given.
+/// It toggles the item. So this item toggles too, and a walk that writes on a region Logic
+/// already holds lets that region go.
+private final class ARegionItem: AXNode {
+  let role = RegionReader.regionRole
+  let title: String? = nil
+  let identifier: String? = nil
+  let value: String? = nil
+  let valueDescription: String? = nil
+  let description: String?
+  let help: String?
+  let actions: [String] = []
+  let children: [any AXNode] = []
+
+  /// Whether Logic holds this region selected.
+  private(set) var held: Bool
+
+  /// How many times `AXSelected` was written on this item.
+  private(set) var writes = 0
+
+  /// Whether the item answers a write at all. A Logic that takes no notice of the write is what
+  /// the second half of the scenario drives.
+  private let answers: Bool
+
+  init(_ name: String, held: Bool, answers: Bool) {
+    self.description = name
+    self.help = "Region starts at 1 bar  and ends at 2 bars , MIDI region. "
+    self.held = held
+    self.answers = answers
+  }
+
+  /// One write of `AXSelected`, as Logic answers it.
+  func write() {
+    writes += 1
+    if answers {
+      held.toggle()
+    }
+  }
+}
+
+/// A Tracks window of seven tracks with one region on tracks 3, 5, 6 and 7, and the regions Logic
+/// holds selected.
+///
+/// The group holds one layout area per track in the order of the rows from the top, and one more
+/// after them, which is the room under the last track. `answering` says whether a write of
+/// `AXSelected` changes the item.
+private func aTracksWindowOfFourRegions(
+  holding held: Set<Int>, answering: Bool = true
+) -> (window: any AXNode, regions: [Int: ARegionItem]) {
+  var regions: [Int: ARegionItem] = [:]
+  for (track, name) in aRegionNamePerTrack {
+    regions[track] = ARegionItem(name, held: held.contains(track), answers: answering)
+  }
+  let areas: [any AXNode] = (1...8).map { place in
+    anArea(holding: regions[place].map { [$0 as any AXNode] } ?? [])
+  }
+  let window = Element(
+    role: "AXWindow",
+    title: "F-T13 - Tracks",
+    children: [
+      Element(role: "AXGroup", description: RegionReader.contentsGroup, children: areas)
+    ])
+  return (window as any AXNode, regions)
+}
+
+/// The name Logic shows on the one region of each track that carries one.
+private let aRegionNamePerTrack = [3: "Third", 5: "Fifth", 6: "Sixth", 7: "Seventh"]
+
+/// The selection of a window of this test. It reads and writes the items of that window, and it
+/// tells two items apart by which object they are.
+private func aSelectionThatAnswersLikeLogic() -> AutomationMenus.RegionSelection {
+  AutomationMenus.RegionSelection(
+    holds: { item in (item as? ARegionItem)?.held == true },
+    write: { item in
+      guard let region = item as? ARegionItem else {
+        return
+      }
+      region.write()
+    },
+    same: { one, other in
+      guard let left = one as? ARegionItem, let right = other as? ARegionItem else {
+        return false
+      }
+      return left === right
+    })
+}
+
+/// The project that window was written from: seven tracks, with one region on tracks 3, 5, 6 and
+/// 7.
+///
+/// The names are the ones the window carries, so the state of this test and the window it drives
+/// describe one project and not two.
+private func aProjectOfFourRegions() -> [Track] {
+  (1...7).map { index in
+    var track = Track(index: index, name: "Studio Grand", type: .softwareInstrument)
+    if let name = aRegionNamePerTrack[index] {
+      track.regions = [Region(index: 1, name: name, start: "1 bar", end: "2 bars")]
     }
     return track
   }
