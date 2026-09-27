@@ -66,6 +66,7 @@ extension Midi.SetVelocity {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     events: EventList.Actions = EventList.Actions.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -92,6 +93,7 @@ extension Midi.SetVelocity {
       note: target,
       value: value,
       events: events,
+      selection: selection,
       source: source,
       argv: argv)
     return printer.write(run.run(change: command, confirmed: confirmed))
@@ -124,6 +126,9 @@ struct MidiVelocityCommand: LogicCommand {
   /// What Logic is asked to do to the rows of the Event List.
   let events: EventList.Actions
 
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
+
   /// The tree of Logic, as the command reads it.
   let source: () throws -> LogicTree
 
@@ -145,7 +150,7 @@ struct MidiVelocityCommand: LogicCommand {
         code: .elementNotFound,
         message:
           "Logic shows no Event List, so the notes of region \(region) on track \(track) "
-          + "cannot be changed. Select the region and open the Event List.",
+          + "cannot be changed. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -209,6 +214,8 @@ struct MidiVelocityCommand: LogicCommand {
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: target.track.value, region: region.index)
     }
