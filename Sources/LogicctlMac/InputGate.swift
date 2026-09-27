@@ -100,6 +100,10 @@ public struct InputGate {
 }
 
 extension InputGate {
+  public static func isFrontmost(read code: Int32, value: CFTypeRef?) -> Bool {
+    false
+  }
+
   /// The gate that reads the real Logic and sends to the real window server.
   ///
   /// The pipeline has no Logic, so no test in the pipeline drives this gate. The live suite proves
