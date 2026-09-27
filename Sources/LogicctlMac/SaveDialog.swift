@@ -53,6 +53,9 @@ public struct SaveDialog {
   /// The names one column of the browser lists, counted from 0.
   public typealias ReadNames = (Int) throws -> [String]
 
+  /// Whether one folder is on the disk of this Mac, given as a path.
+  public typealias FolderExists = (String) throws -> Bool
+
   /// Opens the folder of this name in the column at this number, counted from 0.
   public typealias OpenFolder = (Int, String) throws -> Void
 
@@ -95,6 +98,9 @@ public struct SaveDialog {
   /// Reads the names one column of the browser lists.
   public let namesInColumn: ReadNames
 
+  /// Reads whether one folder of the path is on the disk.
+  public let folderExists: FolderExists
+
   /// Opens one folder of a column.
   public let openFolder: OpenFolder
 
@@ -128,6 +134,7 @@ public struct SaveDialog {
     press: @escaping Press,
     resolve: @escaping Resolve,
     namesInColumn: @escaping ReadNames,
+    folderExists: @escaping FolderExists = { _ in true },
     openFolder: @escaping OpenFolder,
     folderShown: @escaping ReadFolder,
     pressItem: @escaping PressItem,
@@ -143,6 +150,7 @@ public struct SaveDialog {
     self.press = press
     self.resolve = resolve
     self.namesInColumn = namesInColumn
+    self.folderExists = folderExists
     self.openFolder = openFolder
     self.folderShown = folderShown
     self.pressItem = pressItem
