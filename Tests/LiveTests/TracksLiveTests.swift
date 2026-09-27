@@ -98,6 +98,9 @@ enum Phase2Live {
   /// which is why `--index 1` names a track before the phase adds anything.
   static let tracksOfANewProject = 1
 
+  /// The command that reads what Logic is doing, which names the project window when there is one.
+  static let statusCommand = ["status"]
+
   /// The command that starts Logic when a scenario finds it not running.
   static let launchCommand = ["launch"]
 
@@ -186,19 +189,43 @@ enum Phase2Live {
     try? fileManager.removeItem(at: folder)
   }
 
-  /// Starts Logic when this Mac is not running it.
+  /// Gets this Mac to a Logic that runs and shows no project, before a scenario makes one.
   ///
   /// Phase 2 runs after phase 1, which ends by quitting Logic, so a scenario meets a Mac with no
   /// Logic and `new-project` waits for a chooser that never comes. `status` answers whether Logic
   /// runs and exits 0 either way, so the phase reads it and starts Logic only when it must.
-  static func launchLogicWhenItDoesNotRun() throws {
-    let read = try ran(RunningAnswer.self, ["status"])
-    guard read.running == false else {
-      print("live logic: already running")
+  ///
+  /// Logic reopens the project of its last session as it starts, and `new-project` makes a project
+  /// of its own, so it refuses while Logic shows one. `status` names the project window when there
+  /// is a project, so the phase reads that name, closes the project with the quit the scenarios end
+  /// with, and starts Logic again. `--discard` drops the changes nobody saved. It deletes nothing,
+  /// and the project stays where it sits.
+  static func logicWithNoProject() throws {
+    var read = try ran(StatusAnswer.self, statusCommand)
+    if read.running == false {
+      read = try launchLogic()
+    }
+    guard let open = read.projectWindow else {
+      print("live logic: running, and it shows no project")
       return
     }
+
+    print("live logic: closing the project Logic had open: \(open)")
+    quitLogic()
+    read = try launchLogic()
+    if let still = read.projectWindow {
+      throw Phase2Refusal.logicStillShowsAProject(still)
+    }
+  }
+
+  /// Starts Logic, and answers what `status` reads of the Logic that is now running.
+  ///
+  /// The answer of `launch` says that Logic runs and carries no window, so the project Logic
+  /// reopened as it started is only visible in a `status` read after it.
+  static func launchLogic() throws -> StatusAnswer {
     let started = try ran(RunningAnswer.self, launchCommand)
     print("live logic: launched, running \(started.running)")
+    return try ran(StatusAnswer.self, statusCommand)
   }
 
   /// Closes the project of a scenario, whichever way the scenario went.
@@ -369,7 +396,7 @@ enum Phase2Live {
       }
     }
 
-    try launchLogicWhenItDoesNotRun()
+    try logicWithNoProject()
     let project = try newProject(in: folder)
     try work(project)
   }
@@ -387,8 +414,9 @@ enum Phase2Live {
 /// open while the phase runs. A track whose strip the reader cannot find reads `other`, which is
 /// what the two scenarios that add a track name in their failure.
 ///
-/// Each scenario starts Logic when it finds none, and closes its project at the end, whichever way
-/// it went. Phase 1 quits Logic, and `new-project` refuses while Logic shows a project, so a phase
+/// Each scenario reaches a Logic that runs and shows no project before it makes one, and it closes
+/// its project at the end, whichever way it went. Phase 1 quits Logic, Logic reopens the project of
+/// its last session as it starts, and `new-project` refuses while Logic shows a project, so a phase
 /// that did neither would drive nothing after its first scenario.
 @Suite(.serialized, .enabled(if: Phase2Live.runsOnThisMac()))
 struct Phase2LiveScenarios {
@@ -544,8 +572,8 @@ struct Phase2LiveScenarios {
 /// of those lines says how many of them ran. The phase drives Logic nowhere by accident. It works
 /// on a project in a folder of its own under the home folder, which the Save panel can walk, and it
 /// refuses the folder a person keeps their work in. It finds that project in any window of Logic.
-/// It starts Logic when it finds none, and it takes the folder away at the end. And it names the
-/// session it leaves behind, because the journal part replays that session.
+/// It reaches a Logic with no project before it makes one, and it takes the folder away at the
+/// end. And it names the session it leaves behind, because the journal part replays that session.
 @Test func phaseTwoAgainstLogic() throws {
   let typed = Phase2Flow.inOrder.map(\.typed)
   #expect(
@@ -608,6 +636,19 @@ struct Phase2LiveScenarios {
   #expect(
     Phase2Live.quitCommand == ["quit", "--discard", "--confirm"],
     "and it closes its project at the end, because new-project refuses while one is open")
+  #expect(
+    Phase2Live.statusCommand == ["status"],
+    "and it reads what Logic shows first, because Logic reopens a project as it starts")
+
+  #expect(
+    StatusAnswer(running: true, window: "Untitled 1.logicx - Tracks").projectWindow != nil,
+    "a status that names a project window is a project new-project refuses, so the phase closes it")
+  #expect(
+    StatusAnswer(running: true, window: nil).projectWindow == nil,
+    "a status that names none is a Logic a scenario makes its own project in")
+  #expect(
+    StatusAnswer(running: true, window: "").projectWindow == nil,
+    "and a window of no name is no project either")
 
   var refused: Error?
   do {
@@ -677,10 +718,47 @@ private func logicWithWindows(_ titles: [String]) throws -> RecordedTree {
   return try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
 }
 
-/// What `status`, `launch` and `quit` each answer about the Logic on this Mac.
+/// What `launch` and `quit` each answer about the Logic on this Mac.
 private struct RunningAnswer: Decodable {
   /// Whether Logic runs.
   let running: Bool
+}
+
+/// What `status` answers about the Logic on this Mac.
+private struct StatusAnswer: Decodable {
+  /// Whether Logic runs.
+  let running: Bool
+
+  /// The title of the project window, or nothing when Logic shows no project.
+  let window: String?
+
+  /// The project Logic has open, by the name of its window, or nothing when it has none.
+  ///
+  /// `status` reads the window the tracks sit in and not the window in front, so a name here is a
+  /// project that `new-project` would refuse, and nothing here is a Logic a scenario can make its
+  /// own project in.
+  var projectWindow: String? {
+    guard let window, !window.isEmpty else {
+      return nil
+    }
+    return window
+  }
+}
+
+/// What the phase refuses to drive.
+private enum Phase2Refusal: Error, CustomStringConvertible {
+  /// Logic shows a project after the phase closed one and started Logic again.
+  case logicStillShowsAProject(String)
+
+  var description: String {
+    switch self {
+    case .logicStillShowsAProject(let window):
+      return """
+        Logic shows the project \(window) after a quit that discarded it and a launch. new-project \
+        makes a project of its own, so close that project in Logic and run the phase again
+        """
+    }
+  }
 }
 
 /// What `new-project` answers.
