@@ -12,14 +12,15 @@ public enum ProjectWindow: Equatable, Sendable {
   case chooser
 
   /// A project with no tracks. Logic puts the "New Track" sheet on one, both on a project it has
-  /// just made and on a project whose last track was deleted.
+  /// just made and on a project whose last track was deleted. It is a place on the way to a project
+  /// and not a place to stop: Logic refuses Save while that sheet is open.
   case emptyProject
 
   /// A project with tracks in it.
   case project
 }
 
-/// Gets Logic from whatever it shows to an empty project with no tracks.
+/// Gets Logic from whatever it shows to a project that holds its first track.
 ///
 /// Both operations are closures the caller gives, as they are for `AppControl`. The pipeline has
 /// no Logic and no window server, so a test drives the same route with a Logic of its own and
@@ -64,17 +65,19 @@ public struct ProjectChooser {
 }
 
 extension ProjectChooser {
-  /// Takes Logic to an empty project with no tracks, and answers once it is there.
+  /// Takes Logic to a project that holds its first track, and answers once it is there.
   ///
   /// Logic shows the chooser while no project is open, so the route takes the empty project
-  /// template and opens it. Logic then makes the project and asks for its first track. It is asked
-  /// for nothing: the project already has no tracks, which is what this command is for, and the
-  /// two buttons of that sheet both take Logic away from it. Create would make a track, and Cancel
-  /// closes the project Logic has just made.
+  /// template and opens it. Logic then makes the project and puts the sheet that asks for the first
+  /// track on it. That sheet has to be answered: while it is open the File menu reads Save false
+  /// and Save As false, so a project left under it cannot be kept at all. The route presses Create,
+  /// which takes the defaults of the sheet and makes one software instrument track. It never
+  /// presses Cancel, because Cancel closes the project Logic has just made and Logic then removes
+  /// the folder it wrote for it.
   ///
-  /// A Logic that is already showing an empty project is left as it is, so the command answers the
-  /// same way whether it opened the project or found it.
-  public func reachAnEmptyProject(
+  /// A Logic that is already showing a project with tracks is left as it is, so the command answers
+  /// the same way whether it made the project or found it.
+  public func reachAProjectWithTracks(
     limitMs: Int = Wait.defaultLimitMs,
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
@@ -84,7 +87,22 @@ extension ProjectChooser {
       try press(Locators.chooserChooseButton)
     }
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
-      try read() == ProjectWindow.emptyProject
+      let shown = try read()
+      return shown == ProjectWindow.emptyProject || shown == ProjectWindow.project
+    }
+    guard try read() == ProjectWindow.emptyProject else {
+      return
+    }
+    try press(Locators.newTrackCreateButton)
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try read() == ProjectWindow.project
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "the New Track sheet was still open \(ranOut.waitedMs)ms after Create was pressed, "
+          + "so the project holds no track and Logic refuses to save it",
+        code: .timeout)
     }
   }
 }

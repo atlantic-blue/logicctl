@@ -27,9 +27,9 @@ struct Replay: ParsableCommand {
       carries the whole report.
 
       --from and --to are step numbers, counted from 1, as `show` counts them, and a step at \
-      either end is inside the range. A range that starts after step 1 runs on a new empty \
-      project, and logicctl gives no warning, so the project misses the work of every step \
-      before the range.
+      either end is inside the range. A range that starts after step 1 runs on a new project, \
+      and logicctl gives no warning, so the project misses the work of every step before the \
+      range.
 
       Example: logicctl replay 6f0a1b2c-3d4e-4f50-8a9b-0c1d2e3f4a5b --from 2 --to 3
       """)
@@ -113,10 +113,10 @@ extension Replay {
         throw SessionReplay.Refusal.nothingToReplay(id: id)
       }
 
-      let empty = try NewProject.emptyProject(
+      let made = try NewProject.projectWithTracks(
         through: chooser, and: driver, limitMs: limitMs, clock: clock, sleeper: sleeper)
       let fresh = Replay.session(
-        of: empty,
+        of: made,
         at: try driver.projectPath(),
         replaying: source.session.id,
         firstCommit: first.commit,
@@ -124,13 +124,13 @@ extension Replay {
         version: version,
         startedAt: started)
       let repository = try SessionRepository.start(
-        session: fresh, root: root, state: empty, git: git, lock: lock)
+        session: fresh, root: root, state: made, git: git, lock: lock)
 
       let outcome = try SessionReplay.compare(
         steps: steps,
         of: source,
         into: repository,
-        startingFrom: empty,
+        startingFrom: made,
         now: now,
         through: runner ?? Replay.liveRunner(readingThrough: driver))
       let meta = AnswerMeta.run(

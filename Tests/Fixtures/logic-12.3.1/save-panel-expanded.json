@@ -1,0 +1,907 @@
+{
+  "logicVersion": "12.3.1",
+  "root": {
+    "actions": [
+      "AXRaise"
+    ],
+    "children": [
+      {
+        "children": [
+          {
+            "actions": [
+              "AXScrollLeftByPage",
+              "AXScrollRightByPage",
+              "AXScrollUpByPage",
+              "AXScrollDownByPage"
+            ],
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [],
+                    "identifier": "AutomaticTableColumnIdentifier.0",
+                    "role": "AXColumn"
+                  }
+                ],
+                "description": "sidebar",
+                "identifier": "_NS:8",
+                "role": "AXOutline"
+              },
+              {
+                "children": [
+                  {
+                    "children": [],
+                    "role": "AXValueIndicator",
+                    "value": "0"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [],
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [],
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [],
+                    "role": "AXButton"
+                  },
+                  {
+                    "actions": [
+                      "AXPress"
+                    ],
+                    "children": [],
+                    "role": "AXButton"
+                  }
+                ],
+                "identifier": "_NS:70",
+                "role": "AXScrollBar",
+                "value": "0"
+              }
+            ],
+            "identifier": "_NS:61",
+            "role": "AXScrollArea"
+          },
+          {
+            "children": [],
+            "role": "AXSplitter",
+            "value": "154"
+          },
+          {
+            "children": [
+              {
+                "actions": [
+                  "AXShowMenu"
+                ],
+                "children": [
+                  {
+                    "actions": [
+                      "AXScrollLeftByPage",
+                      "AXScrollRightByPage",
+                      "AXScrollUpByPage",
+                      "AXScrollDownByPage"
+                    ],
+                    "children": [
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "Applications"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "Library"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "private"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "System"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "Users"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              }
+                            ],
+                            "role": "AXList"
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [],
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "etc"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "tmp"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "var"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              }
+                            ],
+                            "role": "AXList"
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [],
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "logicctl-fixtures"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "logicctl-probe"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              }
+                            ],
+                            "role": "AXList"
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [],
+                                "role": "AXValueIndicator",
+                                "value": "0.7547826086956522"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "role": "AXScrollBar",
+                            "value": "0.7547826086956522"
+                          }
+                        ],
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "actions": [
+                          "AXScrollLeftByPage",
+                          "AXScrollRightByPage",
+                          "AXScrollUpByPage",
+                          "AXScrollDownByPage"
+                        ],
+                        "children": [
+                          {
+                            "actions": [
+                              "AXShowMenu"
+                            ],
+                            "children": [
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "notes.mid"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              },
+                              {
+                                "children": [
+                                  {
+                                    "children": [],
+                                    "role": "AXImage"
+                                  },
+                                  {
+                                    "actions": [
+                                      "AXOpen",
+                                      "AXShowMenu",
+                                      "AXConfirm"
+                                    ],
+                                    "children": [],
+                                    "role": "AXTextField",
+                                    "value": "savepanel.logicx"
+                                  }
+                                ],
+                                "role": "AXGroup"
+                              }
+                            ],
+                            "role": "AXList"
+                          },
+                          {
+                            "children": [
+                              {
+                                "children": [],
+                                "role": "AXValueIndicator",
+                                "value": "0"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              },
+                              {
+                                "actions": [
+                                  "AXPress"
+                                ],
+                                "children": [],
+                                "role": "AXButton"
+                              }
+                            ],
+                            "role": "AXScrollBar",
+                            "value": "0"
+                          }
+                        ],
+                        "role": "AXScrollArea"
+                      },
+                      {
+                        "children": [
+                          {
+                            "children": [],
+                            "role": "AXValueIndicator",
+                            "value": "1"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "children": [],
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "children": [],
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "children": [],
+                            "role": "AXButton"
+                          },
+                          {
+                            "actions": [
+                              "AXPress"
+                            ],
+                            "children": [],
+                            "role": "AXButton"
+                          }
+                        ],
+                        "role": "AXScrollBar",
+                        "value": "1"
+                      }
+                    ],
+                    "role": "AXScrollArea"
+                  }
+                ],
+                "description": "column view",
+                "identifier": "ColumnView",
+                "role": "AXBrowser"
+              }
+            ],
+            "role": "AXSplitGroup"
+          }
+        ],
+        "role": "AXSplitGroup"
+      },
+      {
+        "children": [],
+        "identifier": "nameFieldLabel",
+        "role": "AXStaticText",
+        "value": "Save As:"
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXConfirm"
+        ],
+        "children": [],
+        "identifier": "saveAsNameTextField",
+        "role": "AXTextField",
+        "value": "savepanel.logicx"
+      },
+      {
+        "children": [],
+        "identifier": "tagsLabel",
+        "role": "AXStaticText",
+        "value": "Tags:"
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXConfirm"
+        ],
+        "children": [],
+        "description": "tag editor",
+        "identifier": "_NS:8",
+        "role": "AXTextField",
+        "value": ""
+      },
+      {
+        "children": [
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "children": [],
+            "description": "back",
+            "role": "AXButton"
+          },
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "children": [],
+            "description": "forward",
+            "role": "AXButton"
+          }
+        ],
+        "identifier": "_NS:49",
+        "role": "AXGroup"
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXPress"
+        ],
+        "children": [],
+        "description": "column view",
+        "help": "Show as Icons, List, or Columns, and hide/show the sidebar",
+        "identifier": "View Options",
+        "role": "AXMenuButton",
+        "title": ""
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXPress"
+        ],
+        "children": [],
+        "description": "",
+        "help": "Change the item grouping (hold down Option to change the sort)",
+        "identifier": "Group or Sort By",
+        "role": "AXMenuButton",
+        "title": ""
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXPress"
+        ],
+        "children": [],
+        "identifier": "where popup",
+        "role": "AXPopUpButton",
+        "title": "Where:",
+        "value": "logicctl-probe"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "description": "show less options",
+        "identifier": "NS_OPEN_SAVE_DISCLOSURE_TRIANGLE",
+        "role": "AXDisclosureTriangle",
+        "value": "1"
+      },
+      {
+        "actions": [
+          "AXShowMenu",
+          "AXConfirm"
+        ],
+        "children": [
+          {
+            "actions": [
+              "AXPress"
+            ],
+            "children": [],
+            "description": "search",
+            "role": "AXButton",
+            "title": ""
+          }
+        ],
+        "identifier": "Search",
+        "role": "AXTextField"
+      },
+      {
+        "children": [],
+        "help": "",
+        "identifier": "_NS:74",
+        "role": "AXStaticText",
+        "value": "Organize my project as a:"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:103",
+        "role": "AXRadioButton",
+        "title": "Package",
+        "value": "1"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:8",
+        "role": "AXRadioButton",
+        "title": "Folder",
+        "value": "0"
+      },
+      {
+        "children": [],
+        "help": "",
+        "identifier": "_NS:109",
+        "role": "AXStaticText",
+        "value": "Copy the following files into your project:"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:32",
+        "role": "AXCheckBox",
+        "title": "Audio files",
+        "value": "1"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:40",
+        "role": "AXCheckBox",
+        "title": "Sampler audio data",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:22",
+        "role": "AXCheckBox",
+        "title": "Alchemy audio data",
+        "value": "1"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:91",
+        "role": "AXCheckBox",
+        "title": "Ultrabeat audio data",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:64",
+        "role": "AXCheckBox",
+        "title": "Space Designer impulse responses",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:56",
+        "role": "AXCheckBox",
+        "title": "Movie file",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "identifier": "_NS:48",
+        "role": "AXCheckBox",
+        "title": "Include Logic Pro Library Content",
+        "value": "0"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "identifier": "NewFolderButton",
+        "role": "AXButton",
+        "title": "New Folder"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "identifier": "CancelButton",
+        "role": "AXButton",
+        "title": "Cancel"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "identifier": "OKButton",
+        "role": "AXButton",
+        "title": "Save"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress",
+          "AXShowMenu"
+        ],
+        "children": [
+          {
+            "children": [],
+            "help": "",
+            "role": "AXGroup"
+          }
+        ],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "actions": [
+          "AXPress"
+        ],
+        "children": [],
+        "help": "",
+        "role": "AXButton"
+      },
+      {
+        "children": [],
+        "role": "AXStaticText",
+        "value": "Save"
+      }
+    ],
+    "identifier": "save-panel",
+    "role": "AXWindow",
+    "title": "Save"
+  }
+}
