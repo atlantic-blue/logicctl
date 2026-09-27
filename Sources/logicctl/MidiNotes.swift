@@ -82,9 +82,9 @@ extension Midi.Notes {
 
 /// The reading of the notes of one region, as the run of a command sees it.
 ///
-/// It changes nothing in Logic. It asks the driver which region the two numbers name, and reads
-/// the events out of the window Logic is showing them in. The run takes the lock, records the step
-/// and answers the envelope around it.
+/// It changes no music. It asks the driver which region the two numbers name, makes that region the
+/// only region Logic holds selected, and reads the events out of the window Logic shows them in.
+/// The run takes the lock, records the step and answers the envelope around it.
 struct MidiNotesCommand: LogicCommand {
   let name = "midi notes"
 
@@ -115,7 +115,7 @@ struct MidiNotesCommand: LogicCommand {
         code: .elementNotFound,
         message:
           "Logic shows no Event List, so the notes of region \(region) on track \(track) "
-          + "cannot be read. Select the region and open the Event List.",
+          + "cannot be read. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -125,6 +125,8 @@ struct MidiNotesCommand: LogicCommand {
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     let tree = try source()
     guard let window = EventList.window(of: tree) else {
       throw NoEventList(track: target.track.value, region: region.index)

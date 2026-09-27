@@ -146,7 +146,7 @@ struct AutomationSetCommand: LogicCommand {
             + "for, and Logic shows no Event List, so the points cannot be read. Open the Event "
             + "List and read them with automation list."
           : "Logic shows no Event List, so the automation points of region \(region) on track "
-            + "\(track) cannot be changed. Select the region and open the Event List.",
+            + "\(track) cannot be changed. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -249,6 +249,8 @@ struct AutomationSetCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: track, region: region.index, changed: false)
     }

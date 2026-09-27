@@ -150,7 +150,7 @@ struct MidiVelocityCommand: LogicCommand {
         code: .elementNotFound,
         message:
           "Logic shows no Event List, so the notes of region \(region) on track \(track) "
-          + "cannot be changed. Select the region and open the Event List.",
+          + "cannot be changed. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -214,6 +214,8 @@ struct MidiVelocityCommand: LogicCommand {
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: target.track.value, region: region.index)
     }

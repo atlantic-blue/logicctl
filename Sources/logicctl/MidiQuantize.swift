@@ -182,6 +182,10 @@ struct MidiQuantizeCommand: LogicCommand {
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
+    // The Piano Roll follows the selection as the Event List does, so the region is made the only
+    // selection before either window is read.
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard PianoRoll.window(of: try source()) != nil else {
       throw NoPianoRoll(track: target.track.value, region: region.index)
     }
