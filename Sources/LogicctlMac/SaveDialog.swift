@@ -134,7 +134,7 @@ public struct SaveDialog {
     press: @escaping Press,
     resolve: @escaping Resolve,
     namesInColumn: @escaping ReadNames,
-    folderExists: @escaping FolderExists = { _ in true },
+    folderExists: @escaping FolderExists = SaveDialog.theFolderExistsOnThisMac,
     openFolder: @escaping OpenFolder,
     folderShown: @escaping ReadFolder,
     pressItem: @escaping PressItem,
@@ -243,7 +243,10 @@ extension SaveDialog {
       try press(Locators.saveWherePopup)
       try pressItem(startUpDisk())
       for (number, folder) in destination.folders.enumerated() {
-        let listed = try namesInColumn(number)
+        let folderPath = "/" + destination.folders.prefix(number + 1).joined(separator: "/")
+        let listed = try theNames(
+          ofColumnNumbered: number, thatLists: folder, at: folderPath, ofPath: path,
+          limitMs: limitMs, clock: clock, sleeper: sleeper)
         guard let row = listed.firstIndex(of: folder) else {
           throw Refusal(
             reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
@@ -309,6 +312,49 @@ extension SaveDialog {
     }
   }
 
+  /// The names one column lists, once it lists one folder of the path.
+  ///
+  /// Measured on this Mac on 2026-09-27, Logic 12.3.1: a save into a folder made about a second
+  /// earlier answered `invalid_argument`, because column 3 did not list that folder. The folder was
+  /// on disk, and the same save minutes later wrote the project. The panel lists a folder made
+  /// after it opened only after a delay, so one read of a column is a read of the moment before
+  /// Logic caught up, the way every other read of Logic is.
+  ///
+  /// A folder that is on disk is therefore read for a second time, within the limit of the
+  /// command, and a panel that never lists it stops the walk with `timeout`. A folder that is not
+  /// on disk is no such case: nothing is coming, so the first reading is answered as it stands,
+  /// the caller names that folder, and a person who mistyped the path waits for nothing.
+  private func theNames(
+    ofColumnNumbered number: Int,
+    thatLists folder: String,
+    at folderPath: String,
+    ofPath path: String,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws -> [String] {
+    var listed = try namesInColumn(number)
+    if listed.contains(folder) {
+      return listed
+    }
+    guard try folderExists(folderPath) else {
+      return listed
+    }
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        listed = try namesInColumn(number)
+        return listed.contains(folder)
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "Column \(number + 1) of the Save panel did not list \(folder) within "
+          + "\(ranOut.waitedMs)ms, and \(folderPath) is on disk. The walk to \(path) stopped, "
+          + "and nothing was written.",
+        code: .timeout)
+    }
+    return listed
+  }
+
   /// Waits for the Where popup to show one folder, and fails with `timeout` when it never does.
   ///
   /// The action that opens a folder answers -25205 while it opens the folder all the same, so what
@@ -355,6 +401,7 @@ extension SaveDialog {
       press: SaveDialog.pressInTheLogicOfThisMac,
       resolve: SaveDialog.resolveOnThisMac,
       namesInColumn: SaveDialog.theNamesInTheColumnOfThisMac,
+      folderExists: SaveDialog.theFolderExistsOnThisMac,
       openFolder: SaveDialog.openTheFolderInTheLogicOfThisMac,
       folderShown: SaveDialog.theFolderTheLogicOfThisMacShows,
       pressItem: SaveDialog.pressTheOpenMenuItemOfThisMac,
@@ -545,6 +592,16 @@ extension SaveDialog {
   /// The names the column at this number lists, in the panel Logic shows in front.
   static func theNamesInTheColumnOfThisMac(_ number: Int) throws -> [String] {
     try SaveDialog.names(inColumnNumbered: number, of: SaveDialog.frontWindow())
+  }
+
+  /// Whether one folder of the path is on the disk of this Mac.
+  ///
+  /// A path that holds a file, and not a folder, is nothing the panel can open, so it reads here
+  /// the way a path that holds nothing does.
+  public static func theFolderExistsOnThisMac(_ path: String) -> Bool {
+    var folder: ObjCBool = false
+    let there = FileManager.default.fileExists(atPath: path, isDirectory: &folder)
+    return there && folder.boolValue
   }
 
   /// Opens one folder of a column, through the `AXOpen` action of the field that holds its name.
