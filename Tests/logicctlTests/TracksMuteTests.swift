@@ -1,4 +1,6 @@
+import ApplicationServices
 import ArgumentParser
+import CoreGraphics
 import Foundation
 import LogicctlCore
 import LogicctlMac
@@ -112,7 +114,7 @@ private func tracksMute(
   let time = MuteTime()
   do {
     let command = try Tracks.Mute.parse(line)
-    let actions = TrackActions(pressInWindow: { locator in
+    let actions = TrackActions(click: { locator in
       buttons.pressed.append(locator)
       press(driver)
     })
@@ -366,4 +368,206 @@ private func aLogicWhoseMuteButtonTurnsOver(atIndex index: Int) -> (FakeLogicDri
   #expect(try answer.failureCode() == "confirm_required", "logicctl did not make this project")
   #expect(buttons.pressed.isEmpty, "nothing in Logic was pressed")
   #expect(driver.state?.tracks.first?.mute == false, "the project of the person holds")
+}
+
+/// Which road each command took to the check box, kept apart because the road is the whole of this
+/// step: an event the window server delivered, or a press Accessibility performed.
+private final class Routes {
+  /// Every event the window server carried, in the order it carried it.
+  var events: [InputGate.Event] = []
+
+  /// Every control Accessibility was asked to press.
+  var accessibilityPresses: [Locator] = []
+
+  /// Every control the command asked the place of, so a test says which check box it aimed at.
+  var aimedAt: [Locator] = []
+}
+
+/// The Logic of a test turns the solo of the track at that number over, the way a check box does.
+private func aLogicWhoseSoloCheckBoxTurnsOver(atIndex index: Int) -> (FakeLogicDriver) -> Void {
+  { fake in
+    guard let place = fake.state?.tracks.firstIndex(where: { $0.index == index }) else {
+      return
+    }
+    fake.state?.tracks[place].solo.toggle()
+  }
+}
+
+/// Actions whose click goes through a real gate, with a Logic in front and no dialog open.
+///
+/// `elementAtThePoint` is what the window server finds under the point, so a test names another
+/// element there to say what happens when the aim is wrong. `heard` is what Logic makes of a click
+/// it took, and it runs on the release, because that is when a check box of Logic turns over.
+///
+/// The Accessibility press is given as well, and it records rather than acting, so a press that
+/// this step took away is visible in the answer of the test rather than silently doing nothing.
+private func actionsThatClickThroughAGate(
+  target: AXUIElement,
+  centre: CGPoint,
+  elementAtThePoint: AXUIElement,
+  routes: Routes,
+  heard: @escaping () -> Void
+) -> TrackActions {
+  let gate = InputGate(
+    frontmost: { true },
+    modal: { false },
+    elementAtPoint: { _ in elementAtThePoint },
+    focus: { nil },
+    sender: { event in
+      routes.events.append(event)
+      if case .mouseUp = event {
+        heard()
+      }
+    })
+  return TrackActions(
+    pressInWindow: { locator in
+      routes.accessibilityPresses.append(locator)
+    },
+    click: TrackActions.clickThroughTheGate(
+      gate,
+      readingTheTargetWith: { locator in
+        routes.aimedAt.append(locator)
+        return (element: target, centre: centre)
+      }))
+}
+
+/// Runs `logicctl tracks mute` with the actions a test prepared, so the test says how the control
+/// is reached as well as what Logic makes of it.
+private func mutingThrough(
+  actions: TrackActions, line: [String], driver: FakeLogicDriver
+) -> MuteAnswer {
+  let answer = MuteAnswer()
+  let time = MuteTime()
+  do {
+    let command = try Tracks.Mute.parse(line)
+    answer.status = Tracks.Mute.answer(
+      driver: driver,
+      actions: actions,
+      index: command.track.index,
+      muted: try command.muting.state(),
+      confirmed: command.guarded.confirm,
+      root: noSessionFolder(),
+      limitMs: 50,
+      argv: line,
+      clock: time.read,
+      sleeper: time.sleep,
+      standardOutput: answer.write,
+      standardError: answer.writeError)
+  } catch {
+    answer.status = Logicctl.report(
+      error, arguments: line, standardOutput: answer.write, standardError: answer.writeError)
+  }
+  return answer
+}
+
+/// Runs `logicctl tracks solo` with the actions a test prepared.
+private func soloingThrough(
+  actions: TrackActions, line: [String], driver: FakeLogicDriver
+) -> MuteAnswer {
+  let answer = MuteAnswer()
+  let time = MuteTime()
+  do {
+    let command = try Tracks.Solo.parse(line)
+    answer.status = Tracks.Solo.answer(
+      driver: driver,
+      actions: actions,
+      index: command.track.index,
+      soloed: try command.soloing.state(),
+      confirmed: command.guarded.confirm,
+      root: noSessionFolder(),
+      limitMs: 50,
+      argv: line,
+      clock: time.read,
+      sleeper: time.sleep,
+      standardOutput: answer.write,
+      standardError: answer.writeError)
+  } catch {
+    answer.status = Logicctl.report(
+      error, arguments: line, standardOutput: answer.write, standardError: answer.writeError)
+  }
+  return answer
+}
+
+/// A mute and a solo reach the check box with a click of the mouse, and no click leaves the gate.
+///
+/// Measured on Logic 12.3.1 on 2026-09-27: `AXUIElementPerformAction` on the mute check box of the
+/// header of track 1 answers success and leaves the value at 0. It stayed at 0 after three presses,
+/// so `tracks mute --index 1 --on` read the old state back until the wait ran out and answered
+/// `timeout`. A left click at the centre of the same check box took the value to 1.
+///
+/// The gate carries the check box as the target of the click, so the two events reach Logic only
+/// while the element the window server finds under the point is that check box. An aim that lands
+/// anywhere else sends nothing at all, which is what keeps a mute of track 1 off track 2.
+@Test func muteAndSoloClickTheCheckBoxThroughTheGate() throws {
+  let checkBox = AXUIElementCreateApplication(601)
+  let centre = CGPoint(x: 120, y: 340)
+  let turnTheMuteOver = aLogicWhoseMuteButtonTurnsOver(atIndex: 1)
+
+  let muting = aLogicHoldingTracks([Track(index: 1, name: "Bass", type: .other)])
+  let mute = Routes()
+  let muted = mutingThrough(
+    actions: actionsThatClickThroughAGate(
+      target: checkBox,
+      centre: centre,
+      elementAtThePoint: checkBox,
+      routes: mute,
+      heard: { turnTheMuteOver(muting) }),
+    line: ["--index", "1", "--on"],
+    driver: muting)
+
+  #expect(muted.status == 0, "the mute worked")
+  #expect(try muted.row()["mute"] as? Bool == true, "and Logic shows the track silent")
+  #expect(
+    mute.events == [.mouseDown(centre), .mouseUp(centre)],
+    "one click at the centre of the check box, a press and a release, and no other event")
+  #expect(mute.accessibilityPresses.isEmpty, "and Accessibility pressed nothing")
+  #expect(
+    mute.aimedAt == [Locators.trackMuteButton(number: 0)],
+    "the click was aimed at the mute box of the header of the track that was named")
+
+  let soloing = aLogicHoldingTracks([Track(index: 1, name: "Bass", type: .other)])
+  let solo = Routes()
+  let turnTheSoloOver = aLogicWhoseSoloCheckBoxTurnsOver(atIndex: 1)
+  let soloed = soloingThrough(
+    actions: actionsThatClickThroughAGate(
+      target: checkBox,
+      centre: centre,
+      elementAtThePoint: checkBox,
+      routes: solo,
+      heard: { turnTheSoloOver(soloing) }),
+    line: ["--index", "1", "--on"],
+    driver: soloing)
+
+  #expect(soloed.status == 0, "the solo worked")
+  #expect(try soloed.row()["solo"] as? Bool == true, "and Logic shows the track soloed")
+  #expect(
+    solo.events == [.mouseDown(centre), .mouseUp(centre)],
+    "one click at the centre of the check box, and no other event")
+  #expect(solo.accessibilityPresses.isEmpty, "and Accessibility pressed nothing")
+  #expect(
+    solo.aimedAt == [Locators.trackSoloButton(number: 0)],
+    "the click was aimed at the solo box of the header of the track that was named")
+
+  let anotherControl = AXUIElementCreateApplication(602)
+  let untouched = aLogicHoldingTracks([Track(index: 1, name: "Bass", type: .other)])
+  let wrongAim = Routes()
+  let refused = mutingThrough(
+    actions: actionsThatClickThroughAGate(
+      target: checkBox,
+      centre: centre,
+      elementAtThePoint: anotherControl,
+      routes: wrongAim,
+      heard: { turnTheMuteOver(untouched) }),
+    line: ["--index", "1", "--on"],
+    driver: untouched)
+  let reason = try refused.failureDetails()["reason"] as? String ?? ""
+
+  #expect(refused.status == 70, "the number the design system gives internal")
+  #expect(try refused.failureCode() == "internal", "the gate refused, and no other code covers it")
+  #expect(
+    reason.contains("theElementAtThePointIsNotTheTarget"),
+    "and the answer says what the gate refused")
+  #expect(wrongAim.events.isEmpty, "the window server carried nothing, so Logic read no click")
+  #expect(wrongAim.accessibilityPresses.isEmpty, "and nothing fell back to a press")
+  #expect(untouched.state?.tracks.first?.mute == false, "so the track is heard still")
 }
