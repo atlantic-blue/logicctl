@@ -6,11 +6,14 @@ import Testing
 ///
 /// Phase 1 is the first phase that makes a project, writes it and closes it, so it is the first
 /// place an acceptance run can damage the work of a person. Two guards hold over the whole flow.
-/// Every save goes into a folder of the run under the temporary folder of this Mac, and a save that
-/// would land under the music folder stops the walk before the first command. Logic writes a
-/// project of its own under the music folder when it makes one, so the flow reads the names there
-/// before it starts and again at the end, and it prints every new name. It removes nothing and it
-/// fails on nothing it finds: what happens to that project is for the operator to say.
+/// Every save goes into a folder the run makes for itself, and a save that would land under the
+/// music folder stops the walk before the first command.
+///
+/// Logic writes `Untitled.logicx` into the music folder as it makes the project, and
+/// `quit --discard` leaves that project where it is. That is a decision already taken, so the flow
+/// reads the names directly under the Logic folder of the music folder before it starts and again
+/// at the end, and it prints every new name. It removes nothing, and a new name fails nothing:
+/// what happens to that project is for the operator to say.
 ///
 /// The six commands are one flow and not six. `new-project` needs the Logic that `launch` started,
 /// `save` needs the project `new-project` made, and `quit` closes that project. So the walk runs
@@ -287,7 +290,7 @@ extension PhaseOne {
         throw Stopped.theCommandAnsweredWrongly(step: "save again", said: again.said)
       }
 
-      let closed = try ask("quit", ["quit"])
+      let closed = try ask("quit", ["quit", "--discard", "--confirm"])
       guard closed.status == 0, closed.data?.running == false else {
         throw Stopped.theCommandAnsweredWrongly(step: "quit", said: closed.said)
       }
@@ -303,10 +306,25 @@ extension PhaseOne {
     return Run(asked: asked, newMusicEntries: appeared, stopped: stopped)
   }
 
+  /// A folder of its own for one acceptance run, in the home folder of this Mac.
+  ///
+  /// The Save panel of Logic walks the columns of the browser, one folder of the path per column,
+  /// and it opens only what a column lists. The temporary folder of this Mac resolves to a path
+  /// under `/private`, which the first column does not show, so a save into it can never land. The
+  /// home folder is listed and it is not the music folder, so the run makes a folder there and
+  /// leaves the project it saved in it, as the evidence of the run.
+  static func folderOfTheRun(
+    under home: URL = FileManager.default.homeDirectoryForCurrentUser
+  ) throws -> URL {
+    let folder = home.appending(path: "logicctl-live-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    return folder
+  }
+
   /// One walk of phase 1 against the Logic this Mac runs, through the signed binary.
   static func walkTheRealLogic() -> Run {
     do {
-      let folder = try LiveHarness.temporaryFolder()
+      let folder = try folderOfTheRun()
       print("phase 1 saves into: \(folder.path)")
       return walk(savingInto: folder) { arguments in
         try LiveHarness.logicctl(arguments)
@@ -371,17 +389,21 @@ struct Phase1LiveScenarios {
       "and the version this suite drives: \(read.data?.version ?? "no version")")
   }
 
-  /// `new-project` reaches an empty project and starts the session that records it (story S1.3).
+  /// `new-project` makes a project with one track and starts its session (story S1.3).
   ///
-  /// The commit the answer names is the first commit of that session, and the proof of this phase
-  /// is that commit and the picture of the empty project. A Mac that granted no Screen Recording
-  /// takes no picture, so the note in `meta` is printed and nothing here fails on it.
+  /// Logic asks for the first track of a project it has just made, and it keeps File, Save As
+  /// disabled while that sheet is open. So the command presses Create, and it answers the project
+  /// of one track. Logic writes that project into the music folder as it makes it.
+  ///
+  /// The commit the answer names is the first commit of the session, and the proof of this phase is
+  /// that commit and the picture of the project. A Mac that granted no Screen Recording takes no
+  /// picture, so the note in `meta` is printed and nothing here fails on it.
   @Test func newProjectStartsASessionWithItsFirstCommit() throws {
     LiveHarness.liveScenario("newProjectStartsASessionWithItsFirstCommit")
 
     let made = try Phase1LiveScenarios.answer(of: "new-project")
 
-    #expect(made.status == 0, "new-project reached an empty project: \(made.said)")
+    #expect(made.status == 0, "new-project made the project of one track: \(made.said)")
     #expect(made.startedASession, "and it started the session that records it: \(made.printed)")
     #expect(made.data?.project?.name?.isEmpty == false, "the answer names the project Logic made")
   }
@@ -442,9 +464,10 @@ struct Phase1LiveScenarios {
 /// flow that would save under the music folder asks nothing at all.
 ///
 /// The music folder is the one place this run can do damage that no undo brings back. Logic writes
-/// a project of its own there when it makes one, so the walk reads the names before and after and
-/// reports every new one. It never removes one, and a new name fails nothing: the operator decides
-/// what happens to that project.
+/// `Untitled.logicx` there as it makes the project, and `quit --discard` leaves it, which is a
+/// decision already taken. So the walk reads the names before and after and reports every new one.
+/// It never removes one, and a new name fails nothing: the operator decides what happens to that
+/// project.
 @Test func phaseOneAgainstLogic() throws {
   let folder = try LiveHarness.temporaryFolder()
   defer { try? FileManager.default.removeItem(at: folder) }
@@ -470,7 +493,7 @@ struct Phase1LiveScenarios {
       "new-project",
       "save --path \(saveTo.path)",
       "save --path \(saveTo.path)",
-      "quit",
+      "quit --discard --confirm",
     ],
     "the six commands ran in the order the flow needs, and both saves go to the folder of the run")
 
@@ -505,6 +528,16 @@ struct Phase1LiveScenarios {
     "a save over a path that is taken must stop with path_exists: \(notAccepted.report)")
   #expect(notAccepted.answer(of: "quit") == nil, "so the walk stops there and quit never runs")
 
+  let home = folder.appending(path: "Home")
+  let ofTheRun = try PhaseOne.folderOfTheRun(under: home)
+
+  #expect(
+    FileManager.default.fileExists(atPath: ofTheRun.path),
+    "the folder of the run is on disk before the save, because the panel opens what it lists")
+  #expect(
+    LiveHarness.isUnder(home, ofTheRun),
+    "and it sits in the home folder, which the first column of the panel lists: \(ofTheRun.path)")
+
   let intoTheMusicFolder = FakeLogic(saveTo: logicOfTheMusicFolder)
   let refused = PhaseOne.walk(savingInto: logicOfTheMusicFolder, musicFolder: music) {
     try intoTheMusicFolder.run($0)
@@ -521,6 +554,9 @@ struct Phase1LiveScenarios {
 /// The envelopes are built from the contracts of phase 1 and from `design-system.json`. They are
 /// not recorded from Logic. They are how the pipeline drives this flow at all: the machine that
 /// runs it has no Logic, no project and no grant.
+///
+/// It refuses what the real command refuses. `quit --discard` without `--confirm` answers
+/// `confirm_required`, so a flow that dropped the flag cannot pass here and fail on the Mac.
 private final class FakeLogic {
   /// The commit this logicctl answers as the first commit of the session.
   static let firstCommit = "9a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b"
@@ -606,6 +642,10 @@ private final class FakeLogic {
         session: FakeLogic.session,
         step: FakeLogic.firstCommit)
     case "quit":
+      let discards = arguments.contains("--discard")
+      guard !discards || arguments.contains("--confirm") else {
+        return failure(.confirmRequired)
+      }
       return success(
         """
         {"running":false}
