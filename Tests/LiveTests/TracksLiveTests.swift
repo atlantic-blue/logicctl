@@ -222,7 +222,7 @@ enum Phase2Live {
   ///
   /// The answer of `launch` says that Logic runs and carries no window, so the project Logic
   /// reopened as it started is only visible in a `status` read after it.
-  static func launchLogic() throws -> StatusAnswer {
+  private static func launchLogic() throws -> StatusAnswer {
     let started = try ran(RunningAnswer.self, launchCommand)
     print("live logic: launched, running \(started.running)")
     return try ran(StatusAnswer.self, statusCommand)
