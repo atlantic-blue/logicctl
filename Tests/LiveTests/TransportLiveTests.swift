@@ -852,29 +852,23 @@ private func theTracksWindowHoldsTheFocus(of logic: NSRunningApplication) throws
 /// reads as the notes of whatever region is. Both halves are this scenario's to arrange, so it
 /// selects the take and then opens the window.
 ///
-/// The selection is a write of `AXSelected` on the item of the region, which Logic takes, unlike
-/// the same write on the header of a track. It is read back, because a write Logic ignored and a
-/// write Logic took answer the same.
+/// The selection goes through the part `automation add` selects with. A write of `AXSelected` on a
+/// region item does not take the value it is given, it toggles that item, so a write of true on a
+/// take Logic already holds selected deselects it. That part reads every region first, writes only
+/// the ones that differ, and reads the selection back.
+///
+/// The take is then read once more from a walk that starts again, because the read inside the
+/// selection belongs to the tree that selection walked and the window may have moved since.
 private func showTheEventList(ofTrack track: Int, region: Int) throws {
   let item = try regionItem(onTrack: track, numbered: region)
-  guard let live = item as? LiveAXNode else {
-    throw LiveRefusal(
-      reason: "region \(region) of track \(track) came from a recorded tree, which selects nothing")
-  }
-  let written = AXUIElementSetAttributeValue(
-    live.element, kAXSelectedAttribute as CFString, true as CFTypeRef)
-  guard written == .success else {
+  try AutomationMenus.selectInTheLogicOfThisMac(item)
+
+  let again = try regionItem(onTrack: track, numbered: region)
+  guard try readsSelected(again, named: "region \(region) of track \(track)") else {
     throw LiveRefusal(
       reason: """
-        Logic refused the write of AXSelected on region \(region) of track \(track), error \
-        \(written.rawValue)
-        """)
-  }
-  guard try readsSelected(item, named: "region \(region) of track \(track)") else {
-    throw LiveRefusal(
-      reason: """
-        the write of AXSelected on region \(region) of track \(track) went through and the region \
-        still reads false, so the Event List would show another region
+        the selection of region \(region) of track \(track) went through and the region reads \
+        false on a fresh walk, so the Event List would show another region
         """)
   }
 
