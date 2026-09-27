@@ -105,19 +105,23 @@ public struct AutomationMenus {
   ///
   /// The walk looks for the group that holds one area per track wherever it sits, so it starts at
   /// the application and needs no window named. Logic puts one area under that group for every
-  /// track and one more that names no track, which is the room under the last one, and that room
-  /// is not counted. The regions of a track read in the order Accessibility answers them, which is
-  /// the order they sit in from the left, which is the number `--region` takes.
+  /// track, in the order of the rows from the top, and one more after them, which is the room
+  /// under the last track. So the area of track N is the Nth, and that room is not counted.
+  ///
+  /// Logic describes some of those areas and not others, and the number inside a description does
+  /// not follow the row it sits on, so neither the description nor its number says which track an
+  /// area belongs to. Only the place does. `RegionReader` reads the same group by the same rule.
+  ///
+  /// The regions of a track read in the order Accessibility answers them, which is the order they
+  /// sit in from the left, which is the number `--region` takes.
   public static func regionItem(
     number region: Int, ofTrack track: Int, in root: any AXNode
   ) -> (any AXNode)? {
     guard track >= 1, region >= 1, let group = contents(of: root) else {
       return nil
     }
-    let areas = group.children.filter {
-      $0.role == RegionReader.trackRole && !($0.description ?? "").isEmpty
-    }
-    guard track <= areas.count else {
+    let areas = group.children.filter { $0.role == RegionReader.trackRole }
+    guard track <= areas.count - 1 else {
       return nil
     }
     let items = areas[track - 1].children.filter { $0.role == RegionReader.regionRole }

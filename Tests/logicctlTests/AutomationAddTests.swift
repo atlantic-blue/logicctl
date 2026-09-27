@@ -256,3 +256,120 @@ private func automationAdd(
   #expect(try answer.error()["code"] as? String == "confirm_required")
   #expect(logic.did.isEmpty, "nothing was selected and no item of the Mix menu was pressed")
 }
+
+/// A person adds automation to a region that sits on a track after the fourth row.
+///
+/// Logic writes a description on some of the areas under `Tracks contents` and none on the rest.
+/// With seven tracks it describes four of them. An area with no description is still the row of a
+/// track, and the number inside a description does not follow the row it sits on. So the place of
+/// an area is the only thing that says which track it belongs to.
+///
+/// A person imports a MIDI file of seven tracks. The import puts a region on each of the last
+/// three. The person sees those regions on the screen and asks for automation points on one of
+/// them. Today the command answers that the Tracks window does not show that region, so the
+/// person can add automation to the first four tracks alone, and the answer sends them to look
+/// for a region that is there.
+@Test func automationFindsARegionOnATrackAfterTheFourth() throws {
+  let window = aTracksWindowOfSevenTracks()
+
+  let onTheSixth = try #require(
+    AutomationMenus.regionItem(number: 1, ofTrack: 6, in: window),
+    "the sixth track is the sixth area, and that area carries no description")
+  #expect(onTheSixth.description == "Sixth", "the region of the sixth row and of no other")
+
+  #expect(
+    AutomationMenus.regionItem(number: 1, ofTrack: 5, in: window)?.description == "Fifth",
+    "the first area with no description is a track and not the room")
+  #expect(
+    AutomationMenus.regionItem(number: 1, ofTrack: 7, in: window)?.description == "Seventh",
+    "and the last track keeps its own region")
+  #expect(
+    AutomationMenus.regionItem(number: 1, ofTrack: 8, in: window) == nil,
+    "eight areas give seven tracks, because the last area is the room under the last track")
+
+  let logic = AFakeLogic(
+    tracks: window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"))
+
+  let answer = try automationAdd(
+    ["--track", "6", "--region", "1"],
+    logic: logic,
+    tracks: aProjectOfSevenImportedTracks())
+
+  #expect(answer.status == 0, "the command goes through on a track after the fourth")
+  #expect(logic.selected == ["Sixth"], "the region of track 6 is the one selected")
+  #expect(
+    logic.did == [
+      "select",
+      "Create 2 Automation Points at Region Borders",
+      "Convert Visible Track Automation to Region Automation",
+    ],
+    "the region is selected, the points are made, and then they move into the region")
+  #expect(try answer.data()["track"] as? Int == 6, "the track the command took")
+  #expect(try answer.points().count == 3, "and the region carries every point Logic made")
+}
+
+/// One layout area of the Tracks window, with the description Logic gave it and what it carries.
+private func anArea(_ description: String? = nil, holding regions: [Element] = []) -> Element {
+  Element(role: RegionReader.trackRole, description: description, children: regions)
+}
+
+/// One region of a track, as the Tracks window carries it.
+private func aRegionItem(_ name: String, from start: String, to end: String) -> Element {
+  Element(
+    role: RegionReader.regionRole,
+    description: name,
+    help: "Region starts at \(start)  and ends at \(end) , MIDI region. ")
+}
+
+/// The Tracks window of seven tracks, described the way Logic 12.3.1 describes it after a MIDI
+/// import.
+///
+/// Step 21 measured it on 2026-09-27. The group holds eight layout areas in the order of the rows
+/// from the top. The first four carry a description whose number does not follow its row. The last
+/// four carry none. The eighth is the room under the last track. Children of other roles stand
+/// between some of the areas. Rows 5, 6 and 7 carry one region each.
+private func aTracksWindowOfSevenTracks() -> any AXNode {
+  Element(
+    role: "AXWindow",
+    title: "F-T13 - Tracks",
+    children: [
+      Element(
+        role: "AXGroup",
+        description: RegionReader.contentsGroup,
+        children: [
+          anArea("Track 1 \u{201C}Deluxe Classic\u{201D}"),
+          Element(role: "AXButton", description: "Mute"),
+          anArea("Track 3 \u{201C}Studio Grand\u{201D}"),
+          Element(role: RegionReader.regionRole),
+          anArea("Track 5 \u{201C}Studio Grand\u{201D}"),
+          anArea("Track 7 \u{201C}Epic Cloud Formation\u{201D}"),
+          anArea(holding: [aRegionItem("Fifth", from: "1 bar", to: "2 bars")]),
+          Element(role: "AXButton", description: "Solo"),
+          anArea(holding: [aRegionItem("Sixth", from: "3 bars", to: "4 bars")]),
+          anArea(holding: [aRegionItem("Seventh", from: "58 bars", to: "59 bars")]),
+          anArea(),
+        ])
+    ])
+}
+
+/// The project that window was written from: a MIDI import of seven tracks that put one region on
+/// each of the last three.
+///
+/// The names and the borders are the ones the window carries, so the state of this test and the
+/// window it drives describe one project and not two.
+private func aProjectOfSevenImportedTracks() -> [Track] {
+  let imported = [
+    5: Region(index: 1, name: "Fifth", start: "1 bar", end: "2 bars"),
+    6: Region(index: 1, name: "Sixth", start: "3 bars", end: "4 bars"),
+    7: Region(index: 1, name: "Seventh", start: "58 bars", end: "59 bars"),
+  ]
+  return (1...7).map { index in
+    var track = Track(index: index, name: "Studio Grand", type: .softwareInstrument)
+    if let region = imported[index] {
+      track.regions = [region]
+    }
+    return track
+  }
+}
