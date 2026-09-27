@@ -315,6 +315,32 @@ extension TrackActions {
 }
 
 extension TrackActions {
+  /// Reads the element of Logic that takes keys now, with the role Logic gives it, or nothing when
+  /// Logic says no element holds the focus.
+  public typealias FocusRead = () throws -> (element: AXUIElement, role: String?)?
+
+  /// Writes one text into one element, in place of the value it carries.
+  public typealias ValueWrite = (AXUIElement, String) throws -> Void
+
+  /// Confirms what one element holds, the way a return key confirms a field a person typed in.
+  public typealias Confirm = (AXUIElement) throws -> Void
+
+  /// Gives one track another name, by opening the editor of its name field and writing into that.
+  public static func renameByDoubleClickingThroughTheGate(
+    _ gate: InputGate,
+    readingTheTargetWith read: @escaping TargetRead,
+    focus readFocus: @escaping FocusRead,
+    writingWith write: @escaping ValueWrite,
+    confirmingWith confirm: @escaping Confirm,
+    limitMs: Int = Wait.defaultLimitMs,
+    clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
+  ) -> Write {
+    { _, _ in }
+  }
+}
+
+extension TrackActions {
   /// Clicks the centre of one control of the window the project sits in, in the Logic of this Mac.
   ///
   /// The gate is built for each click, because it reads the Logic that runs now and a command can
