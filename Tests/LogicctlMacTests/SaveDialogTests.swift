@@ -392,6 +392,87 @@ private func treeRead(from text: String) throws -> RecordedTree {
     "a Logic with no project window is named, rather than the window in front being raised")
 }
 
+/// A save into a folder made a moment before writes the project, rather than refusing the folder.
+///
+/// Measured on this Mac on 2026-09-27 (Logic 12.3.1): a folder made in the home folder was saved
+/// into about a second later. The walk answered `invalid_argument`, "Column 3 of the Save panel
+/// does not list" that folder, and wrote nothing. The same save into the same folder minutes later
+/// answered exit 0. The panel lists a folder made a moment before it opened only after a delay, so
+/// one read of a column is a read of the moment before Logic caught up, the way every other read of
+/// Logic is. A person who makes a folder and saves into it gets their project on disk.
+///
+/// A folder that is not on disk is a different case. Nothing is coming, so the walk names that
+/// folder at once, and a person who mistyped the path waits for nothing.
+@Test func saveWaitsUntilThePanelListsANewFolder() throws {
+  let late = ARecordedSavePanel(listsTheNewFolderOnTheRead: 3)
+  let waited = ATime()
+
+  try late.dialog().save(
+    toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 5000, clock: waited.read,
+    sleeper: waited.sleep)
+
+  #expect(
+    late.timesTheColumnWasRead(3) == 3,
+    "the column was read again until it listed the folder, rather than once")
+  #expect(
+    late.askedOnDisk == ["/private/tmp/logicctl-probe"],
+    "the wait started because the folder is on disk, and the path asked about is the resolved one")
+  #expect(
+    late.opened == ["private in column 1", "tmp in column 2", "logicctl-probe in column 3"],
+    "so the walk went on into the folder that Logic listed late")
+  #expect(
+    late.written[Locators.saveNameField.name] == "Song.logicx", "and the project was written")
+  #expect(
+    late.pressed == [Locators.saveWherePopup.name, Locators.saveButton.name],
+    "Save closed the panel, and Cancel was not pressed")
+  #expect(
+    waited.read() == Wait.defaultPollMs, "the walk slept between the reads of the column, once")
+
+  let never = ARecordedSavePanel(neverListsTheNewFolder: true)
+  let gaveUp = ATime()
+
+  let refused = #expect(throws: SaveDialog.Refusal.self) {
+    try never.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 200, clock: gaveUp.read,
+      sleeper: gaveUp.sleep)
+  }
+
+  let refusal = try #require(refused)
+  #expect(refusal.failure.code == .timeout, "the folder is on disk and the panel never listed it")
+  #expect(refusal.failure.code.exitCode == 6, "the number the process exits with")
+  #expect(refusal.reason.contains("logicctl-probe"), "the reason names the folder")
+  #expect(refusal.reason.contains("200ms"), "and how long the panel was given to list it")
+  #expect(
+    never.opened == ["private in column 1", "tmp in column 2"],
+    "the folder the column never listed was never opened")
+  #expect(never.written.isEmpty, "nothing was typed into the panel")
+  #expect(
+    never.pressed == [Locators.saveWherePopup.name, Locators.saveCancelButton.name],
+    "and the panel was closed")
+  #expect(gaveUp.read() == 200, "the walk gave up at the limit of the command")
+
+  let mistyped = ARecordedSavePanel(neverListsTheNewFolder: true, theNewFolderIsOnDisk: false)
+  let noWait = ATime()
+
+  let named = #expect(throws: SaveDialog.Refusal.self) {
+    try mistyped.dialog().save(
+      toPath: "/private/tmp/logicctl-probe/Song.logicx", limitMs: 200, clock: noWait.read,
+      sleeper: noWait.sleep)
+  }
+
+  let naming = try #require(named)
+  #expect(naming.failure.code == .invalidArgument, "the path is what a person fixes")
+  #expect(naming.failure.code.exitCode == 2, "the number the process exits with")
+  #expect(naming.reason.contains("logicctl-probe"), "the reason names the folder that is not there")
+  #expect(
+    mistyped.timesTheColumnWasRead(3) == 1, "the column was read once, because nothing was coming")
+  #expect(noWait.read() == 0, "so the walk waited for nothing")
+  #expect(mistyped.written.isEmpty, "nothing was typed into the panel")
+  #expect(
+    mistyped.pressed == [Locators.saveWherePopup.name, Locators.saveCancelButton.name],
+    "and the panel was closed")
+}
+
 /// A route over the recorded Save panel, walked the way Logic answers it.
 ///
 /// The columns are the ones Logic listed, so a folder this panel does not hold is a folder the walk
@@ -419,6 +500,12 @@ private final class ARecordedSavePanel {
   /// Everything the route did before the panel opened, in one order.
   private(set) var beforeThePanel: [String] = []
 
+  /// Every folder the route asked the disk about, as a path, in order.
+  private(set) var askedOnDisk: [String] = []
+
+  /// How many times the route read each column, counted from 0.
+  private var reads: [Int: Int] = [:]
+
   /// True while the panel is open, which the press of Save ends.
   private var showing = true
 
@@ -442,6 +529,15 @@ private final class ARecordedSavePanel {
   /// the raise, so the first read of the real Logic answers disabled.
   private let saveAsTurnsEnabledOnTheRead: Int
 
+  /// Whether the column holds back the folder Logic made a moment ago, whatever the route reads.
+  private let neverListsTheNewFolder: Bool
+
+  /// Which read of its column is the first to list the folder Logic made a moment ago.
+  private let listsTheNewFolderOnTheRead: Int
+
+  /// Whether the folder Logic made a moment ago is on the disk of this Mac.
+  private let theNewFolderIsOnDisk: Bool
+
   /// How many times the route read the menu item.
   private(set) var timesTheItemWasRead = 0
 
@@ -456,18 +552,32 @@ private final class ARecordedSavePanel {
     refusesTheOpen: Bool = false,
     saveAsNeedsTheProjectWindow: Bool = false,
     saveAsStaysDisabled: Bool = false,
-    saveAsTurnsEnabledOnTheRead: Int = 1
+    saveAsTurnsEnabledOnTheRead: Int = 1,
+    neverListsTheNewFolder: Bool = false,
+    listsTheNewFolderOnTheRead: Int = 1,
+    theNewFolderIsOnDisk: Bool = true
   ) {
     self.reachesTheFolder = reachesTheFolder
     self.refusesTheOpen = refusesTheOpen
     self.saveAsNeedsTheProjectWindow = saveAsNeedsTheProjectWindow
     self.saveAsStaysDisabled = saveAsStaysDisabled
     self.saveAsTurnsEnabledOnTheRead = saveAsTurnsEnabledOnTheRead
+    self.neverListsTheNewFolder = neverListsTheNewFolder
+    self.listsTheNewFolderOnTheRead = listsTheNewFolderOnTheRead
+    self.theNewFolderIsOnDisk = theNewFolderIsOnDisk
+  }
+
+  /// How many times the route read one column, counted from 1 as the panel shows them.
+  func timesTheColumnWasRead(_ number: Int) -> Int {
+    reads[number - 1] ?? 0
   }
 
   /// The route, with every read taken from the recorded panel.
   func dialog() throws -> SaveDialog {
     let panel = try treeRoot(of: "save-panel-expanded.json")
+    // The disk of this double is the recorded panel: it holds the folders that panel lists, and no
+    // folder it does not. So a path that no column holds is a path no Mac holds either.
+    let onDisk = try (0..<3).flatMap { try SaveDialog.names(inColumnNumbered: $0, of: panel) }
     return SaveDialog(
       openTheMenuItem: {
         self.beforeThePanel.append("press File, Save As")
@@ -489,7 +599,20 @@ private final class ARecordedSavePanel {
       },
       resolve: { $0 },
       namesInColumn: { number in
-        try SaveDialog.names(inColumnNumbered: number, of: panel)
+        let listed = try SaveDialog.names(inColumnNumbered: number, of: panel)
+        self.reads[number, default: 0] += 1
+        guard self.holdsBackTheNewFolder(onRead: self.reads[number] ?? 1) else {
+          return listed
+        }
+        return listed.filter { $0 != ARecordedSavePanel.theNewFolder }
+      },
+      folderExists: { path in
+        self.askedOnDisk.append(path)
+        let folder = URL(fileURLWithPath: path).lastPathComponent
+        guard folder == ARecordedSavePanel.theNewFolder else {
+          return onDisk.contains(folder)
+        }
+        return self.theNewFolderIsOnDisk
       },
       openFolder: { number, name in
         _ = try SaveDialog.nameField(of: name, inColumnNumbered: number, of: panel)
@@ -548,6 +671,14 @@ private final class ARecordedSavePanel {
         return self.inFront && self.raised == ARecordedSavePanel.theProjectWindow
       })
   }
+
+  /// Whether one read of a column comes before the read that first lists the new folder.
+  private func holdsBackTheNewFolder(onRead read: Int) -> Bool {
+    neverListsTheNewFolder || read < listsTheNewFolderOnTheRead
+  }
+
+  /// The folder of the recorded panel that stands for one Logic made a moment ago.
+  static let theNewFolder = "logicctl-probe"
 
   /// What the window of the project in the recorded tree is called.
   static let theProjectWindow = "F-T13.logicx - Tracks"
