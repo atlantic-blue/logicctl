@@ -56,7 +56,7 @@ private let theCancelButtonOfTheSheet = Locator(
 /// gone and the project holds that track. So a person gets a project Logic will save, and a session
 /// that recorded it. A Logic that keeps the sheet open is a failure and not an answer, and the
 /// failure names the sheet, because a person who reads `timeout` has to know where to look. A
-/// project that already holds tracks is answered as it is.
+/// project that is already open belongs to somebody, so the command refuses it.
 @Test func newProjectPressesCreateAndAnswersOneTrack() throws {
   let logic = try Mac(showing: theNewProject, andAfterCreate: theProjectWithATrack)
   let made = logic.newProject()
@@ -119,15 +119,17 @@ private let theCancelButtonOfTheSheet = Locator(
   #expect(try refused.data().isEmpty, "a project nobody can save answers no project")
   #expect(stuck.sessionsWritten().isEmpty, "and nothing was written for it")
 
-  // A Logic that already shows a project with tracks is the project this command promises, so it is
-  // answered as it is and no button is pressed at all.
+  // A Logic that already shows a project has the work of a person in it. The command reads the
+  // window before it presses anything, and it refuses rather than starting a session over that
+  // work. newProjectRefusesWhileLogicShowsAProject carries the whole of that promise.
   let already = try Mac(
     showing: theProjectWithATrack, andAfterCreate: nil, holding: [theTrackCreateMakes])
-  let found = already.newProject()
+  let left = already.newProject()
 
-  #expect(found.status == 0, "a project with tracks is an answer: \(found.out)")
-  #expect(already.pressed.isEmpty, "there was no sheet to answer, so nothing was pressed")
-  #expect(tracksRecorded(in: URL(fileURLWithPath: try found.folder())).count == 1)
+  #expect(left.status == 2, "invalid_argument exits 2: \(left.out)")
+  #expect(try left.code() == "invalid_argument")
+  #expect(already.pressed.isEmpty, "the refusal pressed nothing, so their project is as it was")
+  #expect(already.sessionsWritten().isEmpty, "and it started no session over it")
 
   for run in [logic, stuck, already] {
     #expect(

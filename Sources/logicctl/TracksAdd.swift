@@ -145,22 +145,32 @@ struct TracksAddCommand: LogicCommand {
     return .object(["track": TracksListCommand.row(of: added)])
   }
 
-  /// The track the project gained, or nothing when it gained none.
-  ///
-  /// Logic puts a new track under the track that is selected, so the row is not always the last
-  /// one, and the walk answers the first place where the two lists disagree. Two rows that carry
-  /// the same name and the same three buttons cannot be told apart, so a new track beside its own
-  /// twin reads as the later of the two, which carries the same values.
+  /// The first track the project gained, or nothing when it gained none.
   static func theTrack(gainedFrom before: [Track], in after: [Track]) -> Track? {
-    for (place, track) in after.enumerated() {
-      guard place < before.count else {
-        return track
+    TracksAddCommand.theTracks(gainedFrom: before, in: after).first
+  }
+
+  /// Every track the project gained, in the order Logic shows them.
+  ///
+  /// Logic puts a new track under the track that is selected, so the rows it added are not the
+  /// last rows of the list, and the rows below them moved down. One command adds one track and
+  /// `midi import` makes one for each channel of the file, so the walk reads the whole list
+  /// rather than one place in it: a row that is not the next row of the list before is a row the
+  /// project gained, and every other row is a track that was already there.
+  ///
+  /// Two rows that carry the same name and the same three buttons cannot be told apart, so a new
+  /// track beside its own twin reads as the later of the two, which carries the same values.
+  static func theTracks(gainedFrom before: [Track], in after: [Track]) -> [Track] {
+    var gained: [Track] = []
+    var place = 0
+    for track in after {
+      if place < before.count, TracksAddCommand.sameTrack(before[place], track) {
+        place += 1
+        continue
       }
-      if !TracksAddCommand.sameTrack(before[place], track) {
-        return track
-      }
+      gained.append(track)
     }
-    return nil
+    return gained
   }
 
   /// Whether two rows are the same track, which is every field of a row but its number.
