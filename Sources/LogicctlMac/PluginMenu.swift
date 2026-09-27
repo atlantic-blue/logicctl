@@ -141,6 +141,10 @@ extension PluginMenu {
   public func insert(
     _ name: String,
     intoTheStripOfTrackNumber number: Int,
+    limitMs: Int = Wait.defaultLimitMs,
+    pollMs: Int = Wait.defaultPollMs,
+    clock: Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: Wait.Sleeper = Wait.sleepMilliseconds,
     inMixerFrom mixer: () throws -> any AXNode
   ) throws {
     let strip = try LocatorResolver.element(
@@ -149,7 +153,10 @@ extension PluginMenu {
       throw NoEmptySlot(track: number)
     }
     try press(slot)
-    guard let menu = PluginMenu.openMenu(in: try mixer()) else {
+    guard
+      let menu = try PluginMenu.menuThatOpens(
+        inMixerFrom: mixer, limitMs: limitMs, pollMs: pollMs, clock: clock, sleeper: sleeper)
+    else {
       throw NoMenu(track: number)
     }
     let found = PluginMenu.items(named: name, in: menu)
@@ -161,6 +168,31 @@ extension PluginMenu {
       throw MoreThanOne(name: name, places: found.map { PluginMenu.place(of: $0) })
     }
     try choose(PluginMenu.downToTheLastLevel(of: walk))
+  }
+
+  /// The menu Logic opens on the slot, waited for, or nothing when none opens.
+  ///
+  /// The press does not answer when the menu is up, so the menu itself is the answer, and it takes
+  /// a moment to arrive. Measured on this Mac on 2026-09-27: the press answered after 1.51
+  /// seconds, and the menu was open half a second after that. A single read of the Mixer straight
+  /// after the press therefore reads a Mixer with no menu in it, on a Logic that is opening one.
+  static func menuThatOpens(
+    inMixerFrom mixer: () throws -> any AXNode,
+    limitMs: Int,
+    pollMs: Int,
+    clock: Wait.Clock,
+    sleeper: Wait.Sleeper
+  ) throws -> (any AXNode)? {
+    var opened: (any AXNode)?
+    do {
+      try Wait.until(limitMs: limitMs, pollMs: pollMs, clock: clock, sleeper: sleeper) {
+        opened = PluginMenu.openMenu(in: try mixer())
+        return opened != nil
+      }
+    } catch is Wait.RanOut {
+      return nil
+    }
+    return opened
   }
 
   /// The first empty audio slot of a strip, in slot order, or nothing when it shows none.
@@ -267,7 +299,21 @@ extension PluginMenu {
 
   /// Presses the empty slot, which is what opens the menu.
   public static func pressInTheLogicOfThisMac(_ slot: any AXNode) throws {
-    try act(kAXPressAction, on: slot, called: "the empty slot of the channel strip")
+    try act(
+      kAXPressAction, on: slot, called: "the empty slot of the channel strip",
+      tolerating: PluginMenu.holdsWhileTheMenuOpens)
+  }
+
+  /// Whether this answer to the press of the slot says nothing about whether the press landed.
+  ///
+  /// Measured on this Mac on 2026-09-27, on a copy under `/tmp`: `AXPress` on the empty audio
+  /// slot answered `kAXErrorCannotComplete`, which is -25204, after 1.51 seconds, and the menu was
+  /// open half a second later carrying `Amps and Pedals`, `Delay` and `Distortion`. Logic holds
+  /// the call while its menu is up, so that one answer to that one press is not a refusal, and the
+  /// menu is what says whether the press landed. Every other answer is a refusal, and so is this
+  /// one from any other press.
+  public static func holdsWhileTheMenuOpens(_ answered: AXError) -> Bool {
+    answered == .cannotComplete
   }
 
   /// Presses the item the walk ends at, which is the last of them.
@@ -285,12 +331,17 @@ extension PluginMenu {
 
   /// Asks one element of the running Logic to act on itself, which is not a mouse event and so
   /// does not go through the input gate.
-  private static func act(_ action: String, on node: any AXNode, called name: String) throws {
+  private static func act(
+    _ action: String,
+    on node: any AXNode,
+    called name: String,
+    tolerating held: (AXError) -> Bool = { _ in false }
+  ) throws {
     guard let live = node as? LiveAXNode else {
       throw Trouble(reason: "\(name) was found in a recorded tree, which nothing can press.")
     }
     let answered = AXUIElementPerformAction(live.element, action as CFString)
-    guard answered == .success else {
+    guard answered == .success || held(answered) else {
       throw Trouble(reason: "Logic refused \(action) on \(name), error \(answered.rawValue).")
     }
   }

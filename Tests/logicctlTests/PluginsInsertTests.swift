@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 import LogicctlCore
 import LogicctlMac
@@ -119,6 +120,13 @@ private final class FakeMixer {
   /// Whether the strip shows an empty audio slot.
   let showsAnEmptySlot: Bool
 
+  /// How many reads of the Mixer answer with no menu after the slot is pressed.
+  ///
+  /// Logic holds the press while it puts the menu up, so the Mixer read straight after the press
+  /// is a Mixer with no menu in it on a Logic that is opening one. Measured on this Mac on
+  /// 2026-09-27: the press answered after 1.51 seconds and the menu was open half a second later.
+  let menuAppearsAfterReads: Int
+
   /// True while the menu is open, which is what a press of the empty slot does.
   private(set) var open = false
 
@@ -134,10 +142,22 @@ private final class FakeMixer {
   /// The menu Logic opens, which is the recorded one.
   private let menu: any AXNode
 
-  init(track: String, plugins: [String] = [], showsAnEmptySlot: Bool = true) throws {
+  /// True once the empty slot was pressed, whether or not the menu is up yet.
+  private var slotWasPressed = false
+
+  /// Reads of the Mixer since the slot was pressed and before the menu came up.
+  private var readsWithNoMenu = 0
+
+  init(
+    track: String,
+    plugins: [String] = [],
+    showsAnEmptySlot: Bool = true,
+    menuAppearsAfterReads: Int = 0
+  ) throws {
     self.track = track
     self.plugins = plugins
     self.showsAnEmptySlot = showsAnEmptySlot
+    self.menuAppearsAfterReads = menuAppearsAfterReads
     self.menu = try recordedMenu()
   }
 
@@ -147,7 +167,8 @@ private final class FakeMixer {
     guard node.description == PluginMenu.emptySlotDescription else {
       return
     }
-    open = true
+    slotWasPressed = true
+    open = menuAppearsAfterReads == 0
   }
 
   /// What Logic does when the item at the end of a walk is pressed: it puts that plugin into the
@@ -175,8 +196,23 @@ private final class FakeMixer {
   }
 
   /// The tree of a Logic showing this Mixer.
+  ///
+  /// A Logic that is still opening its menu answers a Mixer with no menu in it, and it answers one
+  /// with the menu once `menuAppearsAfterReads` reads have gone by.
   func tree() -> LogicTree {
-    LogicTree(logicVersion: recordedVersion, root: window())
+    if slotWasPressed, !open {
+      if readsWithNoMenu >= menuAppearsAfterReads {
+        open = true
+      } else {
+        readsWithNoMenu += 1
+      }
+    }
+    return LogicTree(logicVersion: recordedVersion, root: window())
+  }
+
+  /// How many times the Mixer answered with no menu after the slot was pressed.
+  var readsBeforeTheMenu: Int {
+    readsWithNoMenu
   }
 
   /// The Mixer window, in the shape the recorded Mixer carries: the strips sit in a layout area,
@@ -366,4 +402,70 @@ private func pluginsInsert(_ plugin: String, into fake: FakeMixer, track: String
   #expect(try answer.failure()["code"] as? String == "element_not_found", "the code a caller reads")
   #expect(fake.pressed.isEmpty, "nothing in the strip was pressed")
   #expect(fake.plugins == ["E-Piano"], "and the strip holds what it held")
+}
+
+/// A menu that takes a moment to come up is waited for, and the plugin still goes in.
+///
+/// Logic holds the press of the empty slot while it opens the menu. Measured on this Mac on
+/// 2026-09-27, on a copy under `/tmp`: the press answered `kAXErrorCannotComplete` after 1.51
+/// seconds, and the menu was open half a second after that, carrying `Amps and Pedals`, `Delay`
+/// and `Distortion` at its top level. So a command that read the Mixer once, straight after the
+/// press, read a Mixer with no menu in it and told the operator that Logic opened none. It was
+/// opening one. `plugins insert` was the one scenario of phase 4 that failed on this Mac for that
+/// reason, on a strip that had a slot free and a menu that carried the name.
+///
+/// The fake answers two Mixers with no menu before it answers one with the menu, and the command
+/// reads until it finds it. The count is read back, because a command that somehow saw the menu on
+/// its first read would pass this scenario without ever waiting for anything.
+@Test func aMenuThatOpensLateIsWaitedFor() throws {
+  let fake = try FakeMixer(track: "Deluxe Classic", menuAppearsAfterReads: 2)
+  let answer = try pluginsInsert("Channel EQ", into: fake)
+
+  #expect(answer.status == 0, "the insert worked, on a Logic that took its time")
+  #expect(fake.readsBeforeTheMenu == 2, "and it read the Mixer twice before the menu was there")
+  #expect(fake.plugins == ["Channel EQ"], "the plugin is in the strip")
+  #expect(
+    fake.chosen == [["EQ", "Channel EQ", "Stereo"]],
+    "and the walk went the same way it goes when the menu is up at once")
+  #expect(fake.cancelled == 0, "nothing was closed")
+}
+
+/// A press that opens no menu at all is still refused, and the refusal names the track.
+///
+/// The wait above cannot become a wait that never gives up: a slot press that lands on a Logic
+/// that opens nothing has to answer, or the command hangs on a person's terminal. So the wait ends
+/// at its limit and the command says what it pressed and what did not happen.
+@Test func aPressThatOpensNoMenuIsRefused() throws {
+  let fake = try FakeMixer(track: "Deluxe Classic", menuAppearsAfterReads: .max)
+  let answer = try pluginsInsert("Channel EQ", into: fake)
+
+  #expect(answer.status == 5, "the exit number of element_not_found")
+  let failure = try answer.failure()
+  #expect(failure["code"] as? String == "element_not_found", "the code a caller reads")
+  let message = failure["message"] as? String ?? ""
+  #expect(message.contains("track 1"), "the sentence names the track whose slot was pressed")
+  #expect(message.contains("opened no menu"), "and says what did not happen")
+
+  #expect(fake.pressed == [PluginMenu.emptySlotDescription], "the empty slot was pressed once")
+  #expect(fake.plugins.isEmpty, "no plugin went into the strip")
+  #expect(fake.chosen.isEmpty, "and nothing in a menu was pressed, because there was no menu")
+}
+
+/// The one answer to the slot press that says nothing about whether the press landed.
+///
+/// `AXPress` on the empty audio slot of the strip answers `kAXErrorCannotComplete` while Logic
+/// holds the call to put its menu up, so reading that answer as a refusal stops a press that
+/// worked. Every other answer is a refusal, and the menu is what decides this one.
+@Test func onlyCannotCompleteFromTheSlotPressIsHeldOpen() throws {
+  #expect(
+    PluginMenu.holdsWhileTheMenuOpens(.cannotComplete),
+    "Logic holds this one while the menu is opening, so the menu answers instead")
+  #expect(
+    PluginMenu.holdsWhileTheMenuOpens(.failure) == false, "a failure is a failure")
+  #expect(
+    PluginMenu.holdsWhileTheMenuOpens(.invalidUIElement) == false,
+    "an element that is not there is not a menu that is coming")
+  #expect(
+    PluginMenu.holdsWhileTheMenuOpens(.actionUnsupported) == false,
+    "and an element that cannot be pressed never opens anything")
 }
