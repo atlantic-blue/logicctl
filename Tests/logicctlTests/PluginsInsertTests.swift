@@ -104,11 +104,33 @@ private func titles(under node: any AXNode) -> [String] {
   return found
 }
 
+/// A clock and a sleep the test moves itself, so a wait of any length costs the suite no time.
+private final class Time {
+  /// The milliseconds the clock stands at.
+  private(set) var now = 0
+
+  /// Every sleep the wait took, in the order it took them.
+  private(set) var slept: [Int] = []
+
+  func read() -> Int {
+    now
+  }
+
+  func sleep(_ span: Int) {
+    slept.append(span)
+    now += span
+  }
+}
+
 /// A Logic showing the Mixer of a project of one track, which answers what a press does to it.
 ///
 /// It holds the plugins of the strip and whether the menu is open, and it answers a tree of both.
 /// The command reads that tree again after every press, so what the fake does is what the answer
 /// of the command is read from.
+///
+/// Logic draws a plugin in the strip some time after it puts it in, so the strip and the project
+/// disagree for a while. A scenario says on which read after the choice the strip draws the new
+/// plugin, and `plugins` is what the project holds whether the strip draws it or not.
 private final class FakeMixer {
   /// The name Logic writes on the track and on its channel strip.
   let track: String
@@ -131,13 +153,31 @@ private final class FakeMixer {
   /// How many times the menu was closed with nothing chosen.
   private(set) var cancelled = 0
 
+  /// How many times the tree was read since the plugin was chosen.
+  private(set) var readsAfterTheChoice = 0
+
+  /// Which of those reads is the first one that draws the new plugin. A strip that draws it at
+  /// once answers 1, and a strip that never draws it answers a number no wait reaches.
+  private let drawsThePluginOnRead: Int
+
+  /// The plugins the strip drew before the choice, which is what it keeps drawing until the read
+  /// above.
+  private var drewBeforeTheChoice: [String] = []
+
+  /// Whether a plugin was chosen, which is what starts the count of the reads.
+  private var choseAPlugin = false
+
   /// The menu Logic opens, which is the recorded one.
   private let menu: any AXNode
 
-  init(track: String, plugins: [String] = [], showsAnEmptySlot: Bool = true) throws {
+  init(
+    track: String, plugins: [String] = [], showsAnEmptySlot: Bool = true,
+    drawsThePluginOnRead: Int = 1
+  ) throws {
     self.track = track
     self.plugins = plugins
     self.showsAnEmptySlot = showsAnEmptySlot
+    self.drawsThePluginOnRead = drawsThePluginOnRead
     self.menu = try recordedMenu()
   }
 
@@ -163,7 +203,9 @@ private final class FakeMixer {
     }
     let chosenPlugin = walk.count > 1 ? walk[walk.count - 2].title : walk.last?.title
     if let chosenPlugin {
+      drewBeforeTheChoice = plugins
       plugins.append(chosenPlugin)
+      choseAPlugin = true
     }
     open = false
   }
@@ -175,8 +217,22 @@ private final class FakeMixer {
   }
 
   /// The tree of a Logic showing this Mixer.
+  ///
+  /// Every read is counted once the plugin is in, because what the strip draws is what the read
+  /// that reaches it answers.
   func tree() -> LogicTree {
-    LogicTree(logicVersion: recordedVersion, root: window())
+    if choseAPlugin {
+      readsAfterTheChoice += 1
+    }
+    return LogicTree(logicVersion: recordedVersion, root: window())
+  }
+
+  /// The plugins this read of the strip draws.
+  private var drawn: [String] {
+    guard choseAPlugin, readsAfterTheChoice < drawsThePluginOnRead else {
+      return plugins
+    }
+    return drewBeforeTheChoice
   }
 
   /// The Mixer window, in the shape the recorded Mixer carries: the strips sit in a layout area,
@@ -204,7 +260,7 @@ private final class FakeMixer {
       children.append(Element(role: "AXButton", description: PluginMenu.emptySlotDescription))
     }
     children.append(Element(role: "AXButton", description: "insert bar"))
-    for name in plugins.reversed() {
+    for name in drawn.reversed() {
       children.append(FakeMixer.slot(name))
     }
     children.append(Element(role: "AXButton", description: "MIDI plug-in"))
@@ -235,9 +291,12 @@ private func aProjectOfOneTrack(named track: String) -> [Track] {
 /// The arguments go in as text and nothing is built by hand, so the flags of the command are part
 /// of what each scenario proves. The project sits nowhere, which is a project that was never
 /// saved, so there is no session to write a step into and nothing of this run touches the disk.
-private func pluginsInsert(_ plugin: String, into fake: FakeMixer, track: String = "1") throws
-  -> Answer
-{
+///
+/// The clock and the sleep of every wait are the ones the test moves, so a wait of five seconds
+/// costs the suite nothing and a scenario reads how long the command gave Logic.
+private func pluginsInsert(
+  _ plugin: String, into fake: FakeMixer, track: String = "1", on time: Time = Time()
+) throws -> Answer {
   var out = ""
   var err = ""
   let typed = try Logicctl.parseAsRoot(["plugins", "insert", "--track", track, "--name", plugin])
@@ -251,6 +310,8 @@ private func pluginsInsert(_ plugin: String, into fake: FakeMixer, track: String
       cancel: { _ in fake.cancel() }),
     confirmed: false,
     root: URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
+    clock: time.read,
+    sleeper: time.sleep,
     standardOutput: { out += $0 },
     standardError: { err += $0 })
   return Answer(out: out, err: err, status: status)
@@ -366,4 +427,83 @@ private func pluginsInsert(_ plugin: String, into fake: FakeMixer, track: String
   #expect(try answer.failure()["code"] as? String == "element_not_found", "the code a caller reads")
   #expect(fake.pressed.isEmpty, "nothing in the strip was pressed")
   #expect(fake.plugins == ["E-Piano"], "and the strip holds what it held")
+}
+
+/// A person inserts a plugin, and reads the chain the project holds rather than the chain Logic
+/// happened to be drawing.
+///
+/// Measured on Logic 12.3.1 on 2026-09-27, in the live run of phase 4, on a copy of F-T13 after
+/// `midi import`. Track 6 held Piano, Channel EQ, Compressor and ChromaVerb in slots 1 to 4.
+/// `plugins insert --track 6 --name "Channel EQ"` answered exit 0 with those same four plugins and
+/// no slot 5. A `plugins list --track 6` after it read Channel EQ in slot 5. So the insert landed,
+/// and the command read the Mixer once, before Logic drew the new slot, and answered that read.
+///
+/// The value is what an agent does with the answer. A chain of four that reads back as a chain of
+/// four says the insert did nothing, so the agent inserts again and the strip then carries the
+/// plugin twice. An insert that truly failed answers the same four rows, so nothing downstream can
+/// tell a command that worked from a command that did not. The answer of a good insert and the
+/// answer of a broken one were the same object.
+///
+/// So the command reads the strip until the slot it filled draws the plugin it asked for. The two
+/// parts are the two ways that ends. A Mixer that draws the plugin on the third read answers the
+/// chain of five, and the first read does not become the answer. A Mixer that never draws it costs
+/// the command its wait and no more, and the command says `timeout` and names the slot it watched,
+/// rather than printing a chain that is missing the plugin.
+@Test func pluginsInsertWaitsUntilTheSlotShowsThePlugin() throws {
+  let late = try FakeMixer(
+    track: "Deluxe Classic",
+    plugins: ["Piano", "Channel EQ", "Compressor", "ChromaVerb"],
+    drawsThePluginOnRead: 3)
+  let time = Time()
+
+  let answer = try pluginsInsert("Channel EQ", into: late, on: time)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(answer.err == "", "standard error stays empty when a command worked")
+  let rows = try answer.rows()
+  try #require(rows.count == 5, "the strip held four plugins, so it holds five now")
+  #expect(
+    rows.map { $0["name"] as? String }
+      == ["Piano", "Channel EQ", "Compressor", "ChromaVerb", "Channel EQ"],
+    "the answer carries the chain the project holds, with the new plugin under the four")
+  #expect(rows[4]["slot"] as? Int == 5, "the plugin went into the slot that was empty")
+  #expect(
+    late.readsAfterTheChoice == 3,
+    "the strip was read until it drew the plugin, so the answer is not the first read")
+  #expect(
+    time.slept == [50, 50],
+    "and the command waited between those reads rather than asking Logic again at once")
+  #expect(late.plugins.count == 5, "the project holds five plugins, which is what was answered")
+
+  // A Logic that puts the plugin in and never draws it. The command gives it the limit of a wait
+  // and then says how long it gave it, on a clock this test moves itself.
+  let silent = try FakeMixer(
+    track: "Deluxe Classic", plugins: ["Piano"], drawsThePluginOnRead: Int.max)
+  let waited = Time()
+
+  let refused = try pluginsInsert("Channel EQ", into: silent, on: waited)
+
+  #expect(refused.status == 6, "the number the design system gives timeout")
+  let failure = try refused.failure()
+  #expect(failure["code"] as? String == "timeout", "the code a caller reads")
+  let message = failure["message"] as? String ?? ""
+  #expect(message.contains("slot 2"), "the sentence names the slot the command watched")
+  #expect(message.contains("Channel EQ"), "and the plugin it was asked for")
+  let gave = failure["details"] as? [String: Any] ?? [:]
+  #expect(gave["track"] as? Int == 1, "the details carry the track the person named")
+  #expect(gave["slot"] as? Int == 2, "and the slot the plugin was put into")
+  #expect(gave["name"] as? String == "Channel EQ", "and the name it waited for")
+  #expect(
+    gave["waitedMs"] as? Int == 5000,
+    "with the time it gave Logic, which is the limit of a wait that names none")
+  #expect(try refused.printed()["data"] is NSNull, "a failure carries no data")
+  #expect(waited.now == 5000, "the wait ran on the clock of this test and cost the suite no time")
+  #expect(
+    silent.plugins == ["Piano", "Channel EQ"],
+    "the plugin did go in, and a strip that never draws it is not a chain of one")
+  let lines = refused.err.split(whereSeparator: \.isNewline)
+  #expect(lines.count == 1, "standard error carries one line for the person reading along")
+  #expect(
+    refused.err.hasPrefix("logicctl: timeout: "),
+    "the one line reads logicctl: <code>: <message>")
 }
