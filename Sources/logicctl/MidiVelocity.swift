@@ -66,6 +66,7 @@ extension Midi.SetVelocity {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     events: EventList.Actions = EventList.Actions.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -92,6 +93,7 @@ extension Midi.SetVelocity {
       note: target,
       value: value,
       events: events,
+      selection: selection,
       source: source,
       argv: argv)
     return printer.write(run.run(change: command, confirmed: confirmed))
@@ -123,6 +125,9 @@ struct MidiVelocityCommand: LogicCommand {
 
   /// What Logic is asked to do to the rows of the Event List.
   let events: EventList.Actions
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it.
   let source: () throws -> LogicTree

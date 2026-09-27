@@ -62,6 +62,7 @@ extension Midi.Quantize {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     pianoRoll: PianoRoll = PianoRoll.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -88,6 +89,7 @@ extension Midi.Quantize {
       value: value,
       strength: strength,
       pianoRoll: pianoRoll,
+      selection: selection,
       source: source,
       argv: argv)
     return printer.write(run.run(change: command, confirmed: confirmed))
@@ -119,6 +121,9 @@ struct MidiQuantizeCommand: LogicCommand {
 
   /// What Logic is asked to do in the Piano Roll.
   let pianoRoll: PianoRoll
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it. It is read again after the quantize, because a
   /// tree read before a change describes the Logic of a moment ago.

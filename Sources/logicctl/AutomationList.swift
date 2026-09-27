@@ -46,6 +46,7 @@ extension Automation.List {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -68,7 +69,9 @@ extension Automation.List {
       lock: lock,
       capturer: capturer)
     return printer.write(
-      run.run(command: AutomationListCommand(target: region, source: source, argv: argv)))
+      run.run(
+        command: AutomationListCommand(
+          target: region, selection: selection, source: source, argv: argv)))
   }
 }
 
@@ -82,6 +85,9 @@ struct AutomationListCommand: LogicCommand {
 
   /// The two numbers that name the region.
   let target: RegionOption
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it.
   let source: () throws -> LogicTree

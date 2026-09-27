@@ -46,6 +46,7 @@ extension Midi.Notes {
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -68,7 +69,9 @@ extension Midi.Notes {
       lock: lock,
       capturer: capturer)
     return printer.write(
-      run.run(command: MidiNotesCommand(target: region, source: source, argv: argv)))
+      run.run(
+        command: MidiNotesCommand(
+          target: region, selection: selection, source: source, argv: argv)))
   }
 
   /// What this command reads Logic through on this Mac.
@@ -87,6 +90,9 @@ struct MidiNotesCommand: LogicCommand {
 
   /// The two numbers that name the region.
   let target: RegionOption
+
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
 
   /// The tree of Logic, as the command reads it.
   let source: () throws -> LogicTree

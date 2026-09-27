@@ -114,6 +114,53 @@ private func recorded(_ tree: String) throws -> any AXNode {
   try RecordedTree(contentsOf: recordedTrees.appending(path: tree)).root
 }
 
+/// One element of the Tracks window a test drives, which keeps the selection written at it.
+///
+/// It is a class, so a write at a region item lands on the element the command read, the way it
+/// lands in Logic. The windows this test reads rather than writes are built of values above.
+private final class Selectable: AXNode {
+  var role: String
+  var title: String?
+  var identifier: String?
+  var value: String?
+  var valueDescription: String?
+  var description: String?
+  var help: String?
+  var actions: [String]
+  var children: [any AXNode]
+
+  /// True while Logic holds this region item selected. No tree carries a selection, so the command
+  /// reads it through the closures of `RegionSelection` and never through `AXNode`.
+  var held = false
+
+  init(of node: any AXNode) {
+    role = node.role
+    title = node.title
+    identifier = node.identifier
+    value = node.value
+    valueDescription = node.valueDescription
+    description = node.description
+    help = node.help
+    actions = node.actions
+    children = node.children.map { Selectable(of: $0) }
+  }
+}
+
+/// The Tracks window of a project whose tracks 3, 4 and 5 each carry a region.
+///
+/// `mixer-and-event-list-in-front.json` is a whole application, and its Tracks window is the one
+/// recorded tree that holds a region item on more than one track. Only that window is taken, so the
+/// Event List and the Piano Roll of this test are the ones their notes were read from.
+private func theTracksWindowOfThreeRegions() throws -> Selectable {
+  let application = try recorded("mixer-and-event-list-in-front.json")
+  guard
+    let window = application.children.first(where: { ($0.title ?? "").hasSuffix(" - Tracks") })
+  else {
+    throw AFakeLogic.ShowsNoTracksWindow()
+  }
+  return Selectable(of: window)
+}
+
 /// The same element with other children under it.
 private func copied(_ node: any AXNode, children: [any AXNode]) -> Element {
   Element(
@@ -183,9 +230,21 @@ private func offTheGrid(_ window: any AXNode, positions: [String]) -> any AXNode
 /// reaches nothing, which is what makes the two sliders that read as `Strength` tell each other
 /// apart here.
 private final class AFakeLogic {
+  /// The window this fake was given holds no group of tracks, so it holds no region to select.
+  struct ShowsNoTracksWindow: Error {}
+
   private let pianoRoll: any AXNode
   private let before: any AXNode
   private let after: any AXNode
+
+  /// The Tracks window Logic is showing.
+  private let tracks: Selectable
+
+  /// Every region item of the Tracks window, in the order Accessibility answers them.
+  private let regions: [Selectable]
+
+  /// The region item each track carries, against the number of that track.
+  private let ofTrack: [Int: Selectable]
 
   /// What the command asked Logic to do, in order.
   private(set) var did: [String] = []
@@ -205,19 +264,108 @@ private final class AFakeLogic {
   /// True once the Time Quantize button was pressed.
   private var quantized = false
 
-  init(pianoRoll: any AXNode, before: any AXNode, after: any AXNode) {
+  init(pianoRoll: any AXNode, before: any AXNode, after: any AXNode, tracks: Selectable) throws {
     self.pianoRoll = pianoRoll
     self.before = before
     self.after = after
+    self.tracks = tracks
+    guard let group = AFakeLogic.contents(of: tracks) else {
+      throw ShowsNoTracksWindow()
+    }
+    regions = AFakeLogic.regionItems(under: group)
+    ofTrack = AFakeLogic.regionsOfTheTracks(under: group)
   }
 
   /// The windows Logic is showing.
+  ///
+  /// The Tracks window comes first. A walk looking for the region items stops at the first group it
+  /// finds, so it never reaches the Piano Roll or the Event List.
   var tree: LogicTree {
     LogicTree(
       logicVersion: recordedVersion,
       root: Element(
         role: "AXApplication",
-        children: [pianoRoll, quantized ? after : before]))
+        children: [tracks, pianoRoll, quantized ? after : before]))
+  }
+
+  /// How Logic selects a region: a write of `AXSelected` toggles the item it lands on.
+  var selection: AutomationMenus.RegionSelection {
+    AutomationMenus.RegionSelection(
+      holds: { ($0 as? Selectable)?.held ?? false },
+      write: { item in
+        guard let region = item as? Selectable else {
+          return
+        }
+        region.held = !region.held
+        if self.did.last != "select the region" {
+          self.did.append("select the region")
+        }
+      },
+      same: { one, other in
+        guard let left = one as? Selectable, let right = other as? Selectable else {
+          return false
+        }
+        return left === right
+      })
+  }
+
+  /// Says Logic holds the regions of these tracks selected, and no other region.
+  func hold(theRegionsOfTracks tracks: [Int]) {
+    for region in regions {
+      region.held = false
+    }
+    for track in tracks {
+      ofTrack[track]?.held = true
+    }
+  }
+
+  /// The regions Logic holds selected, named by the track each one sits on.
+  var heldRegions: [String] {
+    regions.filter { $0.held }.map { region in
+      guard let track = ofTrack.first(where: { $0.value === region })?.key else {
+        return "a region on no track of its own"
+      }
+      return "the region of track \(track)"
+    }
+  }
+
+  /// The group the Tracks window holds the tracks and their regions in.
+  private static func contents(of node: Selectable) -> Selectable? {
+    if node.description == RegionReader.contentsGroup {
+      return node
+    }
+    for child in node.children.compactMap({ $0 as? Selectable }) {
+      if let found = contents(of: child) {
+        return found
+      }
+    }
+    return nil
+  }
+
+  /// Every region item under one element, at any depth. A region holds no region, so the walk stops
+  /// at the first one it finds on a branch.
+  private static func regionItems(under node: Selectable) -> [Selectable] {
+    node.children.compactMap { $0 as? Selectable }.flatMap { child -> [Selectable] in
+      child.role == RegionReader.regionRole ? [child] : regionItems(under: child)
+    }
+  }
+
+  /// The region item each track carries, against the number of that track.
+  ///
+  /// A track is the area at its own place under the group, with or without a description, which is
+  /// how the Tracks window of Logic 12.3.1 answers the tracks of a project.
+  private static func regionsOfTheTracks(under group: Selectable) -> [Int: Selectable] {
+    let areas = group.children.compactMap { $0 as? Selectable }
+      .filter { $0.role == RegionReader.trackRole }
+    var found: [Int: Selectable] = [:]
+    for (place, area) in areas.enumerated() {
+      let items = area.children.compactMap { $0 as? Selectable }
+        .filter { $0.role == RegionReader.regionRole }
+      if let first = items.first {
+        found[place + 1] = first
+      }
+    }
+    return found
   }
 
   /// What the command drives Logic through.
@@ -304,6 +452,7 @@ private func midiQuantize(
     of: { logic.tree },
     confirmed: quantize.guarded.confirm,
     pianoRoll: logic.actions,
+    selection: logic.selection,
     root: root,
     git: git,
     capturer: NoPictureOfTheWindow(),
@@ -329,10 +478,11 @@ private func midiQuantize(
 @Test func quantizeLeavesEveryPitchAndVelocity() throws {
   let offGrid = ["1 1 1 38", "1 1 3 190", "1 3 1 45", "1 3 4 87"]
   let events = try recorded("event-list-automation.json")
-  let logic = AFakeLogic(
+  let logic = try AFakeLogic(
     pianoRoll: try recorded("piano-roll.json"),
     before: offTheGrid(events, positions: offGrid),
-    after: events)
+    after: events,
+    tracks: try theTracksWindowOfThreeRegions())
 
   let before = try EventList.notes(in: try #require(EventList.window(of: logic.tree)))
   try #require(before.map(\.position) == offGrid, "the notes start off the grid")
@@ -348,6 +498,7 @@ private func midiQuantize(
     of: { logic.tree },
     confirmed: quantize.guarded.confirm,
     pianoRoll: logic.actions,
+    selection: logic.selection,
     root: URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
     standardOutput: { out += $0 },
     standardError: { err += $0 })
@@ -379,7 +530,7 @@ private func midiQuantize(
   #expect(logic.slider == [], "the Strength slider already reads 100, so nothing is written at it")
   #expect(logic.pressed == ["Time Quantize"], "the button that quantizes is the one pressed")
   #expect(
-    logic.did == ["select", "choose", "press"],
+    logic.did == ["select the region", "select", "choose", "press"],
     "the press comes last, because Logic quantizes what the popup holds when it is pressed")
   #expect(status == 0, "the command exits 0")
   #expect(err == "", "standard error stays empty when a command worked")
@@ -413,10 +564,11 @@ private func midiQuantize(
   let events = try recorded("event-list-automation.json")
   let arguments = ["--track", "4", "--region", "1", "--value", "1/16", "--strength", "100"]
 
-  let theirs = AFakeLogic(
+  let theirs = try AFakeLogic(
     pianoRoll: try recorded("piano-roll.json"),
     before: offTheGrid(events, positions: offGrid),
-    after: events)
+    after: events,
+    tracks: try theTracksWindowOfThreeRegions())
 
   let refused = try midiQuantize(arguments, logic: theirs, path: theirProject, root: root, git: git)
 
@@ -433,10 +585,11 @@ private func midiQuantize(
   #expect(
     kept.map(\.position) == offGrid, "every note of the person sits where they left it")
 
-  let allowed = AFakeLogic(
+  let allowed = try AFakeLogic(
     pianoRoll: try recorded("piano-roll.json"),
     before: offTheGrid(events, positions: offGrid),
-    after: events)
+    after: events,
+    tracks: try theTracksWindowOfThreeRegions())
 
   let said = try midiQuantize(
     arguments + ["--confirm"], logic: allowed, path: theirProject, root: root, git: git)
@@ -448,4 +601,58 @@ private func midiQuantize(
     rows.map { $0["position"] as? String } == ["1 1 1 1", "1 1 4 1", "1 3 1 1", "1 3 4 1"],
     "the four notes moved onto the grid")
   #expect(allowed.pressed == ["Time Quantize"], "the button that quantizes was pressed")
+}
+
+/// An agent quantizes one region, and the notes that move are the notes of that region.
+///
+/// Logic quantizes what is selected, and the Piano Roll and the Event List both follow the region
+/// Logic holds. Measured on Logic 12.3.1 on 2026-09-27: after a take, Logic held the regions of two
+/// tracks selected, and a read of a third region answered the events of one of those two. A
+/// quantize is the widest edit this tool makes to a region, and it cannot be read back: once the
+/// the grid, nothing says where they were. So a quantize against the region Logic happened to be
+/// showing moves a part nobody named, and the answer reads as though the named region moved.
+///
+/// So the region the command names is the only region Logic holds before the Piano Roll is touched.
+@Test func quantizeMovesTheNotesOfTheNamedRegion() throws {
+  let offGrid = ["1 1 1 38", "1 1 3 190", "1 3 1 45", "1 3 4 87"]
+  let events = try recorded("event-list-automation.json")
+  let logic = try AFakeLogic(
+    pianoRoll: try recorded("piano-roll.json"),
+    before: offTheGrid(events, positions: offGrid),
+    after: events,
+    tracks: try theTracksWindowOfThreeRegions())
+  logic.hold(theRegionsOfTracks: [5])
+  try #require(
+    logic.heldRegions == ["the region of track 5"],
+    "Logic holds the region of another track, as it does after a take")
+
+  var out = ""
+  var err = ""
+  let typed = try Logicctl.parseAsRoot([
+    "midi", "quantize", "--track", "4", "--region", "1", "--value", "1/16", "--strength", "100",
+  ])
+  let quantize = try #require(typed as? Midi.Quantize)
+  let status = quantize.answer(
+    driver: FakeLogicDriver(tracks: aProjectWithARegionOnTrack4()),
+    of: { logic.tree },
+    confirmed: quantize.guarded.confirm,
+    pianoRoll: logic.actions,
+    selection: logic.selection,
+    root: URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
+    standardOutput: { out += $0 },
+    standardError: { err += $0 })
+
+  #expect(
+    logic.heldRegions == ["the region of track 4"],
+    "the region the command named is the only region Logic holds")
+  #expect(
+    logic.did == ["select the region", "select", "choose", "press"],
+    "the region is selected before the Piano Roll is touched, so the notes belong to that region")
+  let printed = try JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any] ?? [:]
+  let rows = (printed["data"] as? [String: Any] ?? [:])["notes"] as? [[String: Any]] ?? []
+  #expect(
+    rows.map { $0["position"] as? String } == ["1 1 1 1", "1 1 4 1", "1 3 1 1", "1 3 4 1"],
+    "the four notes of the named region moved onto the grid")
+  #expect(status == 0, "the command exits 0")
+  #expect(err == "", "standard error stays empty when a command worked")
 }
