@@ -439,13 +439,32 @@ struct Phase7LiveScenarios {
     "and each one is a scenario of its own: \(JournalLive.checks)")
 
   for check in JournalLive.checks {
-    #expect(
-      source.contains("@Test func \(check)()"),
+    let body = try #require(
+      scenarioBody(named: check, in: source),
       "\(check) is a scenario of this phase, so a run of the phase runs it")
     #expect(
-      source.contains("LiveHarness.liveScenario(\"\(check)\")"),
+      body.contains("LiveHarness.liveScenario(\"\(check)\")"),
       "\(check) says its name as it starts, which is the line the target counts")
+    #expect(
+      body.contains("Phase2Live.quitLogic()"),
+      """
+      \(check) leaves Logic with no changed project open, because a dialog asking to save the \
+      copy of one scenario stops the scenario after it before it reads anything
+      """)
   }
+
+  let replay = try #require(
+    scenarioBody(named: "replayOfThePhaseTwoSessionFindsNoDifference", in: source),
+    "the replay check is a scenario of this phase")
+  #expect(
+    replay.contains("Phase2Live.logicWithNoProject()"),
+    """
+    the replay check meets a Logic that shows no project, because replay makes a project of its \
+    own and new-project refuses while Logic shows one
+    """)
+  #expect(
+    replay.contains("openInLogic") == false,
+    "so the replay check opens no copy of its own before it replays")
 
   // The declaration is read as two lines joined here, and never as one text this file carries,
   // because an assertion that looks for a string its own line holds passes on any file at all.
@@ -494,6 +513,22 @@ struct Phase7LiveScenarios {
   #expect(
     text.contains("0|1|2|3|4|7)"),
     "make accept PART=7 is what proves this step, so the target accepts the phase")
+}
+
+/// The body of one scenario of this file, from its declaration to the next one.
+///
+/// The assertions read one scenario at a time. A search of the whole file passes when any one
+/// scenario carries the line, which is how a phase with one scenario missing it reads as a phase
+/// where every scenario carries it.
+private func scenarioBody(named name: String, in source: String) -> String? {
+  guard let start = source.range(of: "@Test func \(name)()") else {
+    return nil
+  }
+  let rest = source[start.upperBound...]
+  guard let next = rest.range(of: "@Test func ") else {
+    return String(rest)
+  }
+  return String(rest[..<next.lowerBound])
 }
 
 /// What stopped one call, or nothing when it went through.
