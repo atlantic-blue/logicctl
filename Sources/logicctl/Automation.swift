@@ -73,11 +73,15 @@ extension Automation.Add {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     menus: AutomationMenus = AutomationMenus.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
+    limitMs: Int = Wait.defaultLimitMs,
     format: OutputFormat = .compact,
     argv: [String] = [],
     now: @escaping () -> Date = { Date() },
+    clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds,
     git: Git = Git(),
     lock: Lock = Lock(),
     capturer: any WindowCapturer = WindowCapture(),
@@ -95,7 +99,8 @@ extension Automation.Add {
       lock: lock,
       capturer: capturer)
     let command = AutomationAddCommand(
-      target: region, menus: menus, source: source, argv: argv)
+      target: region, menus: menus, selection: selection, source: source, argv: argv,
+      limitMs: limitMs, clock: clock, sleeper: sleeper)
     return printer.write(run.run(change: command, confirmed: confirmed))
   }
 }
@@ -116,11 +121,23 @@ struct AutomationAddCommand: LogicCommand {
   /// What Logic is asked to do in the menu bar and in the Tracks window.
   let menus: AutomationMenus
 
+  /// How the region is let go and taken again once the points are in it.
+  let selection: AutomationMenus.RegionSelection
+
   /// The tree of Logic, as the command reads it. It is read again after the presses, because a
   /// tree read before a change describes the Logic of a moment ago.
   let source: () throws -> LogicTree
 
   let argv: [String]
+
+  /// How long the Event List has to draw the points, in milliseconds.
+  let limitMs: Int
+
+  /// The clock the wait reads.
+  let clock: Wait.Clock
+
+  /// How the wait sleeps between two reads.
+  let sleeper: Wait.Sleeper
 
   /// Logic is not showing the region anywhere, so there is nothing to select and nothing to make
   /// points at the borders of.
