@@ -1,4 +1,9 @@
+import AppKit
+import ApplicationServices
+import CoreGraphics
 import Foundation
+import LogicctlCore
+import LogicctlMac
 import Testing
 
 /// This file, read as text.
@@ -160,9 +165,15 @@ struct Phase3LiveScenarios {
   ///
   /// This is the one scenario where the bus, the transport and the project meet. A note reaches
   /// the port, Logic takes it as a performance, and what it wrote is read back out of the Event
-  /// List. Logic records onto the selected software instrument track, so the scratch copy holds
-  /// track 3 selected and the Event List open before the run. A take writes into the project, and
-  /// the project belongs to a person, so the record goes through `--confirm`.
+  /// List. The Event List of the take is open before the run, because logicctl does not open it.
+  /// A take writes into the project, and the project belongs to a person, so the record goes
+  /// through `--confirm`.
+  ///
+  /// Logic records onto the selected track, and a copy opens with whatever track was selected when
+  /// it was saved. Measured on this Mac on 2026-09-27 against Logic 12.3.1: a copy of the scratch
+  /// project opened with track 2 selected, a take then wrote nothing onto track 3, and the arm of
+  /// every track read false while Logic was recording. So the arm says nothing about whether a
+  /// take lands, and the selected track is what decides. The scenario selects the track itself.
   @Test func recordTakesTheNotesIntoARegion() throws {
     LiveHarness.liveScenario("recordTakesTheNotesIntoARegion")
     _ = try ScratchCopy.open()
@@ -185,6 +196,10 @@ struct Phase3LiveScenarios {
 
     let before = try regionsOnTrack(LiveNames.recordedTrack)
 
+    // The count above reads the state, and a state read opens the Mixer and closes it again, so the
+    // selection is proven after it and not before, as close to the take as the scenario can get.
+    try select(trackNumbered: LiveNames.recordedTrack, of: listed.tracks.count)
+
     let recording = try answered(TransportAnswer.self, from: ["transport", "record", "--confirm"])
     #expect(recording.recording, "Logic reads back as recording after the press of Record")
 
@@ -199,12 +214,13 @@ struct Phase3LiveScenarios {
     #expect(still.recording == false, "the take is closed, so Logic wrote what it heard")
 
     let after = try regionsOnTrack(LiveNames.recordedTrack)
+    let selected = selectedTrackNow(of: listed.tracks.count)
     #expect(
       after == before + 1,
       """
       Logic wrote no region on track \(LiveNames.recordedTrack): it held \(before) before the \
-      take and \(after) after it. The track reads arm \(instrument.arm), and Logic records only \
-      onto a track that is armed and selected.
+      take and \(after) after it. The selected track reads \(selected), and Logic records onto \
+      the selected track.
       """)
     guard after == before + 1 else {
       return
@@ -333,6 +349,24 @@ private enum LiveNames {
 
   /// The tempo this phase types into the tempo field.
   static let tempo = 96
+
+  /// The key code of the down arrow, which moves the selection to the next track down.
+  ///
+  /// Measured on this Mac on 2026-09-27 against Logic 12.3.1: with the Tracks window holding the
+  /// focus, one of these moved the selection from track 2 to track 3.
+  static let downArrow: CGKeyCode = 125
+
+  /// The key code of the up arrow, which moves the selection to the track above.
+  static let upArrow: CGKeyCode = 126
+
+  /// How long Logic is given to move the selection after one arrow key, in milliseconds.
+  static let selectionLimitMs = 5000
+
+  /// How long Logic is given to come to the front and hold the focus, in milliseconds.
+  static let focusLimitMs = 10000
+
+  /// How long the scenario leaves between two reads of Logic, in milliseconds.
+  static let pollMs = 200
 
   /// A region number past any region a scratch project holds.
   ///
@@ -601,4 +635,200 @@ private struct ImportedTrack: Decodable {
 private struct ImportedRegion: Decodable {
   let startBar: Int?
   let endBar: Int?
+}
+
+/// Makes one track the selected track of the Tracks window, and proves it before it goes on.
+///
+/// Logic records onto the selected track, and a copy opens with whatever track was selected when it
+/// was saved. Nothing in logicctl selects a track, and a write of `AXSelected` on the header of a
+/// track changes nothing, so the selection moves the way a person moves it: the arrow keys of the
+/// Tracks window, one key at a time.
+///
+/// A key is an event at the window server and not an argument, so a key that lands anywhere else
+/// changes something nobody asked for and no later read can tell. Every key here is proven twice
+/// over: the gate sends nothing unless Logic is frontmost and no window of Logic is modal, and this
+/// reads the focused window of Logic and refuses unless it is the window the project sits in. The
+/// selection is read back after every key, so a key that moved nothing stops the scenario rather
+/// than turning into a second key.
+private func select(trackNumbered wanted: Int, of tracks: Int) throws {
+  let logic = try theRunningLogic()
+  try bringTheTracksWindowToTheFront(logic)
+
+  guard var selected = try selectedTrack(of: tracks) else {
+    throw LiveRefusal(
+      reason: """
+        no track of the Tracks window reads AXSelected true, so there is nowhere for an arrow key \
+        to move from and this scenario sends none
+        """)
+  }
+
+  let gate = InputGate.live(logic: logic.processIdentifier)
+  var keys = 0
+  while selected != wanted && keys < tracks {
+    let key = selected < wanted ? LiveNames.downArrow : LiveNames.upArrow
+    try proveTheTracksWindowHasTheFocus(logic)
+    try gate.post(.key(key, flags: [], focus: nil))
+    keys += 1
+
+    let was = selected
+    do {
+      try Wait.until(limitMs: LiveNames.selectionLimitMs, pollMs: LiveNames.pollMs) {
+        try selectedTrack(of: tracks) != was
+      }
+    } catch {
+      throw LiveRefusal(
+        reason: """
+          one arrow key reached Logic and the selected track still reads \(was), so the keys of \
+          this scenario are moving nothing and it sends no more of them
+          """)
+    }
+    guard let moved = try selectedTrack(of: tracks) else {
+      throw LiveRefusal(
+        reason: "an arrow key left no track of the Tracks window reading AXSelected true")
+    }
+    selected = moved
+  }
+
+  guard selected == wanted else {
+    throw LiveRefusal(
+      reason: """
+        the selected track of the Tracks window reads \(selected) and the take needs track \
+        \(wanted), after \(keys) arrow keys
+        """)
+  }
+}
+
+/// The track the Tracks window reads as selected, counted from 1, or nothing when none does.
+///
+/// It reads `AXSelected` of the header of each track, which is the one place Logic says which track
+/// a take lands on. The walk to a header is the walk the state reader makes, so this reads the
+/// tracks logicctl reads and not a list of its own.
+private func selectedTrack(of tracks: Int) throws -> Int? {
+  let window = try theTracksWindow()
+  for number in 0..<tracks {
+    let locator = Locators.trackHeader(number: number)
+    let item = try LocatorResolver.element(of: locator, in: window.root)
+    if try readsSelected(item, ofTrackNumbered: number + 1) {
+      return number + 1
+    }
+  }
+  return nil
+}
+
+/// The selected track as one word, for a failure that has to say what it was.
+private func selectedTrackNow(of tracks: Int) -> String {
+  do {
+    guard let read = try selectedTrack(of: tracks) else {
+      return "no track"
+    }
+    return String(read)
+  } catch {
+    return "a track nothing could read: \(error)"
+  }
+}
+
+/// Whether one track header reads `AXSelected` true.
+///
+/// A header Accessibility refuses to answer for is not read as false: false is what an unselected
+/// track answers, and a read nobody could make would then look like one. The type of the value is
+/// read before the value, because a number bridges to `Bool` as well and a `1` that is not a
+/// boolean would then read as a selected track.
+private func readsSelected(_ item: any AXNode, ofTrackNumbered number: Int) throws -> Bool {
+  guard let live = item as? LiveAXNode else {
+    throw LiveRefusal(
+      reason: "the header of track \(number) came from a recorded tree, which selects nothing")
+  }
+  var carried: CFTypeRef?
+  let answered = AXUIElementCopyAttributeValue(
+    live.element, kAXSelectedAttribute as CFString, &carried)
+  guard answered == .success, let value = carried,
+    CFGetTypeID(value) == CFBooleanGetTypeID()
+  else {
+    throw LiveRefusal(
+      reason: """
+        AXSelected of the header of track \(number) answered error \(answered.rawValue), so this \
+        scenario cannot tell which track a take would land on
+        """)
+  }
+  return value as? Bool == true
+}
+
+/// The tree of Logic starting at the window the project sits in.
+private func theTracksWindow() throws -> LogicTree {
+  guard let window = try LogicTree.ofRunningLogic().atTheProjectWindow() else {
+    throw LiveRefusal(reason: "Logic shows no window with the header of the tracks in it")
+  }
+  return window
+}
+
+/// The Logic that runs on this Mac.
+private func theRunningLogic() throws -> NSRunningApplication {
+  let running = NSRunningApplication.runningApplications(
+    withBundleIdentifier: LogicTree.bundleIdentifier)
+  guard let logic = running.first else {
+    throw LiveRefusal(reason: "no Logic runs on this Mac, so there is no track to select")
+  }
+  return logic
+}
+
+/// Brings Logic to the front and raises the window the project sits in.
+///
+/// `make accept` runs from a terminal, so the terminal is the frontmost application and the gate
+/// would refuse every key. Logic is asked to come forward, and the project window is raised. Logic
+/// keeps the Mixer and the Event List open beside it, and an arrow key belongs to whichever of them
+/// holds the focus.
+private func bringTheTracksWindowToTheFront(_ logic: NSRunningApplication) throws {
+  logic.activate()
+  do {
+    try Wait.until(limitMs: LiveNames.focusLimitMs, pollMs: LiveNames.pollMs) {
+      NSWorkspace.shared.frontmostApplication?.processIdentifier == logic.processIdentifier
+    }
+  } catch {
+    throw LiveRefusal(reason: "Logic did not come to the front, so no key would reach it")
+  }
+
+  guard let window = try theTracksWindow().root as? LiveAXNode else {
+    throw LiveRefusal(reason: "the project window came from a recorded tree, which nothing raises")
+  }
+  let raised = AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
+  guard raised == .success else {
+    throw LiveRefusal(
+      reason: "Logic refused to raise the window of the project, error \(raised.rawValue)")
+  }
+  try proveTheTracksWindowHasTheFocus(logic)
+}
+
+/// Stops unless Logic holds the focus on the window the project sits in.
+///
+/// A Logic that answers nothing for its focused window is read as a Logic holding the focus
+/// somewhere else, because a focus nothing can read is not a focus a key can land in.
+private func proveTheTracksWindowHasTheFocus(_ logic: NSRunningApplication) throws {
+  do {
+    try Wait.until(limitMs: LiveNames.focusLimitMs, pollMs: LiveNames.pollMs) {
+      try theTracksWindowHoldsTheFocus(of: logic)
+    }
+  } catch {
+    throw LiveRefusal(
+      reason: """
+        the window of the project does not hold the focus of Logic, so an arrow key would move \
+        something else and this scenario sends none
+        """)
+  }
+}
+
+/// Whether the window the project sits in is the window of Logic that takes keys.
+private func theTracksWindowHoldsTheFocus(of logic: NSRunningApplication) throws -> Bool {
+  guard let wanted = try theTracksWindow().root as? LiveAXNode else {
+    return false
+  }
+  let application = AXUIElementCreateApplication(logic.processIdentifier)
+  var carried: CFTypeRef?
+  guard
+    AXUIElementCopyAttributeValue(application, kAXFocusedWindowAttribute as CFString, &carried)
+      == .success,
+    let focused = carried, CFGetTypeID(focused) == AXUIElementGetTypeID()
+  else {
+    return false
+  }
+  return CFEqual(focused, wanted.element)
 }
