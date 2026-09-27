@@ -79,13 +79,20 @@ public struct AutomationMenus {
   /// Selects one region of the Tracks window, and nothing else.
   public typealias Select = (any AXNode) throws -> Void
 
+  /// Raises the Tracks window of the project, and answers once that window holds the focus.
+  public typealias RaiseTheTracksWindow = () throws -> Void
+
   public let press: Press
   public let select: Select
+  public let raiseTheTracksWindow: RaiseTheTracksWindow
 
   /// A caller names the closures its command needs, and what it leaves out refuses.
-  public init(press: Press? = nil, select: Select? = nil) {
+  public init(
+    press: Press? = nil, select: Select? = nil, raiseTheTracksWindow: RaiseTheTracksWindow? = nil
+  ) {
     self.press = press ?? AutomationMenus.noPressWasGiven
     self.select = select ?? AutomationMenus.noSelectWasGiven
+    self.raiseTheTracksWindow = raiseTheTracksWindow ?? AutomationMenus.noRaiseWasGiven
   }
 
   /// Makes the points at the borders of one region, and moves them into the region.
@@ -95,10 +102,78 @@ public struct AutomationMenus {
   /// second item moves them into the region. A caller that stopped after the first press would
   /// leave the points on the track, where no Event List row shows them and no later command can
   /// name one.
+  ///
+  /// The Tracks window is reached before any of it. Measured on this Mac at 02:08 on 2026-09-27:
+  /// the same two presses made nothing with the Event List window focused and made both actions
+  /// with the Tracks window focused. The raise comes before the selection rather than between the
+  /// selection and the first press, so that the readback of the selection is the last read of
+  /// Logic before the presses and no window moves after it.
   public func addPoints(atTheBordersOf region: any AXNode) throws {
+    try raiseTheTracksWindow()
     try select(region)
     try press(Locators.createAutomationPointsAtRegionBorders)
     try press(Locators.convertTrackAutomationToRegionAutomation)
+  }
+
+  /// Presses the one item a locator names, in the tree given, once Logic offers it.
+  ///
+  /// Logic answers `AXEnabled` on every item of its menu bar. Measured on this Mac on
+  /// 2026-09-27: it answered false on the convert item while the Event List window held the
+  /// focus. An item it answers false on takes no press and answers success, so the read is what
+  /// stops the command at the item a person can act on, rather than at the empty Event List
+  /// after it. Nothing after a refused item is pressed, because the refusal stops `addPoints`.
+  ///
+  /// Logic offers an item a moment after the press before it, the way every other change of
+  /// Logic lands in the tree after the event that made it, so one read is a read of the moment
+  /// before Logic caught up and the read repeats until the limit.
+  ///
+  /// It decides the state of an item while the menu is walked, and an element held from an
+  /// earlier walk keeps the answer of that walk. Measured on Logic 12.3.1 on 2026-09-27, after
+  /// the create press with the Tracks window focused and one region selected: one element of the
+  /// convert item, resolved once and read again and again, answered false for the whole of ten
+  /// seconds, and a walk from the application before each read answered true one second in. So
+  /// the locator is walked again from the application for every read, and the element that is
+  /// pressed is the one from the walk that answered true. An element from an earlier walk would
+  /// be a press at an item Logic offered at a moment that has passed.
+  ///
+  /// An item that reads true and still does nothing is a different fault, and the window the
+  /// press lands in is what answers that one. `TracksWindow` reaches it.
+  ///
+  /// The walk is here rather than in the live press, so a test drives the same walk over a menu
+  /// bar of its own and the pipeline needs no Logic.
+  public static func pressTheItem(
+    _ locator: Locator,
+    of application: @escaping () throws -> any AXNode,
+    offered: (any AXNode) throws -> Bool,
+    act: (any AXNode) throws -> Void,
+    limitMs: Int = Wait.defaultLimitMs,
+    clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
+  ) throws {
+    var itemOffered: (any AXNode)?
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        let item = try LocatorResolver.element(of: locator, in: application())
+        guard try offered(item) else {
+          itemOffered = nil
+          return false
+        }
+        itemOffered = item
+        return true
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw ItemNotOffered(item: title(of: locator), waitedMs: ranOut.waitedMs)
+    }
+    guard let item = itemOffered else {
+      throw ItemNotOffered(item: title(of: locator), waitedMs: limitMs)
+    }
+    try act(item)
+  }
+
+  /// The title Logic shows on the item a locator names, or the name of the locator when it names
+  /// the item by something other than its title.
+  static func title(of locator: Locator) -> String {
+    locator.path.last?.title ?? locator.name
   }
 
   /// The item of one region, in the tree Logic answers with, or nothing when the tree holds none.
@@ -258,6 +333,124 @@ public struct AutomationMenus {
       reason: "No selection was given, so no region could be selected.",
       code: .internalFailure)
   }
+
+  private static func noRaiseWasGiven() throws {
+    throw Refusal(
+      reason: "No raise was given, so the Tracks window could not be reached.",
+      code: .internalFailure)
+  }
+}
+
+extension AutomationMenus {
+  /// Logic did not offer one item of the Mix menu, so a press of it would do nothing.
+  ///
+  /// The item is named, because that is the thing a person acts on: they raise the window they
+  /// want, or select the region the item needs, and run the command again. Nothing after the
+  /// item is pressed, so the project is as it was.
+  ///
+  /// The code is `element_not_found` and not `timeout`, for the reason `save` gives it to a menu
+  /// item that stays disabled: the thing a person acts on is the item Logic will not offer, and
+  /// no answer was ever going to come to wait for.
+  public struct ItemNotOffered: FailureCarrying, Equatable, Sendable {
+    /// The item, as Logic titles it in the menu.
+    public let item: String
+
+    /// How long the command gave Logic to offer it.
+    public let waitedMs: Int
+
+    public init(item: String, waitedMs: Int) {
+      self.item = item
+      self.waitedMs = waitedMs
+    }
+
+    public var failure: Failure {
+      Failure(
+        code: .elementNotFound,
+        message:
+          "Logic left \(item) unavailable for \(waitedMs)ms, so it would take no press, and "
+          + "nothing after it was pressed.",
+        details: .object([
+          "item": .string(item),
+          "waitedMs": .number(Double(waitedMs)),
+        ]))
+    }
+  }
+
+  /// Logic never gave the Tracks window the focus, so nothing was pressed.
+  ///
+  /// The presses land in the window that holds the focus, so a press now would go the way the
+  /// two presses of 2026-09-27 went from the Event List: Logic answers the press and makes
+  /// nothing of it.
+  public struct FocusNotTaken: FailureCarrying, Equatable, Sendable {
+    /// How long the command gave Logic, from the raise to the last read.
+    public let waitedMs: Int
+
+    public init(waitedMs: Int) {
+      self.waitedMs = waitedMs
+    }
+
+    public var failure: Failure {
+      Failure(
+        code: .timeout,
+        message:
+          "Logic did not give the Tracks window the focus within \(waitedMs)ms, so no item of "
+          + "the Mix menu was pressed and no automation point was made.",
+        details: .object(["waitedMs": .number(Double(waitedMs))]))
+    }
+  }
+}
+
+extension AutomationMenus {
+  /// How the Tracks window of the project is raised and read back.
+  ///
+  /// Measured on this Mac at 02:08 on 2026-09-27, on a copy of F-T13 with one region selected.
+  /// With the Event List window focused, a press of each of the two items made nothing: the Undo
+  /// History of Logic gained no row. With the Tracks window raised and focused, the same two
+  /// presses, with no wait between them, made both actions, and the region then held three
+  /// volume points. So the window a press lands in is part of the press.
+  ///
+  /// The raise is the one `save` makes: Logic goes to the front, and the window is raised after
+  /// it. `save` measured that the raise on its own leaves its menu item disabled while another
+  /// application is in front, and logicctl is run from a terminal, which is another application.
+  ///
+  /// Logic gives the window the focus a moment after the raise, the way every other change of
+  /// Logic lands in the tree after the event that made it, so the read is a wait like every
+  /// other read of Logic. The raise and the read are closures the caller gives, so a test drives
+  /// the wait with a clock of its own and the pipeline needs no Logic.
+  public struct TracksWindow {
+    /// Brings Logic to the front and raises the window the project sits in.
+    public typealias Raise = () throws -> Void
+
+    /// Reads whether Logic holds the focus on that window.
+    public typealias HasTheFocus = () throws -> Bool
+
+    public let raise: Raise
+    public let hasTheFocus: HasTheFocus
+
+    public init(raise: @escaping Raise, hasTheFocus: @escaping HasTheFocus) {
+      self.raise = raise
+      self.hasTheFocus = hasTheFocus
+    }
+
+    /// Raises the window, and answers once Logic holds the focus on it.
+    ///
+    /// A focus that never comes is a `timeout` and not an element that is missing: the window is
+    /// there, and Logic may still be on its way to it. The caller presses nothing either way.
+    public func reach(
+      limitMs: Int = Wait.defaultLimitMs,
+      clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+      sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
+    ) throws {
+      try raise()
+      do {
+        try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+          try hasTheFocus()
+        }
+      } catch let ranOut as Wait.RanOut {
+        throw AutomationMenus.FocusNotTaken(waitedMs: ranOut.waitedMs)
+      }
+    }
+  }
 }
 
 extension AutomationMenus {
@@ -354,11 +547,49 @@ extension AutomationMenus {
 }
 
 extension AutomationMenus {
-  /// The Logic of this Mac, selected in its window and pressed through its menu bar.
+  /// The Logic of this Mac, raised and selected in its window, and pressed through its menu bar.
   public static func live() -> AutomationMenus {
     AutomationMenus(
       press: AutomationMenus.pressInTheMenuBarOfThisMac,
-      select: AutomationMenus.selectInTheLogicOfThisMac)
+      select: AutomationMenus.selectInTheLogicOfThisMac,
+      raiseTheTracksWindow: AutomationMenus.raiseTheTracksWindowOfThisMac)
+  }
+
+  /// Raises the Tracks window of the Logic that runs on this Mac, and waits for the focus.
+  public static func raiseTheTracksWindowOfThisMac() throws {
+    try TracksWindow.live().reach()
+  }
+
+  /// Brings the Logic of this Mac to the front and raises the window the project sits in.
+  ///
+  /// It is the raise `save` makes, and it is called rather than copied, so the two commands
+  /// reach one window through one route.
+  static func frontTheProjectWindowOfThisMac() throws {
+    try SaveDialog.bringTheLogicOfThisMacToTheFront()
+    try SaveDialog.raiseTheProjectWindowOfThisMac()
+  }
+
+  /// Whether the Logic of this Mac holds the focus on the window the project sits in.
+  ///
+  /// A Logic that answers nothing for its focused window reads as a Logic holding the focus
+  /// somewhere else, because a focus nothing can read is not a focus a press can land in. The
+  /// wait around this read is what turns that into an answer.
+  static func theTracksWindowOfThisMacHasTheFocus() throws -> Bool {
+    let tree = try LogicTree.ofRunningLogic()
+    guard let application = tree.root as? LiveAXNode,
+      let wanted = tree.atTheProjectWindow()?.root as? LiveAXNode
+    else {
+      return false
+    }
+    var carried: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      application.element, kAXFocusedWindowAttribute as CFString, &carried)
+    guard answered == .success, let focused = carried,
+      CFGetTypeID(focused) == AXUIElementGetTypeID()
+    else {
+      return false
+    }
+    return CFEqual(focused, wanted.element)
   }
 
   /// Presses the element one locator names, in the menu bar of the Logic that runs.
@@ -368,14 +599,40 @@ extension AutomationMenus {
   /// mouse event, so it does not go through the input gate: it asks the one element the walk found
   /// to act on itself.
   ///
-  /// Nothing here reads whether Logic offers the item. Accessibility gives a menu item no field
-  /// that says so, and Logic offers the first of these two only while a region is selected. A
-  /// press Logic does nothing with comes back as success, and the command then reads an Event List
-  /// with no fader row in it and stops there.
+  /// `AXEnabled` of the item is read before the press, and an item Logic answers false on is
+  /// named rather than pressed at, the way `save` reads its own menu item before pressing it.
+  /// The tree is read again for every one of those reads, which is what `pressTheItem` says.
   public static func pressInTheMenuBarOfThisMac(_ locator: Locator) throws {
-    let tree = try LogicTree.ofRunningLogic()
-    let element = try LocatorResolver.element(of: locator, in: tree.root)
-    guard let live = element as? LiveAXNode else {
+    try pressTheItem(
+      locator,
+      of: { try LogicTree.ofRunningLogic().root },
+      offered: { try AutomationMenus.theLogicOfThisMacOffers($0, named: locator) },
+      act: { try AutomationMenus.pressInTheLogicOfThisMac($0, named: locator) })
+  }
+
+  /// Whether the Logic of this Mac offers one item of its menu bar, read from `AXEnabled`.
+  ///
+  /// An item whose state Accessibility refuses reads as an item Logic does not offer, because a
+  /// press of an item whose state nothing could read is a press nobody can account for. It is
+  /// the read `SaveDialog` makes of its own item.
+  static func theLogicOfThisMacOffers(_ item: any AXNode, named locator: Locator) throws -> Bool {
+    guard let live = item as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(locator.name) was found in a recorded tree, which says nothing about Logic.",
+        code: .internalFailure)
+    }
+    var carried: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      live.element, kAXEnabledAttribute as CFString, &carried)
+    guard answered == .success else {
+      return false
+    }
+    return carried as? Bool ?? false
+  }
+
+  /// Asks one element of the Logic of this Mac to press itself.
+  static func pressInTheLogicOfThisMac(_ item: any AXNode, named locator: Locator) throws {
+    guard let live = item as? LiveAXNode else {
       throw Refusal(
         reason: "\(locator.name) was found in a recorded tree, which nothing can press.",
         code: .internalFailure)
@@ -456,5 +713,14 @@ extension AutomationMenus.RegionSelection {
       holds: AutomationMenus.heldInTheLogicOfThisMac,
       write: AutomationMenus.writeSelectedInTheLogicOfThisMac,
       same: AutomationMenus.oneElementOfThisMac)
+  }
+}
+
+extension AutomationMenus.TracksWindow {
+  /// The Tracks window of the Logic that runs on this Mac.
+  public static func live() -> AutomationMenus.TracksWindow {
+    AutomationMenus.TracksWindow(
+      raise: AutomationMenus.frontTheProjectWindowOfThisMac,
+      hasTheFocus: AutomationMenus.theTracksWindowOfThisMacHasTheFocus)
   }
 }
