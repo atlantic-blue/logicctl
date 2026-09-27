@@ -72,18 +72,23 @@ public enum RegionReader {
   /// inside them and a search for the shorter one finds this place anyway.
   private static let endsAt = "and ends at"
 
-  /// The area of one track, counted from 1 among the areas that name a track.
+  /// The area of one track, counted from 1 among the areas of the group in the order it answers
+  /// them.
   ///
-  /// Logic puts one area under the group for every track and one more that names no track, which
-  /// is the room under the last one. An area with no description is that room and is not counted.
+  /// Logic puts one area under the group for every track, in the order of the rows from the top,
+  /// and one more after them, which is the room under the last track. So the area of track N is
+  /// the Nth, and the count of the areas less that room is the count of the tracks the window
+  /// shows.
+  ///
+  /// Logic describes some of those areas and not others, and the number inside a description does
+  /// not follow the row it sits on, so neither the description nor its number says which track an
+  /// area belongs to. Only the place does.
   private static func trackArea(_ number: Int, in window: any AXNode) -> (any AXNode)? {
     guard number >= 1, let group = contents(of: window) else {
       return nil
     }
-    let areas = group.children.filter { child in
-      child.role == trackRole && !(child.description ?? "").isEmpty
-    }
-    guard number <= areas.count else {
+    let areas = group.children.filter { $0.role == trackRole }
+    guard number <= areas.count - 1 else {
       return nil
     }
     return areas[number - 1]

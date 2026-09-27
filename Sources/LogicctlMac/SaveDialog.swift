@@ -53,6 +53,9 @@ public struct SaveDialog {
   /// The names one column of the browser lists, counted from 0.
   public typealias ReadNames = (Int) throws -> [String]
 
+  /// Whether one folder is on the disk of this Mac, given as a path.
+  public typealias FolderExists = (String) throws -> Bool
+
   /// Opens the folder of this name in the column at this number, counted from 0.
   public typealias OpenFolder = (Int, String) throws -> Void
 
@@ -67,6 +70,15 @@ public struct SaveDialog {
 
   /// Puts the rows of the column at this number in view, at a place from 0 to 1.
   public typealias Scroll = (Int, Double) throws -> Void
+
+  /// Makes Logic the application in front.
+  public typealias BringToFront = () throws -> Void
+
+  /// Raises the window the open project sits in.
+  public typealias RaiseTheProjectWindow = () throws -> Void
+
+  /// Whether the menu item File, "Save As..." reads enabled.
+  public typealias ReadEnabled = () throws -> Bool
 
   /// Asks Logic for File, "Save As...".
   public let openTheMenuItem: OpenTheMenuItem
@@ -86,6 +98,9 @@ public struct SaveDialog {
   /// Reads the names one column of the browser lists.
   public let namesInColumn: ReadNames
 
+  /// Reads whether one folder of the path is on the disk.
+  public let folderExists: FolderExists
+
   /// Opens one folder of a column.
   public let openFolder: OpenFolder
 
@@ -101,6 +116,17 @@ public struct SaveDialog {
   /// Puts the rows of one column in view.
   public let scroll: Scroll
 
+  /// Makes Logic the application in front.
+  public let bringToFront: BringToFront
+
+  /// Raises the window the open project sits in.
+  public let raiseTheProjectWindow: RaiseTheProjectWindow
+
+  /// Reads whether the menu item File, "Save As..." is enabled.
+  public let menuItemEnabled: ReadEnabled
+
+  /// A caller that names none of the last three drives a Logic that needs no raise: one already in
+  /// front, with the menu item enabled.
   public init(
     openTheMenuItem: @escaping OpenTheMenuItem,
     showsThePanel: @escaping Read,
@@ -108,11 +134,15 @@ public struct SaveDialog {
     press: @escaping Press,
     resolve: @escaping Resolve,
     namesInColumn: @escaping ReadNames,
+    folderExists: @escaping FolderExists = SaveDialog.theFolderExistsOnThisMac,
     openFolder: @escaping OpenFolder,
     folderShown: @escaping ReadFolder,
     pressItem: @escaping PressItem,
     startUpDisk: @escaping ReadDisk,
-    scroll: @escaping Scroll
+    scroll: @escaping Scroll,
+    bringToFront: @escaping BringToFront = {},
+    raiseTheProjectWindow: @escaping RaiseTheProjectWindow = {},
+    menuItemEnabled: @escaping ReadEnabled = { true }
   ) {
     self.openTheMenuItem = openTheMenuItem
     self.showsThePanel = showsThePanel
@@ -120,11 +150,15 @@ public struct SaveDialog {
     self.press = press
     self.resolve = resolve
     self.namesInColumn = namesInColumn
+    self.folderExists = folderExists
     self.openFolder = openFolder
     self.folderShown = folderShown
     self.pressItem = pressItem
     self.startUpDisk = startUpDisk
     self.scroll = scroll
+    self.bringToFront = bringToFront
+    self.raiseTheProjectWindow = raiseTheProjectWindow
+    self.menuItemEnabled = menuItemEnabled
   }
 }
 
@@ -180,6 +214,15 @@ extension SaveDialog {
   /// scroll bar of that column first. Setting `AXSelected` on a row is refused, and setting
   /// `AXSelectedChildren` of the list of a column changes nothing, so neither is a way in.
   ///
+  /// Measured on this Mac on 2026-09-26: with the Event List in front, the menu item reads
+  /// disabled, and the command waited out the limit for a panel that never opened. At 23:10, with
+  /// another application in front, the item stayed disabled after the project window was raised on
+  /// its own. It read enabled once Logic was the application in front and the project window was
+  /// raised, and the save then wrote the project. So the route does both before it asks for the
+  /// item, and reads the item rather than trusting that the two worked. Logic enables the item a
+  /// moment after the raise, so the read is a wait like every other read of Logic, and an item that
+  /// is disabled for the whole limit is named rather than pressed at.
+  ///
   /// A folder the column does not list stops the route before it writes anything. The route closes
   /// the panel and names that folder. The project stays where it is.
   public func save(
@@ -189,6 +232,9 @@ extension SaveDialog {
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws {
     let destination = try self.destination(of: path)
+    try bringToFront()
+    try raiseTheProjectWindow()
+    try reachTheMenuItem(limitMs: limitMs, clock: clock, sleeper: sleeper)
     try openTheMenuItem()
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       try showsThePanel()
@@ -197,7 +243,10 @@ extension SaveDialog {
       try press(Locators.saveWherePopup)
       try pressItem(startUpDisk())
       for (number, folder) in destination.folders.enumerated() {
-        let listed = try namesInColumn(number)
+        let folderPath = "/" + destination.folders.prefix(number + 1).joined(separator: "/")
+        let listed = try theNames(
+          ofColumnNumbered: number, thatLists: folder, at: folderPath, ofPath: path,
+          limitMs: limitMs, clock: clock, sleeper: sleeper)
         guard let row = listed.firstIndex(of: folder) else {
           throw Refusal(
             reason: "Column \(number + 1) of the Save panel does not list \(folder). The walk to "
@@ -235,6 +284,75 @@ extension SaveDialog {
       return nil
     }
     return Double(row) / Double(count - 1)
+  }
+
+  /// Waits for the menu item to read enabled, and names it when it never does.
+  ///
+  /// Measured on this Mac at 23:50 on 2026-09-26: the item read disabled straight after the raise,
+  /// and a read taken a moment later read it enabled, with Logic in front and the project window
+  /// main. So one read of the state is a read of the moment before Logic caught up, the same way
+  /// every other change of Logic lands in the tree after the event that made it.
+  ///
+  /// The failure is `element_not_found` and not `timeout`, because the thing a person acts on is
+  /// the item Logic will not offer, and no panel was ever going to open to wait for.
+  private func reachTheMenuItem(
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws {
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try menuItemEnabled()
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "Logic left \(SaveDialog.menuItemTitle) disabled for \(ranOut.waitedMs)ms, with "
+          + "Logic in front and the project window raised, so it would take no press and nothing "
+          + "was written.")
+    }
+  }
+
+  /// The names one column lists, once it lists one folder of the path.
+  ///
+  /// Measured on this Mac on 2026-09-27, Logic 12.3.1: a save into a folder made about a second
+  /// earlier answered `invalid_argument`, because column 3 did not list that folder. The folder was
+  /// on disk, and the same save minutes later wrote the project. The panel lists a folder made
+  /// after it opened only after a delay, so one read of a column is a read of the moment before
+  /// Logic caught up, the way every other read of Logic is.
+  ///
+  /// A folder that is on disk is therefore read for a second time, within the limit of the
+  /// command, and a panel that never lists it stops the walk with `timeout`. A folder that is not
+  /// on disk is no such case: nothing is coming, so the first reading is answered as it stands,
+  /// the caller names that folder, and a person who mistyped the path waits for nothing.
+  private func theNames(
+    ofColumnNumbered number: Int,
+    thatLists folder: String,
+    at folderPath: String,
+    ofPath path: String,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper
+  ) throws -> [String] {
+    var listed = try namesInColumn(number)
+    if listed.contains(folder) {
+      return listed
+    }
+    guard try folderExists(folderPath) else {
+      return listed
+    }
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        listed = try namesInColumn(number)
+        return listed.contains(folder)
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal(
+        reason: "Column \(number + 1) of the Save panel did not list \(folder) within "
+          + "\(ranOut.waitedMs)ms, and \(folderPath) is on disk. The walk to \(path) stopped, "
+          + "and nothing was written.",
+        code: .timeout)
+    }
+    return listed
   }
 
   /// Waits for the Where popup to show one folder, and fails with `timeout` when it never does.
@@ -283,11 +401,15 @@ extension SaveDialog {
       press: SaveDialog.pressInTheLogicOfThisMac,
       resolve: SaveDialog.resolveOnThisMac,
       namesInColumn: SaveDialog.theNamesInTheColumnOfThisMac,
+      folderExists: SaveDialog.theFolderExistsOnThisMac,
       openFolder: SaveDialog.openTheFolderInTheLogicOfThisMac,
       folderShown: SaveDialog.theFolderTheLogicOfThisMacShows,
       pressItem: SaveDialog.pressTheOpenMenuItemOfThisMac,
       startUpDisk: SaveDialog.theStartUpDiskOfThisMac,
-      scroll: SaveDialog.scrollTheColumnOfThisMac)
+      scroll: SaveDialog.scrollTheColumnOfThisMac,
+      bringToFront: SaveDialog.bringTheLogicOfThisMacToTheFront,
+      raiseTheProjectWindow: SaveDialog.raiseTheProjectWindowOfThisMac,
+      menuItemEnabled: SaveDialog.theSaveAsOfThisMacIsEnabled)
   }
 
   /// What the menu item of Logic is called, under the File menu.
@@ -327,6 +449,20 @@ extension SaveDialog {
       throw Refusal(reason: says + menuItemTitle + ".")
     }
     return item
+  }
+
+  /// The window the open project sits in, in one tree of Logic.
+  ///
+  /// Logic keeps several windows of one project open at once, and the first of the list is the one
+  /// in front, which is whichever editor a person was last working in. The project window is found
+  /// by what it holds, as every other read of logicctl finds it, and its title ends in ` - Tracks`.
+  public static func projectWindow(of tree: LogicTree) throws -> any AXNode {
+    guard let project = tree.atTheProjectWindow() else {
+      throw Refusal(
+        reason: "Logic shows no window that holds the tracks, so the project window could not be "
+          + "raised before \(menuItemTitle).")
+    }
+    return project.root
   }
 
   /// True while the Logic of this Mac shows the panel that asks where the project goes.
@@ -458,6 +594,16 @@ extension SaveDialog {
     try SaveDialog.names(inColumnNumbered: number, of: SaveDialog.frontWindow())
   }
 
+  /// Whether one folder of the path is on the disk of this Mac.
+  ///
+  /// A path that holds a file, and not a folder, is nothing the panel can open, so it reads here
+  /// the way a path that holds nothing does.
+  public static func theFolderExistsOnThisMac(_ path: String) -> Bool {
+    var folder: ObjCBool = false
+    let there = FileManager.default.fileExists(atPath: path, isDirectory: &folder)
+    return there && folder.boolValue
+  }
+
   /// Opens one folder of a column, through the `AXOpen` action of the field that holds its name.
   static func openTheFolderInTheLogicOfThisMac(_ number: Int, _ name: String) throws {
     let field = try SaveDialog.nameField(
@@ -535,6 +681,72 @@ extension SaveDialog {
           + "\(answered.rawValue).",
         code: .internalFailure)
     }
+  }
+
+  /// Makes the Logic of this Mac the application in front.
+  ///
+  /// The menu bar belongs to the application in front, so a menu item of a Logic that is behind
+  /// something else reads disabled and takes no press.
+  static func bringTheLogicOfThisMacToTheFront() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let application = logic.root as? LiveAXNode else {
+      throw Refusal(
+        reason: "Logic was read from a recorded tree, which nothing can bring to the front.",
+        code: .internalFailure)
+    }
+    let answered = AXUIElementSetAttributeValue(
+      application.element, kAXFrontmostAttribute as CFString, true as CFTypeRef)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "macOS refused to bring Logic to the front, error \(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Raises the window the open project of this Mac sits in.
+  ///
+  /// Logic offers Save As for the project of the window a person raised last, so an editor window
+  /// in front leaves the item disabled. No panel is open at this point, because this runs before
+  /// the item is pressed.
+  static func raiseTheProjectWindowOfThisMac() throws {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let window = try SaveDialog.projectWindow(of: logic) as? LiveAXNode else {
+      throw Refusal(
+        reason: "The project window was read from a recorded tree, which nothing can raise.",
+        code: .internalFailure)
+    }
+    let raised = AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
+    guard raised == .success else {
+      throw Refusal(
+        reason: "Logic refused to raise the project window, error \(raised.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Whether the menu item File, "Save As..." of this Mac reads enabled.
+  ///
+  /// A Logic that answers nothing for the state is read as disabled, because a press of an item
+  /// whose state nothing could read is a press nobody can account for.
+  static func theSaveAsOfThisMacIsEnabled() throws -> Bool {
+    guard let logic = try AXDriver.treeOfRunningLogic() else {
+      throw DriverRefusal.logicNotRunning
+    }
+    guard let item = try SaveDialog.menuItem(in: logic.root) as? LiveAXNode else {
+      throw Refusal(
+        reason: "\(menuItemTitle) was found in a recorded tree, which says nothing about Logic.",
+        code: .internalFailure)
+    }
+    var held: CFTypeRef?
+    let answered = AXUIElementCopyAttributeValue(
+      item.element, kAXEnabledAttribute as CFString, &held)
+    guard answered == .success else {
+      return false
+    }
+    return held as? Bool ?? false
   }
 
   /// Which folder the panel of this Mac reached, as the Where popup shows it.
