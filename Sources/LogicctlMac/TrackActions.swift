@@ -60,7 +60,9 @@ public struct TrackActions {
   /// point itself.
   public typealias TargetRead = (Locator) throws -> (element: AXUIElement, centre: CGPoint)
 
-  /// Writes one text into the field a locator names, in place of what is in it.
+  /// Gives the field a locator names one text, in place of what is in it. How Logic takes the text
+  /// is the business of whoever gives the closure: the name of a track goes in through an editor
+  /// that a double click opens.
   public typealias Write = (Locator, String) throws -> Void
 
   /// Presses one item of the menu bar of Logic.
@@ -149,7 +151,7 @@ extension TrackActions {
     try press(TrackActions.menuItem(for: type))
   }
 
-  /// Gives one track another name, by writing into the name field of its header.
+  /// Gives one track another name, through the name field of its header.
   ///
   /// The number counts the headers from 0, the way a locator does, and not from 1 the way a person
   /// types `--index`. The caller reads the tracks again afterwards, because a write that Logic
@@ -207,7 +209,7 @@ extension TrackActions {
       press: TrackActions.pressInTheMenuBarOfThisMac,
       pressInWindow: TrackActions.pressInTheWindowOfThisMac,
       click: TrackActions.clickInTheWindowOfThisMac,
-      write: TrackActions.writeIntoTheLogicOfThisMac)
+      write: TrackActions.renameInTheWindowOfThisMac)
   }
 
   /// Presses the element one locator names, in the menu bar of the Logic that runs.
@@ -234,32 +236,85 @@ extension TrackActions {
 }
 
 extension TrackActions {
-  /// Writes one text into the field a locator names, in the window the project sits in.
+  /// Gives one track another name in the Logic of this Mac, through the editor of its name field.
   ///
-  /// In the tree recorded from Logic 12.3.1, the name field of a track header carries one action,
-  /// `AXPress`, its value reads `0` rather than the name, and its help text reads "Name field.
-  /// Double-click to rename the track." So Logic may refuse a write of the value attribute here,
-  /// where it takes the same write into the name field of the save panel. A refusal comes back as
-  /// the error the Mac gave, and the command that asked for it reads the tracks again and answers
-  /// `timeout` rather than a rename that nothing did. The live acceptance of phase 2 is what says
-  /// which of the two happens.
-  public static func writeIntoTheLogicOfThisMac(_ locator: Locator, _ text: String) throws {
-    guard let project = try AXDriver.treeOfRunningLogic()?.atTheProjectWindow() else {
-      throw Refusal(
-        reason: "Logic shows no window with the tracks of a project in it, so "
-          + "\(Locators.mainWindow.name) reached nothing to write into.")
+  /// Measured on Logic 12.3.1 on 2026-09-27, on a new project: a write of the value attribute on
+  /// the name field of a track header answers success and the header keeps the old name, and an
+  /// `AXPress` on the same field opens nothing. A double click at its centre gives the focus to
+  /// another text field, which carries the old name as its value and `AXShowMenu` and `AXConfirm`
+  /// as its actions. A write of the value attribute on that field, then a confirm of it, changes
+  /// the name of the track, and `tracks list` reads the new one.
+  ///
+  /// The gate is built for each rename, because it reads the Logic that runs now and a command can
+  /// start before Logic does.
+  public static func renameInTheWindowOfThisMac(_ locator: Locator, _ text: String) throws {
+    let logic = try AXDriver.processIDOfRunningLogic()
+    let application = AXUIElementCreateApplication(logic)
+    let rename = TrackActions.renameByDoubleClickingThroughTheGate(
+      InputGate.live(logic: logic),
+      readingTheTargetWith: TrackActions.targetInTheWindowOfThisMac,
+      focus: { TrackActions.focusedFieldOf(application) },
+      writingWith: TrackActions.writeTheValueInTheLogicOfThisMac,
+      confirmingWith: TrackActions.confirmInTheLogicOfThisMac)
+    try rename(locator, text)
+  }
+
+  /// The field Logic gives the focus to now, with the role Logic reads it as, or nothing when Logic
+  /// answers no element there.
+  private static func focusedFieldOf(
+    _ application: AXUIElement
+  ) -> (element: AXUIElement, role: String?)? {
+    guard
+      let focused = TrackActions.elementOf(kAXFocusedUIElementAttribute, of: application)
+    else {
+      return nil
     }
-    let element = try LocatorResolver.element(of: locator, in: project.root)
-    guard let live = element as? LiveAXNode else {
-      throw Refusal(
-        reason: "\(locator.name) was found in a recorded tree, which nothing can write into.",
-        code: .internalFailure)
+    return (element: focused, role: TrackActions.textOf(kAXRoleAttribute, of: focused))
+  }
+
+  /// One element that an attribute of another element carries, or nothing when it carries
+  /// something else.
+  private static func elementOf(_ name: String, of parent: AXUIElement) -> AXUIElement? {
+    var found: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(parent, name as CFString, &found) == .success,
+      let read = found, CFGetTypeID(read) == AXUIElementGetTypeID()
+    else {
+      return nil
     }
+    return (read as! AXUIElement)
+  }
+
+  /// One attribute of an element read as text, or nothing when it carries something else.
+  private static func textOf(_ name: String, of element: AXUIElement) -> String? {
+    var found: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, name as CFString, &found) == .success else {
+      return nil
+    }
+    return found as? String
+  }
+
+  /// Writes one text into one element, in place of the value it carries.
+  private static func writeTheValueInTheLogicOfThisMac(
+    _ element: AXUIElement, _ text: String
+  ) throws {
     let answered = AXUIElementSetAttributeValue(
-      live.element, kAXValueAttribute as CFString, text as CFTypeRef)
+      element, kAXValueAttribute as CFString, text as CFTypeRef)
     guard answered == .success else {
       throw Refusal(
-        reason: "Logic refused the write into \(locator.name), error \(answered.rawValue).",
+        reason: "Logic refused the write of the name into the editor it opened, error "
+          + "\(answered.rawValue).",
+        code: .internalFailure)
+    }
+  }
+
+  /// Confirms what one element holds, the way a return key confirms a field a person typed in.
+  private static func confirmInTheLogicOfThisMac(_ element: AXUIElement) throws {
+    let answered = AXUIElementPerformAction(
+      element, TrackActions.confirmAction as CFString)
+    guard answered == .success else {
+      throw Refusal(
+        reason: "Logic refused the confirm of the editor of the name, error "
+          + "\(answered.rawValue).",
         code: .internalFailure)
     }
   }
@@ -325,7 +380,55 @@ extension TrackActions {
   /// Confirms what one element holds, the way a return key confirms a field a person typed in.
   public typealias Confirm = (AXUIElement) throws -> Void
 
+  /// The role Logic gives the editor it opens over the name field of a track header.
+  public static let editorRole = "AXTextField"
+
+  /// The action that keeps what an editor of Logic holds. Measured on Logic 12.3.1 on 2026-09-27:
+  /// the editor of a track name offers `AXShowMenu` and this one, and no press.
+  public static let confirmAction = "AXConfirm"
+
+  /// Logic opened no editor over the name field, so there was nowhere to write the name.
+  ///
+  /// The name is written into the editor and nowhere else, so nothing of the project changed here.
+  /// The person reads how long Logic was given and runs the command again.
+  public struct NoNameEditor: FailureCarrying, Equatable, Sendable {
+    /// The field the double click was aimed at.
+    public let field: String
+
+    /// How long the command gave Logic, from the double click to the last read.
+    public let waitedMs: Int
+
+    public init(field: String, waitedMs: Int) {
+      self.field = field
+      self.waitedMs = waitedMs
+    }
+
+    public var failure: Failure {
+      Failure(
+        code: .timeout,
+        message:
+          "Logic gave the focus to no editor of \(field) within \(waitedMs)ms, so the name was "
+          + "written nowhere.",
+        details: .object([
+          "field": .string(field),
+          "waitedMs": .number(Double(waitedMs)),
+        ]))
+    }
+  }
+
   /// Gives one track another name, by opening the editor of its name field and writing into that.
+  ///
+  /// The double click goes through the gate, which carries the name field as the target, so the
+  /// four events reach Logic only while the element the window server finds under the point is that
+  /// field. A double click that landed on the header of another track would open the editor of that
+  /// track and the name would go into it, so a refusal of the gate travels out of here and stops
+  /// the command.
+  ///
+  /// Logic opens the editor a moment after it reads the second release, the way every other change
+  /// of Logic lands in the tree after the event that made it, so the editor is waited for and the
+  /// wait carries a limit (RUN-6). The editor is the field Logic gives the focus to, and it is not
+  /// the field the double click was aimed at: that one keeps the focus while Logic opens nothing,
+  /// and a write into it changes no name.
   public static func renameByDoubleClickingThroughTheGate(
     _ gate: InputGate,
     readingTheTargetWith read: @escaping TargetRead,
@@ -336,7 +439,41 @@ extension TrackActions {
     clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
     sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) -> Write {
-    { _, _ in }
+    { locator, text in
+      let field = try read(locator)
+      try gate.post(.doubleClick(field.centre, target: field.element))
+
+      var editor: AXUIElement?
+      do {
+        try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+          editor = TrackActions.editor(otherThan: field.element, in: try readFocus())
+          return editor != nil
+        }
+      } catch let ranOut as Wait.RanOut {
+        throw NoNameEditor(field: locator.name, waitedMs: ranOut.waitedMs)
+      }
+      guard let editor else {
+        throw Refusal(
+          reason: "The editor of \(locator.name) was read and then lost, so nothing was written.",
+          code: .internalFailure)
+      }
+
+      try write(editor, text)
+      try confirm(editor)
+    }
+  }
+
+  /// The field Logic gave the focus to, when that field is an editor of its own, or nothing when
+  /// Logic still holds the focus on the field the double click was aimed at.
+  private static func editor(
+    otherThan field: AXUIElement, in focused: (element: AXUIElement, role: String?)?
+  ) -> AXUIElement? {
+    guard let focused, focused.role == TrackActions.editorRole,
+      CFEqual(focused.element, field) == false
+    else {
+      return nil
+    }
+    return focused.element
   }
 }
 

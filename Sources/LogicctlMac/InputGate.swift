@@ -112,8 +112,14 @@ public struct InputGate {
       }
       sendOne(.mouseDown(point))
       sendOne(.mouseUp(point))
-    case .doubleClick:
-      break
+    case .doubleClick(let point, let target):
+      guard let found = readElementAtPoint(point), CFEqual(found, target) else {
+        throw Refusal.theElementAtThePointIsNotTheTarget
+      }
+      sendOne(.mouseDown(point))
+      sendOne(.mouseUp(point))
+      sendOne(.secondMouseDown(point))
+      sendOne(.secondMouseUp(point))
     case .key(let code, let flags, let focus):
       if let focus {
         guard let holder = readFocus(), CFEqual(holder, focus) else {
