@@ -73,11 +73,15 @@ extension Automation.Add {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     menus: AutomationMenus = AutomationMenus.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
+    limitMs: Int = Wait.defaultLimitMs,
     format: OutputFormat = .compact,
     argv: [String] = [],
     now: @escaping () -> Date = { Date() },
+    clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds,
     git: Git = Git(),
     lock: Lock = Lock(),
     capturer: any WindowCapturer = WindowCapture(),
@@ -95,7 +99,8 @@ extension Automation.Add {
       lock: lock,
       capturer: capturer)
     let command = AutomationAddCommand(
-      target: region, menus: menus, source: source, argv: argv)
+      target: region, menus: menus, selection: selection, source: source, argv: argv,
+      limitMs: limitMs, clock: clock, sleeper: sleeper)
     return printer.write(run.run(change: command, confirmed: confirmed))
   }
 }
@@ -103,7 +108,8 @@ extension Automation.Add {
 /// The making of the automation points of one region, as the run of a command sees it.
 ///
 /// It asks the driver which region the two numbers name, selects that region in the Tracks window,
-/// presses the two items of the Mix menu, and reads the points back out of the Event List. It
+/// presses the two items of the Mix menu, lets the region go and takes it again so Logic draws it
+/// once more, and then reads the points out of the Event List. It
 /// changes the project, so it goes through the guard: a project logicctl did not make is left
 /// alone until a person says `--confirm`. The run takes the lock, records the step and answers the
 /// envelope around it.
@@ -116,11 +122,23 @@ struct AutomationAddCommand: LogicCommand {
   /// What Logic is asked to do in the menu bar and in the Tracks window.
   let menus: AutomationMenus
 
+  /// How the region is let go and taken again once the points are in it.
+  let selection: AutomationMenus.RegionSelection
+
   /// The tree of Logic, as the command reads it. It is read again after the presses, because a
   /// tree read before a change describes the Logic of a moment ago.
   let source: () throws -> LogicTree
 
   let argv: [String]
+
+  /// How long the Event List has to draw the points, in milliseconds.
+  let limitMs: Int
+
+  /// The clock the wait reads.
+  let clock: Wait.Clock
+
+  /// How the wait sleeps between two reads.
+  let sleeper: Wait.Sleeper
 
   /// Logic is not showing the region anywhere, so there is nothing to select and nothing to make
   /// points at the borders of.
@@ -174,13 +192,46 @@ struct AutomationAddCommand: LogicCommand {
     }
   }
 
-  /// The Event List shows no point, so the two presses reached nothing.
+  /// The Event List drew no automation point of the region inside the limit of the wait.
   ///
-  /// Logic makes at least two points at the borders of a region, so an empty answer here is never
-  /// a region that holds no automation. It is a menu item Logic did not act on, which is what a
-  /// region that was not selected looks like from here. An empty list would read as a command that
-  /// worked on a region with nothing in it.
-  struct NoPointsAfter: FailureCarrying, Equatable {
+  /// Logic makes at least two points at the borders of a region, so an empty list here is never a
+  /// region that holds no automation. It is a list Logic did not redraw, or a menu item it did not
+  /// act on, and the answer names neither: it says what was read and for how long. An empty list
+  /// would read as a command that worked on a region with nothing in it.
+  ///
+  /// The code is `timeout` and not an element that is missing. The rows of the list are what the
+  /// command waited for, the limit is what it gave Logic, and `waitedMs` is the milliseconds it
+  /// spent, which is what RUN-6 asks of every wait.
+  struct NoPointsShown: FailureCarrying, Equatable {
+    /// The track the region sits on.
+    let track: Int
+
+    /// The number of the region on that track.
+    let region: Int
+
+    /// How long the command gave the Event List to draw a point.
+    let waitedMs: Int
+
+    var failure: Failure {
+      Failure(
+        code: .timeout,
+        message:
+          "The Event List drew no automation point of region \(region) on track \(track) for "
+          + "\(waitedMs)ms after both items of the Mix menu were pressed. The region was selected "
+          + "again, and the list did not draw one. Read the region with automation list.",
+        details: .object([
+          "track": .number(Double(track)),
+          "region": .number(Double(region)),
+          "waitedMs": .number(Double(waitedMs)),
+        ]))
+    }
+  }
+
+  /// Logic stopped showing the region between the presses and the read of the points.
+  ///
+  /// The points are in the project by then, and the region is not there to be taken again, so the
+  /// list cannot be made to draw it. Nothing the command does next would read the points.
+  struct NoRegionItemAfter: FailureCarrying, Equatable {
     /// The track the region sits on.
     let track: Int
 
@@ -189,16 +240,24 @@ struct AutomationAddCommand: LogicCommand {
 
     var failure: Failure {
       Failure(
-        code: .elementNotFound,
+        code: .internalFailure,
         message:
-          "The Event List shows no automation point of region \(region) on track \(track) after "
-          + "both items of the Mix menu were pressed, so Logic made none.",
+          "Region \(region) on track \(track) gained its automation points, and the Tracks "
+          + "window stopped showing it, so it could not be selected again and the points cannot "
+          + "be read. Read them with automation list.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
         ]))
     }
   }
+
+  /// How long the command waits between the two writes that let the region go and take it again.
+  ///
+  /// Measured on this Mac on 2026-09-27: the two writes were half a second apart and the Event
+  /// List drew the points. Logic acts on a selection change some time after the write, the way it
+  /// acts on every other change, so the second write is held back for that long.
+  static let pauseBetweenTheWritesMs = 500
 
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
@@ -210,17 +269,66 @@ struct AutomationAddCommand: LogicCommand {
       throw NoRegionItem(track: track, region: region.index)
     }
     try menus.addPoints(atTheBordersOf: item)
-    guard let events = EventList.window(of: try source()) else {
+    guard EventList.window(of: try source()) != nil else {
       throw NoEventListAfter(track: track, region: region.index)
     }
-    let points = try AutomationMenus.points(in: events)
-    guard !points.isEmpty else {
-      throw NoPointsAfter(track: track, region: region.index)
-    }
+    try selectTheRegionAgain(track: track, region: region.index)
+    let points = try thePointsOfTheRegion(track: track, region: region.index)
     return .object([
       "track": .number(Double(track)),
       "region": .number(Double(region.index)),
       "points": .array(points.map(\.json)),
     ])
+  }
+
+  /// Lets the region go and takes it again, so Logic draws it in the Event List once more.
+  ///
+  /// Measured on this Mac on 2026-09-27, after the convert: the Event List kept the notes of the
+  /// region for more than 30 seconds, and it drew the points at once when `AXSelected` of the
+  /// region item was written twice. The list draws the region that is selected, and a selection
+  /// that does not change is a list that does not change, however long the command waits.
+  ///
+  /// A write of `AXSelected` toggles the item, so the first write lets the region go and the
+  /// second takes it again. Then the selection is read back, which is the read RUN-2 asks for, and
+  /// a Logic holding any other region stops the command there.
+  ///
+  /// The item is resolved again from a fresh walk. Logic decides what an element answers while the
+  /// tree is walked, so the element the presses were made through describes the Logic of a moment
+  /// that has passed.
+  private func selectTheRegionAgain(track: Int, region: Int) throws {
+    guard
+      let item = AutomationMenus.regionItem(
+        number: region, ofTrack: track, in: try source().root)
+    else {
+      throw NoRegionItemAfter(track: track, region: region)
+    }
+    try selection.write(item)
+    sleeper(AutomationAddCommand.pauseBetweenTheWritesMs)
+    try selection.write(item)
+    try selection.makeTheOnlySelection(item, under: try source().root)
+  }
+
+  /// The points of the region, once the Event List draws one of them.
+  ///
+  /// Every read walks Logic again, finds the Event List window again, and reads the rows again, for
+  /// the reason the presses walk to their menu item again: an element held from an earlier walk
+  /// carries the answer of that walk and never a later one.
+  ///
+  /// A list that stays empty for the whole limit is a `timeout`, and the milliseconds it took go
+  /// out with it.
+  private func thePointsOfTheRegion(track: Int, region: Int) throws -> [AutomationMenus.Point] {
+    var points: [AutomationMenus.Point] = []
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        guard let events = EventList.window(of: try source()) else {
+          return false
+        }
+        points = try AutomationMenus.points(in: events)
+        return !points.isEmpty
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw NoPointsShown(track: track, region: region, waitedMs: ranOut.waitedMs)
+    }
+    return points
   }
 }
