@@ -213,25 +213,25 @@ private func aRegion(_ index: Int, from start: String, to end: String) -> Region
   let window = try treeRead(from: aWindowOfSevenTracks)
 
   let onTheSixth = RegionReader.regions(ofTrack: 6, in: window)
-  let sixth = try #require(onTheSixth.first, "the sixth track carries the region of the sixth area")
-  #expect(onTheSixth.count == 1)
-  #expect(sixth.name == "Sixth")
-  #expect(sixth.start == "3 bars")
-  #expect(sixth.end == "4 bars")
+  #expect(
+    onTheSixth.map(\.name) == ["Sixth"],
+    "the sixth track carries the region of the sixth area")
+  #expect(onTheSixth.map(\.start) == ["3 bars"])
+  #expect(onTheSixth.map(\.end) == ["4 bars"])
 
   let onTheSeventh = RegionReader.regions(ofTrack: 7, in: window)
-  let seventh = try #require(onTheSeventh.first, "and the seventh the region of the seventh area")
-  #expect(seventh.name == "Seventh")
-  #expect(seventh.start == "58 bars")
-  #expect(seventh.end == "59 bars")
+  #expect(
+    onTheSeventh.map(\.name) == ["Seventh"],
+    "and the seventh track carries the region of the seventh area")
+  #expect(onTheSeventh.map(\.start) == ["58 bars"])
+  #expect(onTheSeventh.map(\.end) == ["59 bars"])
 
   #expect(
     RegionReader.regions(ofTrack: 8, in: window).isEmpty,
     "eight areas give seven tracks, because the last area is the room under the last track")
 
-  let onTheFifth = RegionReader.regions(ofTrack: 5, in: window)
   #expect(
-    onTheFifth.map(\.name) == ["Fifth"],
+    RegionReader.regions(ofTrack: 5, in: window).map(\.name) == ["Fifth"],
     "the first area with no description is a track and not the room")
   #expect(
     (1...4).allSatisfy { RegionReader.regions(ofTrack: $0, in: window).isEmpty },
