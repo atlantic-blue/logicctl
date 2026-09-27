@@ -16,16 +16,41 @@ public struct InputGate {
   public enum Request {
     /// A click of the left button at a point, with the element that must be under that point.
     case click(CGPoint, target: AXUIElement)
+    /// Two clicks of the left button at one point, with the element that must be under it.
+    case doubleClick(CGPoint, target: AXUIElement)
     /// A key, with the element that must hold the focus, or nil when the caller names none.
     case key(CGKeyCode, flags: CGEventFlags, focus: AXUIElement?)
   }
 
   /// One event the gate sends once every check holds.
+  ///
+  /// The second press and release of a double click are cases of their own, because the window
+  /// server tells one click from two by the click state an event carries and not by how close
+  /// together two events arrive.
   public enum Event: Equatable {
     case mouseDown(CGPoint)
     case mouseUp(CGPoint)
+    case secondMouseDown(CGPoint)
+    case secondMouseUp(CGPoint)
     case keyDown(CGKeyCode, CGEventFlags)
     case keyUp(CGKeyCode, CGEventFlags)
+
+    /// How many clicks the window server reads this event as part of, or nothing when the event
+    /// carries no click at all.
+    ///
+    /// Logic opens the name editor of a track header on a double click, and a double click is two
+    /// clicks where the second one says it is the second. A pair of events that both said 1 is two
+    /// single clicks, which Logic answers by selecting the track twice.
+    public var clickState: Int64? {
+      switch self {
+      case .mouseDown, .mouseUp:
+        return 1
+      case .secondMouseDown, .secondMouseUp:
+        return 2
+      case .keyDown, .keyUp:
+        return nil
+      }
+    }
   }
 
   /// Why the gate sent nothing.
@@ -87,6 +112,14 @@ public struct InputGate {
       }
       sendOne(.mouseDown(point))
       sendOne(.mouseUp(point))
+    case .doubleClick(let point, let target):
+      guard let found = readElementAtPoint(point), CFEqual(found, target) else {
+        throw Refusal.theElementAtThePointIsNotTheTarget
+      }
+      sendOne(.mouseDown(point))
+      sendOne(.mouseUp(point))
+      sendOne(.secondMouseDown(point))
+      sendOne(.secondMouseUp(point))
     case .key(let code, let flags, let focus):
       if let focus {
         guard let holder = readFocus(), CFEqual(holder, focus) else {
@@ -189,14 +222,17 @@ private func attribute(named name: String, of element: AXUIElement) -> CFTypeRef
 }
 
 /// Makes one event and sends it to the window server.
+///
+/// The click state travels on the event, so the second press and release of a double click carry a
+/// 2 and the window server hands Logic a double click rather than two single clicks.
 private func sendToTheWindowServer(_ event: InputGate.Event) {
   let made: CGEvent?
   switch event {
-  case .mouseDown(let point):
+  case .mouseDown(let point), .secondMouseDown(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point,
       mouseButton: .left)
-  case .mouseUp(let point):
+  case .mouseUp(let point), .secondMouseUp(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point,
       mouseButton: .left)
@@ -204,6 +240,9 @@ private func sendToTheWindowServer(_ event: InputGate.Event) {
     made = keyEvent(code, flags: flags, down: true)
   case .keyUp(let code, let flags):
     made = keyEvent(code, flags: flags, down: false)
+  }
+  if let state = event.clickState {
+    made?.setIntegerValueField(.mouseEventClickState, value: state)
   }
   made?.post(tap: .cghidEventTap)
 }

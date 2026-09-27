@@ -1,4 +1,6 @@
+import ApplicationServices
 import ArgumentParser
+import CoreGraphics
 import Foundation
 import LogicctlCore
 import LogicctlMac
@@ -227,13 +229,13 @@ private func aLogicThatTakesTheName(atIndex index: Int) -> (FakeLogicDriver, Str
   #expect(try answer.row()["name"] as? String == "Kit", "with the name Logic shows now")
 }
 
-/// The field the rename writes into is the field the name is read from.
+/// The field the rename aims at is the field the name is read from.
 ///
 /// Both walks are `Locators.trackNameField`, put here to the tree that `inspect` recorded from
-/// Logic 12.3.1. The tree also says what the live route is up against: the field carries one
-/// action, `AXPress`, and its value is `0` rather than the name, so Logic may refuse a write of
-/// the value attribute. The live acceptance of phase 2 answers that, and this test says which
-/// element the answer is about.
+/// Logic 12.3.1. The tree says why the rename goes through an editor and not through this field:
+/// the field carries one action, `AXPress`, its value is `0` rather than the name, and its help
+/// text asks for a double click. Measured on Logic 12.3.1 on 2026-09-27, a write of the value
+/// attribute on it answered success and left the name as it was.
 @Test func theRenameWritesIntoTheFieldTheNameIsReadFrom() throws {
   let recorded = try RecordedTree(
     contentsOf: renameRecordedTrees.appending(path: "one-track.json"))
@@ -371,4 +373,191 @@ private func aLogicThatTakesTheName(atIndex index: Int) -> (FakeLogicDriver, Str
   #expect(try answer.failureCode() == "confirm_required", "logicctl did not make this project")
   #expect(field.written.isEmpty, "nothing was written into Logic")
   #expect(driver.state?.tracks.first?.name == "Deluxe Classic", "the project of the person holds")
+}
+
+/// Which road the rename took to the name of the track, kept apart because the road is the whole of
+/// this step: the events the window server carried, the field each write went into, and the field
+/// Logic was asked to confirm.
+private final class RenameRoutes {
+  /// Every event the window server carried, in the order it carried it.
+  var events: [InputGate.Event] = []
+
+  /// Every control the command asked the place of, so a test says which field it aimed at.
+  var aimedAt: [Locator] = []
+
+  /// Every write that reached Logic, with the field it reached.
+  var writes: [(field: AXUIElement, text: String)] = []
+
+  /// Every field Logic was asked to confirm.
+  var confirmed: [AXUIElement] = []
+}
+
+/// The field the Logic of a test gives the focus to, and the role Logic reads it as.
+private final class FocusOfLogic {
+  var field: AXUIElement
+  var role: String?
+
+  init(field: AXUIElement, role: String?) {
+    self.field = field
+    self.role = role
+  }
+}
+
+/// Actions whose rename goes through a real gate, on a Logic with nothing in front of it.
+///
+/// `elementAtThePoint` is what the window server finds under the point, so a test names another
+/// element there to say what happens when the aim is wrong. `editorTheDoubleClickOpens` is the
+/// field Logic gives the focus to once it reads the second release, and nil is a Logic that opens
+/// no editor at all. The name of the track changes when the editor is confirmed, which is what the
+/// Mac did on 2026-09-27: the write alone left the header showing the old name.
+private func actionsThatRenameThroughAGate(
+  nameField: AXUIElement,
+  centre: CGPoint,
+  elementAtThePoint: AXUIElement,
+  editorTheDoubleClickOpens editor: AXUIElement?,
+  routes: RenameRoutes,
+  editorLimitMs: Int,
+  takeTheName: @escaping (String) -> Void
+) -> TrackActions {
+  let time = RenameTime()
+  let focused = FocusOfLogic(field: nameField, role: "AXTextField")
+  let gate = InputGate(
+    frontmost: { true },
+    modal: { false },
+    elementAtPoint: { _ in elementAtThePoint },
+    focus: { nil },
+    sender: { event in
+      routes.events.append(event)
+      if case .secondMouseUp = event, let editor {
+        focused.field = editor
+      }
+    })
+  return TrackActions(
+    write: TrackActions.renameByDoubleClickingThroughTheGate(
+      gate,
+      readingTheTargetWith: { locator in
+        routes.aimedAt.append(locator)
+        return (element: nameField, centre: centre)
+      },
+      focus: { () -> (element: AXUIElement, role: String?)? in
+        (element: focused.field, role: focused.role)
+      },
+      writingWith: { field, text in
+        routes.writes.append((field: field, text: text))
+      },
+      confirmingWith: { field in
+        routes.confirmed.append(field)
+        guard let written = routes.writes.last(where: { CFEqual($0.field, field) }) else {
+          return
+        }
+        takeTheName(written.text)
+      },
+      limitMs: editorLimitMs,
+      clock: time.read,
+      sleeper: time.sleep))
+}
+
+/// Runs `logicctl tracks rename` with the actions a test prepared, so the test says how the name
+/// field is reached as well as what Logic makes of it.
+private func renamingThrough(
+  actions: TrackActions, line: [String], driver: FakeLogicDriver
+) -> RenameAnswer {
+  let answer = RenameAnswer()
+  let time = RenameTime()
+  do {
+    let command = try Tracks.Rename.parse(line)
+    answer.status = Tracks.Rename.answer(
+      driver: driver,
+      actions: actions,
+      index: command.track.index,
+      name: command.name,
+      confirmed: command.guarded.confirm,
+      root: noSessionFolder(),
+      limitMs: 50,
+      argv: line,
+      clock: time.read,
+      sleeper: time.sleep,
+      standardOutput: answer.write,
+      standardError: answer.writeError)
+  } catch {
+    answer.status = Logicctl.report(
+      error, arguments: line, standardOutput: answer.write, standardError: answer.writeError)
+  }
+  return answer
+}
+
+/// An agent renames a track, and the track carries the new name.
+///
+/// Measured on Logic 12.3.1 on 2026-09-27: a write of the value attribute on the name field of a
+/// track header answers success and the header keeps the old name, so `tracks rename` read the old
+/// name back until the wait ran out and answered `timeout`. The command did nothing at all. A
+/// double click at the centre of the same field gave the focus to another text field, the old name
+/// in it, and a write into that field followed by a confirm changed the name. So the rename opens
+/// the editor with two clicks, writes into the field Logic gave the focus to, and confirms it.
+///
+/// A Logic that opens no editor gets no name written into anything. The person reads `timeout` and
+/// the project holds the name it held, rather than a name in a field nobody can see.
+@Test func renameDoubleClicksTheNameFieldAndConfirmsTheEditor() throws {
+  let nameField = AXUIElementCreateApplication(701)
+  let editor = AXUIElementCreateApplication(702)
+  let centre = CGPoint(x: 220, y: 180)
+
+  let driver = aLogicHoldingTracks([Track(index: 1, name: "Deluxe Classic", type: .other)])
+  let routes = RenameRoutes()
+  let renamed = renamingThrough(
+    actions: actionsThatRenameThroughAGate(
+      nameField: nameField,
+      centre: centre,
+      elementAtThePoint: nameField,
+      editorTheDoubleClickOpens: editor,
+      routes: routes,
+      editorLimitMs: 30,
+      takeTheName: { text in aLogicThatTakesTheName(atIndex: 1)(driver, text) }),
+    line: ["--index", "1", "--name", "Bass"],
+    driver: driver)
+
+  #expect(renamed.status == 0, "the rename worked")
+  #expect(try renamed.printed()["error"] is NSNull, "so it carries no failure")
+  #expect(try renamed.row()["name"] as? String == "Bass", "and Logic shows the new name")
+  #expect(driver.state?.tracks.first?.name == "Bass", "which is the name the project holds")
+  #expect(
+    routes.events == [
+      .mouseDown(centre), .mouseUp(centre),
+      .secondMouseDown(centre), .secondMouseUp(centre),
+    ],
+    "two clicks at the centre of the name field, which is what opens the editor")
+  #expect(
+    routes.aimedAt == [Locators.trackNameField(number: 0)],
+    "aimed at the name field of the header of the track that was named")
+  #expect(routes.writes.count == 1, "the name was written once, and once only")
+  #expect(
+    routes.writes.first.map { CFEqual($0.field, editor) } == true,
+    "into the field Logic gave the focus to, and not into the header of the track")
+  #expect(routes.writes.first?.text == "Bass", "with the name the person typed")
+  #expect(
+    routes.confirmed.map { CFEqual($0, editor) } == [true],
+    "and the editor was confirmed once, which is what makes Logic keep the name")
+
+  let stuck = aLogicHoldingTracks([Track(index: 1, name: "Deluxe Classic", type: .other)])
+  let noEditor = RenameRoutes()
+  let refused = renamingThrough(
+    actions: actionsThatRenameThroughAGate(
+      nameField: nameField,
+      centre: centre,
+      elementAtThePoint: nameField,
+      editorTheDoubleClickOpens: nil,
+      routes: noEditor,
+      editorLimitMs: 30,
+      takeTheName: { text in aLogicThatTakesTheName(atIndex: 1)(stuck, text) }),
+    line: ["--index", "1", "--name", "Bass"],
+    driver: stuck)
+
+  #expect(refused.status == 6, "the number the design system gives timeout")
+  #expect(try refused.failureCode() == "timeout", "Logic opened no editor to write the name into")
+  #expect(
+    try refused.failureDetails()["waitedMs"] as? Int == 30,
+    "the wait that ran out is the wait for the editor, which this test gave 30ms")
+  #expect(noEditor.writes.isEmpty, "no name reached any field of Logic")
+  #expect(noEditor.confirmed.isEmpty, "and nothing was confirmed")
+  #expect(stuck.state?.tracks.first?.name == "Deluxe Classic", "the track keeps the name it had")
 }
