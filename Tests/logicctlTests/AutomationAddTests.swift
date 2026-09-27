@@ -137,6 +137,12 @@ private final class AFakeLogic {
   /// The items Logic answers `AXEnabled` false on, whichever window holds the focus.
   private let notOffered: Set<String>
 
+  /// How many reads of `AXEnabled` answer false on an item before it answers as it stands.
+  private let falseReadsFirst: [String: Int]
+
+  /// How many times `AXEnabled` was read on each item.
+  private var reads: [String: Int] = [:]
+
   /// Whether the raise gives the Tracks window the focus.
   private let theRaiseTakesTheFocus: Bool
 
@@ -152,6 +158,7 @@ private final class AFakeLogic {
     selection: AutomationMenus.RegionSelection? = nil,
     theEventListHasTheFocus: Bool = false,
     itDoesNotOffer notOffered: Set<String> = [],
+    itReadsFalseFirst falseReadsFirst: [String: Int] = [:],
     theRaiseTakesTheFocus: Bool = true
   ) {
     self.tracks = tracks
@@ -159,8 +166,14 @@ private final class AFakeLogic {
     self.after = after
     self.selection = selection
     self.notOffered = notOffered
+    self.falseReadsFirst = falseReadsFirst
     self.theRaiseTakesTheFocus = theRaiseTakesTheFocus
     self.focused = theEventListHasTheFocus ? (before.title ?? "") : (tracks.title ?? "")
+  }
+
+  /// How many times the command read `AXEnabled` on one item.
+  func readsOf(_ item: String) -> Int {
+    reads[item] ?? 0
   }
 
   /// The title of the window the tracks sit in, which is the window a press has to land in.
@@ -209,20 +222,40 @@ private final class AFakeLogic {
     !notOffered.contains(title)
   }
 
+  /// What Accessibility answers for `AXEnabled` on one item, read by read.
+  ///
+  /// Measured on this Mac on 2026-09-27: straight after the create item was pressed, the convert
+  /// item answered false, and a read a few seconds later, with nothing else done and nothing
+  /// else moved, answered true. So an item Logic is on its way to offering answers false for the
+  /// first reads of it, and a scenario says how many.
+  private func answersEnabled(of item: any AXNode) -> Bool {
+    guard let menuItem = item as? AMenuItem, let title = menuItem.title else {
+      return false
+    }
+    let read = (reads[title] ?? 0) + 1
+    reads[title] = read
+    guard read > (falseReadsFirst[title] ?? 0) else {
+      return false
+    }
+    return menuItem.enabled
+  }
+
   /// What the command drives Logic through.
   var menus: AutomationMenus {
     AutomationMenus(
       press: { locator in
         try AutomationMenus.pressTheItem(
           locator, in: self.tree.root,
-          offered: { item in (item as? AMenuItem)?.enabled ?? false },
+          offered: { item in self.answersEnabled(of: item) },
           act: { item in
             self.did.append(item.title ?? locator.name)
             self.focusedAtEachPress.append(self.focused)
             if locator.name == Locators.convertTrackAutomationToRegionAutomation.name {
               self.converted = true
             }
-          })
+          },
+          clock: self.time.read,
+          sleeper: self.time.sleep)
       },
       select: { region in
         self.did.append("select")
@@ -698,9 +731,11 @@ private func aProjectOfFourRegions() -> [Track] {
 /// later `automation set --point 1` then edits a point that is not there. Nothing later in the
 /// session says where that went wrong, because the answer already said the points were made.
 ///
-/// The three parts are the three ways that ends. The command reaches the window before it
-/// presses. An item Logic will not offer stops the command at that item, by name. A window that
-/// never takes the focus stops it with the time it gave Logic.
+/// The four parts are the four ways that ends. The command reaches the window before it presses.
+/// It waits for an item Logic is on its way to offering, because the live run of this change hit
+/// exactly that: the convert item answered false straight after the create and true a few
+/// seconds later, with nothing else done. An item Logic never offers stops the command at that
+/// item, by name. A window that never takes the focus stops it with the time it gave Logic.
 @Test func automationPressesOnlyAnEnabledItemInTheTracksWindow() throws {
   let logic = AFakeLogic(
     tracks: try recorded("region.json"),
@@ -724,6 +759,30 @@ private func aProjectOfFourRegions() -> [Track] {
     "the region is selected, the points are made, and then they move into the region")
   #expect(try answer.points().count == 3, "and the answer carries every point Logic made")
 
+  // Logic offers the convert item a moment after the create, and not at once.
+  let late = AFakeLogic(
+    tracks: try recorded("region.json"),
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    itReadsFalseFirst: [AFakeLogic.convertTitle: 2])
+
+  let waitedForTheItem = try automationAdd(["--track", "3", "--region", "1"], logic: late)
+
+  #expect(waitedForTheItem.status == 0, "the command waits for the item and then presses it")
+  #expect(
+    late.readsOf(AFakeLogic.convertTitle) == 3,
+    "it read the item three times: false, false, and then true")
+  #expect(
+    late.did == [
+      "select",
+      AFakeLogic.createTitle,
+      AFakeLogic.convertTitle,
+    ],
+    "both items are pressed, so the points move into the region")
+  #expect(
+    try waitedForTheItem.points().count == 3,
+    "and the answer carries every point Logic made")
+
   // Logic will not offer the first item. The command says which item, and stops there.
   let refusing = AFakeLogic(
     tracks: try recorded("region.json"),
@@ -742,6 +801,12 @@ private func aProjectOfFourRegions() -> [Track] {
   #expect(
     named?["item"] as? String == AFakeLogic.createTitle,
     "and the details carry that item, so an agent reads which press never happened")
+  #expect(
+    named?["waitedMs"] as? Int == 5000,
+    "with the time Logic had to offer it, which is the limit of a wait that names none")
+  #expect(
+    refusing.readsOf(AFakeLogic.createTitle) > 1,
+    "the item was read again and again, and not once")
   #expect(
     refusing.did == ["select"],
     "the item is not pressed, and nor is the item after it")

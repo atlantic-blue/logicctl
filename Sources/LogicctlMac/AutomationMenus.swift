@@ -123,6 +123,15 @@ public struct AutomationMenus {
   /// stops the command at the item a person can act on, rather than at the empty Event List
   /// after it. Nothing after a refused item is pressed, because the refusal stops `addPoints`.
   ///
+  /// Measured again on 2026-09-27, against this pull request: straight after the create item was
+  /// pressed, the convert item answered false, and the command refused. A few seconds later,
+  /// with nothing else done, the same item answered true, the Tracks window still held the focus
+  /// and the same row was still the only selection. So Logic offers the item a moment after the
+  /// press before it, the way every other change of Logic lands in the tree after the event that
+  /// made it. One read is a read of the moment before Logic caught up, so the read repeats until
+  /// the limit, and an item that is not offered for the whole of it is named rather than pressed
+  /// at.
+  ///
   /// An item that reads true and still does nothing is a different fault, and the window the
   /// press lands in is what answers that one. `TracksWindow` reaches it.
   ///
@@ -132,11 +141,18 @@ public struct AutomationMenus {
     _ locator: Locator,
     in application: any AXNode,
     offered: (any AXNode) throws -> Bool,
-    act: (any AXNode) throws -> Void
+    act: (any AXNode) throws -> Void,
+    limitMs: Int = Wait.defaultLimitMs,
+    clock: @escaping Wait.Clock = Wait.monotonicMilliseconds,
+    sleeper: @escaping Wait.Sleeper = Wait.sleepMilliseconds
   ) throws {
     let element = try LocatorResolver.element(of: locator, in: application)
-    guard try offered(element) else {
-      throw ItemNotOffered(item: element.title ?? locator.name)
+    do {
+      try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
+        try offered(element)
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw ItemNotOffered(item: element.title ?? locator.name, waitedMs: ranOut.waitedMs)
     }
     try act(element)
   }
@@ -307,26 +323,37 @@ public struct AutomationMenus {
 }
 
 extension AutomationMenus {
-  /// Logic will not offer one item of the Mix menu, so a press of it would do nothing.
+  /// Logic did not offer one item of the Mix menu, so a press of it would do nothing.
   ///
   /// The item is named, because that is the thing a person acts on: they raise the window they
   /// want, or select the region the item needs, and run the command again. Nothing after the
   /// item is pressed, so the project is as it was.
+  ///
+  /// The code is `element_not_found` and not `timeout`, for the reason `save` gives it to a menu
+  /// item that stays disabled: the thing a person acts on is the item Logic will not offer, and
+  /// no answer was ever going to come to wait for.
   public struct ItemNotOffered: FailureCarrying, Equatable, Sendable {
     /// The item, as Logic titles it in the menu.
     public let item: String
 
-    public init(item: String) {
+    /// How long the command gave Logic to offer it.
+    public let waitedMs: Int
+
+    public init(item: String, waitedMs: Int) {
       self.item = item
+      self.waitedMs = waitedMs
     }
 
     public var failure: Failure {
       Failure(
         code: .elementNotFound,
         message:
-          "Logic does not offer \(item), so it would take no press, and nothing after it was "
-          + "pressed.",
-        details: .object(["item": .string(item)]))
+          "Logic left \(item) unavailable for \(waitedMs)ms, so it would take no press, and "
+          + "nothing after it was pressed.",
+        details: .object([
+          "item": .string(item),
+          "waitedMs": .number(Double(waitedMs)),
+        ]))
     }
   }
 
