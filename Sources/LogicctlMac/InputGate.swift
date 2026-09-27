@@ -216,14 +216,17 @@ private func attribute(named name: String, of element: AXUIElement) -> CFTypeRef
 }
 
 /// Makes one event and sends it to the window server.
+///
+/// The click state travels on the event, so the second press and release of a double click carry a
+/// 2 and the window server hands Logic a double click rather than two single clicks.
 private func sendToTheWindowServer(_ event: InputGate.Event) {
   let made: CGEvent?
   switch event {
-  case .mouseDown(let point):
+  case .mouseDown(let point), .secondMouseDown(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point,
       mouseButton: .left)
-  case .mouseUp(let point):
+  case .mouseUp(let point), .secondMouseUp(let point):
     made = CGEvent(
       mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point,
       mouseButton: .left)
@@ -231,6 +234,9 @@ private func sendToTheWindowServer(_ event: InputGate.Event) {
     made = keyEvent(code, flags: flags, down: true)
   case .keyUp(let code, let flags):
     made = keyEvent(code, flags: flags, down: false)
+  }
+  if let state = event.clickState {
+    made?.setIntegerValueField(.mouseEventClickState, value: state)
   }
   made?.post(tap: .cghidEventTap)
 }
