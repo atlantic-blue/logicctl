@@ -1,4 +1,6 @@
 import Foundation
+import LogicctlCore
+import LogicctlMac
 import Testing
 
 /// One command of phase 2, and the live scenario that drives it against Logic.
@@ -15,7 +17,7 @@ struct Phase2Command: Sendable, Equatable {
 /// The live scenarios read this, and so does the scenario the pipeline runs, so the phase has one
 /// order and both read the same one.
 enum Phase2Flow {
-  /// The kind of track a person writes MIDI on, added to a project with nothing in it.
+  /// The kind of track a person writes MIDI on.
   static let addsASoftwareInstrumentTrack = Phase2Command(
     liveScenario: "addsASoftwareInstrumentTrackToANewProject",
     typed: "tracks add --type software-instrument")
@@ -88,9 +90,22 @@ enum Phase2Live {
   /// The name a scenario gives a track it renames.
   static let renamedTo = "Bass"
 
+  /// How many tracks `new-project` leaves in the project it makes.
+  ///
+  /// Logic asks for the first track of a project the moment it makes one, and it refuses to save
+  /// the project until that sheet is answered, so `new-project` presses Create and answers a
+  /// project with one software instrument track. Every scenario of phase 2 starts from that track,
+  /// which is why `--index 1` names a track before the phase adds anything.
+  static let tracksOfANewProject = 1
+
   /// The folder where a person keeps their projects of Logic.
   static var logicFolder: URL {
     LiveHarness.musicFolder.appending(path: "Logic")
+  }
+
+  /// The name Logic puts at the start of the title of the window of the project of a scenario.
+  static var windowName: String {
+    URL(fileURLWithPath: projectName).deletingPathExtension().lastPathComponent
   }
 
   /// Whether this run drives the real Logic.
@@ -127,6 +142,11 @@ enum Phase2Live {
       throw LiveHarness.Refusal.theCopyWouldBeUnderTheMusicFolder(target.path)
     }
     return target
+  }
+
+  /// Whether Logic is showing the project of a scenario, in any one of its windows.
+  static func showsTheProject(in tree: RecordedTree) -> Bool {
+    LiveHarness.showsTheProject(named: windowName, in: tree)
   }
 
   /// The names directly under the folder of Logic projects, and nothing deeper.
@@ -191,7 +211,7 @@ enum Phase2Live {
 
   /// One row in words, for a person reading the output of the run.
   ///
-  /// `arm` is printed and never asserted. Logic decides whether a new track is armed to record, and
+  /// `arm` is printed and never asserted. Logic decides whether a track is armed to record, and
   /// phase 2 fixes no value for it.
   static func describe(_ row: Row) -> String {
     let states = "mute \(row.mute) solo \(row.solo) arm \(row.arm)"
@@ -218,6 +238,11 @@ enum Phase2Live {
     return data
   }
 
+  /// The tracks of the project Logic has open now.
+  static func tracksNow() throws -> [Row] {
+    try ran(TracksAnswer.self, ["tracks", "list"]).tracks
+  }
+
   /// Makes the project of one live scenario, and saves it in a folder of the run.
   ///
   /// `new-project` starts the session with `createdByLogicctl` true, so no command of the phase
@@ -229,7 +254,31 @@ enum Phase2Live {
     print(sessionLine(made.session))
     let saved = try ran(SaveAnswer.self, ["save", "--path", target.path])
     print("live project: \(saved.project.path)")
+    try waitForTheWindowOfTheProject()
     return Phase2Project(folder: folder, path: target, session: made.session)
+  }
+
+  /// Waits until Logic shows the project of this scenario in one of its windows.
+  ///
+  /// The first track of the project is a software instrument, so Logic opens the window of its
+  /// instrument in front of the project. That window is not modal, and every read of logicctl works
+  /// while it is open, so the phase reads every window of Logic and gets on with the scenario as
+  /// soon as one of them is the project it saved.
+  static func waitForTheWindowOfTheProject() throws {
+    var windows = "no window"
+    do {
+      try Wait.until(limitMs: LiveHarness.openLimitMs, pollMs: LiveHarness.pollMs) {
+        guard let tree = try LiveHarness.treeOfLogic() else {
+          return false
+        }
+        windows = LiveHarness.whatTheWindowsRead(in: tree)
+        return showsTheProject(in: tree)
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw LiveHarness.Refusal.logicDidNotShowTheCopy(
+        name: windowName, seen: windows, waitedMs: ranOut.waitedMs)
+    }
+    print("live windows: \(windows)")
   }
 
   /// Drives one command of phase 2 against the real Logic, in a project of its own.
@@ -261,37 +310,56 @@ enum Phase2Live {
 /// changes the track. These scenarios are where that is answered.
 ///
 /// They run one at a time, because each one drives the one Logic this Mac has.
+///
+/// The `type` of a row is read from the channel strip of the track in the Mixer, so the Mixer is
+/// open while the phase runs. A track whose strip the reader cannot find reads `other`, which is
+/// what the two scenarios that add a track name in their failure.
 @Suite(.serialized, .enabled(if: Phase2Live.runsOnThisMac()))
 struct Phase2LiveScenarios {
-  /// The operator adds a software instrument track to a project with nothing in it (story S2.2).
+  /// The operator adds a software instrument track to the project `new-project` made (story S2.2).
   @Test func addsASoftwareInstrumentTrackToANewProject() throws {
     try Phase2Live.drive(Phase2Flow.addsASoftwareInstrumentTrack) { _ in
+      let before = try Phase2Live.tracksNow()
       let added = try Phase2Live.ran(
         TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       print(Phase2Live.describe(added.track))
+      let after = try Phase2Live.tracksNow()
 
-      #expect(added.track.index == 1, "the first track of an empty project is track 1")
+      #expect(
+        before.count == Phase2Live.tracksOfANewProject,
+        "the project new-project made carries its first track: \(before.count)")
+      #expect(
+        after.count == before.count + 1,
+        "one add is one track more: \(before.count) became \(after.count)")
       #expect(
         added.track.type == "software-instrument",
-        "and Logic made the kind of track that was asked for: \(added.track.type)")
+        "and Logic made the kind that was asked for, read from the Mixer: \(added.track.type)")
+      #expect(
+        after.contains { $0.index == added.track.index && $0.type == added.track.type },
+        "the row it answered is the row the list carries: \(added.track.index)")
     }
   }
 
   /// The operator adds an audio track (story S2.2).
   @Test func addsAnAudioTrackToANewProject() throws {
     try Phase2Live.drive(Phase2Flow.addsAnAudioTrack) { _ in
+      let before = try Phase2Live.tracksNow()
       let added = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "audio"])
       print(Phase2Live.describe(added.track))
+      let after = try Phase2Live.tracksNow()
 
-      #expect(added.track.index == 1, "the first track of an empty project is track 1")
-      #expect(added.track.type == "audio", "and Logic made an audio track: \(added.track.type)")
+      #expect(
+        after.count == before.count + 1,
+        "one add is one track more: \(before.count) became \(after.count)")
+      #expect(
+        added.track.type == "audio",
+        "and Logic made an audio track, read from the Mixer: \(added.track.type)")
     }
   }
 
   /// The operator gives a track a name, and reads the name Logic shows (story S2.3).
   @Test func renamesTheFirstTrack() throws {
     try Phase2Live.drive(Phase2Flow.renamesTheFirstTrack) { _ in
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       let renamed = try Phase2Live.ran(
         TrackAnswer.self, ["tracks", "rename", "--index", "1", "--name", Phase2Live.renamedTo])
       print(Phase2Live.describe(renamed.track))
@@ -306,7 +374,6 @@ struct Phase2LiveScenarios {
   /// The operator mutes a track (story S2.3).
   @Test func mutesTheFirstTrack() throws {
     try Phase2Live.drive(Phase2Flow.mutesTheFirstTrack) { _ in
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       let muted = try Phase2Live.ran(TrackAnswer.self, ["tracks", "mute", "--index", "1", "--on"])
       print(Phase2Live.describe(muted.track))
 
@@ -320,7 +387,6 @@ struct Phase2LiveScenarios {
   /// what another scenario left behind.
   @Test func unmutesTheFirstTrack() throws {
     try Phase2Live.drive(Phase2Flow.unmutesTheFirstTrack) { _ in
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       let muted = try Phase2Live.ran(TrackAnswer.self, ["tracks", "mute", "--index", "1", "--on"])
       #expect(muted.track.mute, "this scenario starts from a track that is muted")
 
@@ -335,7 +401,6 @@ struct Phase2LiveScenarios {
   /// The operator solos a track (story S2.3).
   @Test func solosTheFirstTrack() throws {
     try Phase2Live.drive(Phase2Flow.solosTheFirstTrack) { _ in
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       let soloed = try Phase2Live.ran(TrackAnswer.self, ["tracks", "solo", "--index", "1", "--on"])
       print(Phase2Live.describe(soloed.track))
 
@@ -344,10 +409,14 @@ struct Phase2LiveScenarios {
   }
 
   /// The operator deletes a track, and reads the list that is left (story S2.4).
+  ///
+  /// The project starts with one track, so the scenario adds the second one it deletes.
   @Test func deletesTheSecondTrack() throws {
     try Phase2Live.drive(Phase2Flow.deletesTheSecondTrack) { _ in
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
       _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "audio"])
+      let before = try Phase2Live.tracksNow()
+      #expect(before.count == 2, "this scenario starts from two tracks: \(before.count)")
+
       let left = try Phase2Live.ran(TracksAnswer.self, ["tracks", "delete", "--index", "2"])
       for row in left.tracks {
         print(Phase2Live.describe(row))
@@ -361,19 +430,24 @@ struct Phase2LiveScenarios {
   /// The operator reads the tracks of the project (story S2.1).
   @Test func listsTheTracksOfTheProject() throws {
     try Phase2Live.drive(Phase2Flow.listsTheTracks) { _ in
-      let empty = try Phase2Live.ran(TracksAnswer.self, ["tracks", "list"])
-      #expect(empty.tracks.isEmpty, "a project with nothing in it lists nothing, and exits 0")
-
-      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
-      let listed = try Phase2Live.ran(TracksAnswer.self, ["tracks", "list"])
-      for row in listed.tracks {
+      let made = try Phase2Live.tracksNow()
+      for row in made {
         print(Phase2Live.describe(row))
       }
-
-      #expect(listed.tracks.count == 1, "one track added is one row: \(listed.tracks.count)")
       #expect(
-        listed.tracks.first?.name.isEmpty == false,
-        "and the row carries the name Logic shows")
+        made.count == Phase2Live.tracksOfANewProject,
+        "the list of the project new-project made carries its first track: \(made.count)")
+      #expect(made.first?.index == 1, "and the list starts at track 1")
+
+      _ = try Phase2Live.ran(TrackAnswer.self, ["tracks", "add", "--type", "software-instrument"])
+      let listed = try Phase2Live.tracksNow()
+      for row in listed {
+        print(Phase2Live.describe(row))
+      }
+      #expect(listed.count == made.count + 1, "one track added is one row more: \(listed.count)")
+      #expect(
+        listed.allSatisfy { !$0.name.isEmpty },
+        "and every row carries the name Logic shows: \(listed.map(\.name))")
     }
   }
 }
@@ -393,7 +467,8 @@ struct Phase2LiveScenarios {
 /// in the order a person drives them. Each command answers for itself on the output, so the count
 /// of those lines says how many of them ran. The phase drives Logic nowhere by accident. It works
 /// on a project in a folder of the run, and it refuses the folder a person keeps their own work in.
-/// And it names the session it leaves behind, because the journal part replays that session.
+/// It finds that project in any window of Logic. And it names the session it leaves behind, because
+/// the journal part replays that session.
 @Test func phaseTwoAgainstLogic() throws {
   let typed = Phase2Flow.inOrder.map(\.typed)
   #expect(
@@ -445,6 +520,15 @@ struct Phase2LiveScenarios {
     isTheMusicFolderRefusal(refused),
     "the folder a person keeps their work in is refused: \(String(describing: refused))")
 
+  let behindAnInstrument = try logicWithWindows(["Deluxe Classic", "Phase2.logicx - Tracks"])
+  let theInstrumentAlone = try logicWithWindows(["Deluxe Classic"])
+  #expect(
+    Phase2Live.showsTheProject(in: behindAnInstrument),
+    "the phase drives the project it made while Logic keeps another window in front of it")
+  #expect(
+    Phase2Live.showsTheProject(in: theInstrumentAlone) == false,
+    "and a Logic with no window of that project is not showing it")
+
   let arrived = Phase2Live.newEntryLines(
     before: ["Sketch.logicx"], after: ["Phase2.logicx", "Sketch.logicx"])
   #expect(
@@ -474,6 +558,24 @@ private func isTheMusicFolderRefusal(_ error: Error?) -> Bool {
   default:
     return false
   }
+}
+
+/// A tree of a Logic that shows these windows, in the order Logic lists them.
+private func logicWithWindows(_ titles: [String]) throws -> RecordedTree {
+  let windows = titles.map { title in
+    "{ \"role\": \"AXWindow\", \"title\": \"\(title)\", \"actions\": [\"AXRaise\"] }"
+  }.joined(separator: ", ")
+  let text = """
+    {
+      "logicVersion": "\(LiveHarness.logicVersion)",
+      "root": {
+        "role": "AXApplication",
+        "title": "Logic Pro",
+        "children": [\(windows)]
+      }
+    }
+    """
+  return try JSONDecoder().decode(RecordedTree.self, from: Data(text.utf8))
 }
 
 /// What `new-project` answers.
