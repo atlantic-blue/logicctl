@@ -117,3 +117,129 @@ private func tracksList(of tracks: [Track]) -> Answer {
     rows.map { $0["name"] as? String } == ["Deluxe Classic", "Deluxe Classic", "Studio Grand"],
     "the names are the ones Logic shows, in the order it shows them")
 }
+
+/// What Logic writes in the description of the Record Enable button of a track it does not record.
+private let theIdleRecordEnable = "Record Enable"
+
+/// What Logic writes there while it records that track. Measured on this Mac at 16:30 on
+/// 2026-09-26 against Logic 12.3.1, on a copy of the project F-T13: the button of the recording
+/// track described itself as its name, a comma, a space and the state.
+private let theRecordingRecordEnable = "Record Enable, recording"
+
+/// A description that starts with the name of the button as plain text and names another control.
+private let anotherControl = "Recorder"
+
+/// What the value of a button of a track header reads as while the button is on.
+private let theButtonOn = "1"
+
+/// The names of the three tracks of the recorded project, in the order Logic shows them.
+private let theThreeTracks = ["Deluxe Classic", "Deluxe Classic", "Studio Grand"]
+
+/// A recorded tree with the Record Enable button of one track written another way, and how many
+/// buttons the writing reached.
+///
+/// The count goes back to the test. A writing that reaches no button answers a tree that reads
+/// exactly like the recorded one, where every button is idle and off, so a scenario that never
+/// checked the count would read `arm: false` and call the reader broken, or pass on a tree it
+/// never edited.
+private struct ARecordedProject {
+  /// The window the tree starts at.
+  let root: any AXNode
+
+  /// How many Record Enable buttons the writing changed.
+  let buttonsWritten: Int
+}
+
+/// The window of a project of three tracks, where one track describes its Record Enable button
+/// with the text this test gives and carries the value of a button that is on.
+///
+/// No recorded tree holds a track that records. `inspect` wrote the Record Enable button of every
+/// fixture with the value `0` and the description of an idle button, because a person cannot record
+/// a take and run `inspect` in the same moment. So the recorded tree of the project is read, and
+/// the one button is written as the running Logic wrote it.
+///
+/// The file is one JSON object of two keys, `logicVersion` and `root`, and the elements start under
+/// `root`. So the writing starts at that element and not at the object, which holds no element of
+/// its own and carries no `children`.
+private func aRecordedProject(
+  whereTrack track: Int, describesItsRecordEnableAs description: String
+) throws -> ARecordedProject {
+  let file = recordedTrees.appending(path: "region.json")
+  let read = try JSONSerialization.jsonObject(with: Data(contentsOf: file))
+  var document = read as? [String: Any] ?? [:]
+  var reached = 0
+  var changed = 0
+  func written(_ node: Any) -> Any {
+    guard var element = node as? [String: Any] else { return node }
+    if element["description"] as? String == theIdleRecordEnable {
+      reached += 1
+      if reached == track {
+        element["description"] = description
+        element["value"] = theButtonOn
+        changed += 1
+      }
+    }
+    if let children = element["children"] as? [Any] {
+      element["children"] = children.map(written)
+    }
+    return element
+  }
+  document["root"] = written(document["root"] ?? [:])
+  let tree = try JSONSerialization.data(withJSONObject: document)
+  let decoded = try JSONDecoder().decode(RecordedTree.self, from: tree)
+  return ARecordedProject(root: decoded.root, buttonsWritten: changed)
+}
+
+/// Logic records a track, and a person reads the project back while it records.
+///
+/// `transport record` pressed the Record button of the Control Bar on this Mac at 16:30 on
+/// 2026-09-26, Logic recorded, and the command failed with `element_not_found`. The read after the
+/// press reached `tracks.header.track2.recordEnableButton`, and Logic described that button
+/// `Record Enable, recording`. While Logic records a track, the button of that track carries its
+/// name, a comma, a space and the state. The reader wanted the name alone. So every command that
+/// records worked and then failed, and no session kept the state it left Logic in.
+///
+/// The reader now reads that button, and the row of the recording track answers `arm: true`. A
+/// description that starts with the name of the button and goes on as one word, such as
+/// `Recorder`, still fails with `element_not_found`: the button carries no identifier and no
+/// title, so the description is the whole of what says the walk reached the right control, and a
+/// row read from the wrong one would put a number in the journal that Logic never showed.
+@Test func theReaderFindsRecordEnableWhileLogicRecords() throws {
+  let recording = try aRecordedProject(
+    whereTrack: 2, describesItsRecordEnableAs: theRecordingRecordEnable)
+
+  try #require(
+    recording.buttonsWritten == 1,
+    "the button of track 2 is the one this tree writes, and the tree holds it")
+
+  let tracks = try TrackReader.tracks(in: recording.root)
+
+  #expect(tracks.map(\.arm) == [false, true, false], "the track Logic records is the armed one")
+  #expect(tracks.map(\.name) == theThreeTracks, "the tracks Logic shows, in its own order")
+  #expect(tracks.map(\.mute) == [false, false, false], "the mute buttons are off, as they were")
+  #expect(tracks.map(\.solo) == [false, false, false], "and so are the solo buttons")
+
+  let answer = tracksList(of: tracks)
+
+  let rows = try answer.rows()
+  try #require(rows.count == 3, "the three tracks of the recorded project")
+  #expect(rows.map { $0["arm"] as? Bool } == [false, true, false], "the row a person reads")
+  #expect(answer.status == 0, "the command exits 0")
+
+  let wrongControl = try aRecordedProject(
+    whereTrack: 1, describesItsRecordEnableAs: anotherControl)
+
+  try #require(wrongControl.buttonsWritten == 1, "and the button of track 1 in this one")
+
+  let refused = #expect(throws: TrackReader.Refusal.self) {
+    try TrackReader.tracks(in: wrongControl.root)
+  }
+
+  let other = try #require(refused)
+  #expect(other.found == anotherControl, "what Logic said the control at the end of the walk was")
+  #expect(other.failure.code == .elementNotFound, "the code a caller reads")
+  #expect(other.failure.code.exitCode == 5, "the number the process exits with")
+  #expect(
+    other.locator == Locators.trackRecordEnableButton(number: 0).name,
+    "the failure names the walk that reached the wrong control")
+}
