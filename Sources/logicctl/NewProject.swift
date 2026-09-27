@@ -22,6 +22,9 @@ struct NewProject: ParsableCommand {
       the defaults of the sheet, and answers once Logic shows a project with one software \
       instrument track.
 
+      The command makes a project of its own, so it refuses while Logic already shows a project. \
+      Quit that project first.
+
       Example: logicctl new-project
       """)
 
@@ -122,9 +125,15 @@ extension NewProject {
 
   /// The project Logic has open once the chooser and the sheet are answered.
   ///
-  /// The window is read first, and the tracks after it. Logic puts the sheet that asks for a track
-  /// on a project the moment it makes one, and the tracks of the project are what say that the
-  /// sheet was answered, so both have to hold before the project is the one this command promises.
+  /// What Logic shows is read first, before anything is pressed. A project in front is a project
+  /// somebody already has open, and this command makes a project of its own, so it refuses that
+  /// one rather than taking it over. The chooser and a project with the New Track sheet on it are
+  /// both places on the way to the project this command makes, so both go on.
+  ///
+  /// The window is read again after the route, and the tracks after that. Logic puts the sheet
+  /// that asks for a track on a project the moment it makes one, and the tracks of the project are
+  /// what say that the sheet was answered, so both have to hold before the project is the one this
+  /// command promises.
   static func projectWithTracks(
     through chooser: ProjectChooser,
     and driver: any LogicDriver,
@@ -132,12 +141,42 @@ extension NewProject {
     clock: @escaping Wait.Clock,
     sleeper: @escaping Wait.Sleeper
   ) throws -> State {
+    if try chooser.read() == ProjectWindow.project {
+      let open = try driver.readState()
+      let path = try driver.projectPath()
+      throw TheirProject(name: open.project.name, path: path)
+    }
     try chooser.reachAProjectWithTracks(limitMs: limitMs, clock: clock, sleeper: sleeper)
     try Wait.until(limitMs: limitMs, clock: clock, sleeper: sleeper) {
       let read = try driver.readState()
       return !read.tracks.isEmpty
     }
     return try driver.readState()
+  }
+
+  /// A project that was open before this command ran.
+  ///
+  /// `new-project` is the only thing that ever writes `createdByLogicctl` true, and that field is
+  /// what lets every later command change the project without `--confirm`. A session started over
+  /// a project that was already open puts that word on the work of a person, and the guard that
+  /// protects their work is gone from the first command they type. So the command stops here, and
+  /// the person quits their project first.
+  struct TheirProject: Error, Equatable {
+    /// What Logic calls the project.
+    let name: String
+
+    /// Where the project sits, or nothing when nobody saved it yet.
+    let path: String?
+
+    /// The failure the caller prints and exits with.
+    var failure: Failure {
+      let sits = path.map { ", at \($0)" } ?? ""
+      return Failure(
+        code: .invalidArgument,
+        message: "Logic has the project \(name) open\(sits). new-project makes a project of its "
+          + "own, so quit this one first.",
+        details: .object(["project": path.map(JSONValue.string) ?? .null]))
+    }
   }
 
   /// The project of the answer: what Logic calls it, and where it sits.
@@ -199,9 +238,13 @@ extension NewProject {
 
   /// What the command stopped with.
   ///
-  /// A walk that found no element, and a Logic that never reached the project, each carry their
-  /// own failure already, so this joins them to the envelope rather than writing a second one.
+  /// A project that was already open, a walk that found no element, and a Logic that never
+  /// reached the project, each carry their own failure already, so this joins them to the
+  /// envelope rather than writing a second one.
   static func failure(of error: Error) -> Failure {
+    if let theirs = error as? TheirProject {
+      return theirs.failure
+    }
     if let refusal = error as? LocatorResolver.Refusal {
       return refusal.failure
     }
