@@ -226,6 +226,7 @@ struct Phase3LiveScenarios {
       return
     }
 
+    try showTheEventList(ofTrack: LiveNames.recordedTrack, region: after)
     let read = try answered(
       NotesAnswer.self,
       from: [
@@ -367,6 +368,17 @@ private enum LiveNames {
 
   /// How long the scenario leaves between two reads of Logic, in milliseconds.
   static let pollMs = 200
+
+  /// The item of the Window menu that opens the Event List in a window of its own.
+  ///
+  /// It is the walk to Open Mixer with the last step changed, so the two items are reached through
+  /// one path, and a change to the walk moves both. Measured on this Mac on 2026-09-27 against
+  /// Logic 12.3.1: the item is titled `Open Event List` and the window it opens is titled
+  /// `<project> - MIDI Region - Event List`, which is what `EventList.window` looks for.
+  static let openEventList = Locator(
+    name: "menu.window.openEventList",
+    path: Array(Locators.openMixer.path.dropLast())
+      + [LocatorStep(role: "AXMenuItem", title: "Open Event List")])
 
   /// A region number past any region a scratch project holds.
   ///
@@ -708,7 +720,7 @@ private func selectedTrack(of tracks: Int) throws -> Int? {
   for number in 0..<tracks {
     let locator = Locators.trackHeader(number: number)
     let item = try LocatorResolver.element(of: locator, in: window.root)
-    if try readsSelected(item, ofTrackNumbered: number + 1) {
+    if try readsSelected(item, named: "track \(number + 1)") {
       return number + 1
     }
   }
@@ -733,10 +745,9 @@ private func selectedTrackNow(of tracks: Int) -> String {
 /// track answers, and a read nobody could make would then look like one. The type of the value is
 /// read before the value, because a number bridges to `Bool` as well and a `1` that is not a
 /// boolean would then read as a selected track.
-private func readsSelected(_ item: any AXNode, ofTrackNumbered number: Int) throws -> Bool {
+private func readsSelected(_ item: any AXNode, named what: String) throws -> Bool {
   guard let live = item as? LiveAXNode else {
-    throw LiveRefusal(
-      reason: "the header of track \(number) came from a recorded tree, which selects nothing")
+    throw LiveRefusal(reason: "\(what) came from a recorded tree, which selects nothing")
   }
   var carried: CFTypeRef?
   let answered = AXUIElementCopyAttributeValue(
@@ -746,8 +757,8 @@ private func readsSelected(_ item: any AXNode, ofTrackNumbered number: Int) thro
   else {
     throw LiveRefusal(
       reason: """
-        AXSelected of the header of track \(number) answered error \(answered.rawValue), so this \
-        scenario cannot tell which track a take would land on
+        AXSelected of \(what) answered error \(answered.rawValue), so this scenario cannot tell \
+        what Logic has selected
         """)
   }
   return value as? Bool == true
@@ -831,4 +842,145 @@ private func theTracksWindowHoldsTheFocus(of logic: NSRunningApplication) throws
     return false
   }
   return CFEqual(focused, wanted.element)
+}
+
+/// Selects one region of one track and leaves the Event List showing it.
+///
+/// `midi notes` reads the notes out of the window Logic shows them in, and it does not open that
+/// window. Measured on this Mac on 2026-09-27 against Logic 12.3.1: a copy opens with no Event List
+/// at all, and the Event List shows whichever region is selected, so a take that is not selected
+/// reads as the notes of whatever region is. Both halves are this scenario's to arrange, so it
+/// selects the take and then opens the window.
+///
+/// The selection is a write of `AXSelected` on the item of the region, which Logic takes, unlike
+/// the same write on the header of a track. It is read back, because a write Logic ignored and a
+/// write Logic took answer the same.
+private func showTheEventList(ofTrack track: Int, region: Int) throws {
+  let item = try regionItem(onTrack: track, numbered: region)
+  guard let live = item as? LiveAXNode else {
+    throw LiveRefusal(
+      reason: "region \(region) of track \(track) came from a recorded tree, which selects nothing")
+  }
+  let written = AXUIElementSetAttributeValue(
+    live.element, kAXSelectedAttribute as CFString, true as CFTypeRef)
+  guard written == .success else {
+    throw LiveRefusal(
+      reason: """
+        Logic refused the write of AXSelected on region \(region) of track \(track), error \
+        \(written.rawValue)
+        """)
+  }
+  guard try readsSelected(item, named: "region \(region) of track \(track)") else {
+    throw LiveRefusal(
+      reason: """
+        the write of AXSelected on region \(region) of track \(track) went through and the region \
+        still reads false, so the Event List would show another region
+        """)
+  }
+
+  try openTheEventList()
+}
+
+/// Opens the Event List of Logic, and waits until one window of Logic is showing it.
+///
+/// The item is pressed through a walk of the menu bar that starts again for every read, which is
+/// what the press of Open Mixer does. A press through Accessibility asks the element to act on
+/// itself, so it is not an event at the window server and it does not go through the input gate.
+///
+/// A window that is already showing an Event List is left as it is. The Event List follows the
+/// selection, so the one that is open is already showing the region this run just selected, and a
+/// second press would only put another window on the screen.
+private func openTheEventList() throws {
+  let open = try LogicTree.ofRunningLogic()
+  if EventList.window(of: open) != nil {
+    return
+  }
+
+  try AutomationMenus.pressTheItem(
+    LiveNames.openEventList,
+    of: { try LogicTree.ofRunningLogic().root },
+    offered: { try readsEnabled($0, named: "the item Window, Open Event List") },
+    act: { try press($0, named: "the item Window, Open Event List") })
+
+  do {
+    try Wait.until(limitMs: LiveNames.focusLimitMs, pollMs: LiveNames.pollMs) {
+      let tree = try LogicTree.ofRunningLogic()
+      return EventList.window(of: tree) != nil
+    }
+  } catch {
+    throw LiveRefusal(
+      reason: """
+        the item Window, Open Event List was pressed and no window of Logic is showing an Event \
+        List, so the notes of the take cannot be read
+        """)
+  }
+}
+
+/// The item of one region of one track, in the Tracks window.
+///
+/// It is the walk the region reader makes, so the numbers here are the numbers `--region` takes:
+/// Logic puts one layout area under the contents group for every track, in the order of the rows
+/// from the top, and one more after them for the room under the last track.
+private func regionItem(onTrack track: Int, numbered region: Int) throws -> any AXNode {
+  let window = try theTracksWindow()
+  guard let contents = theContentsGroup(under: window.root) else {
+    throw LiveRefusal(
+      reason: "the Tracks window holds no group described \(RegionReader.contentsGroup)")
+  }
+  let areas = contents.children.filter { $0.role == RegionReader.trackRole }
+  guard track >= 1, track <= areas.count - 1 else {
+    throw LiveRefusal(
+      reason: "the contents group holds \(areas.count) areas, and track \(track) is not among them")
+  }
+  let items = areas[track - 1].children.filter { $0.role == RegionReader.regionRole }
+  guard region >= 1, region <= items.count else {
+    throw LiveRefusal(
+      reason: """
+        track \(track) shows \(items.count) regions, and region \(region) is not one of them
+        """)
+  }
+  return items[region - 1]
+}
+
+/// The group that holds one area per track, wherever it sits under the window.
+private func theContentsGroup(under node: any AXNode) -> (any AXNode)? {
+  if node.description == RegionReader.contentsGroup {
+    return node
+  }
+  for child in node.children {
+    if let found = theContentsGroup(under: child) {
+      return found
+    }
+  }
+  return nil
+}
+
+/// Whether one element reads `AXEnabled` true.
+///
+/// An element whose state Accessibility refuses is read as one Logic does not offer. A press of an
+/// item whose state nothing could read is a press nobody can account for.
+private func readsEnabled(_ item: any AXNode, named what: String) throws -> Bool {
+  guard let live = item as? LiveAXNode else {
+    throw LiveRefusal(reason: "\(what) came from a recorded tree, which offers nothing")
+  }
+  var carried: CFTypeRef?
+  guard
+    AXUIElementCopyAttributeValue(live.element, kAXEnabledAttribute as CFString, &carried)
+      == .success,
+    let value = carried, CFGetTypeID(value) == CFBooleanGetTypeID()
+  else {
+    return false
+  }
+  return value as? Bool == true
+}
+
+/// Asks one element to act on itself.
+private func press(_ item: any AXNode, named what: String) throws {
+  guard let live = item as? LiveAXNode else {
+    throw LiveRefusal(reason: "\(what) came from a recorded tree, which presses nothing")
+  }
+  let pressed = AXUIElementPerformAction(live.element, kAXPressAction as CFString)
+  guard pressed == .success else {
+    throw LiveRefusal(reason: "Logic refused the press of \(what), error \(pressed.rawValue)")
+  }
 }
