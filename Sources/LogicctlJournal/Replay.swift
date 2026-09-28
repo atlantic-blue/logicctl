@@ -285,7 +285,7 @@ public enum SessionReplay {
       }
       ran += 1
       let recorded = try recordedState(ofCommit: step.commit, in: source)
-      let differences = StateDiff.between(recorded, after.json)
+      let differences = StateDiff.between(compared(recorded), compared(after.json))
       if !differences.isEmpty {
         found.append(StepDifferences(seq: step.seq, differences: differences))
       }
@@ -344,6 +344,26 @@ public enum SessionReplay {
       stateAfter: CanonicalJSON.sha256(of: after),
       differences: differences)
     return try replayed.write(record, state: after)
+  }
+
+  /// The fields of one state that replay compares: every field except the time of the last save.
+  ///
+  /// A replay builds a second project and saves that one while it runs, so the time it reads is the
+  /// moment of the replay, while the record carries the moment of the work. The two are never the
+  /// same. A comparison that read the field would answer a difference at every step of every
+  /// session, about the one field nobody changed.
+  ///
+  /// The state itself keeps the time, and so does its hash, because a person who compares the two
+  /// histories afterwards needs to know when each project was saved.
+  static func compared(_ state: JSONValue) -> JSONValue {
+    guard case .object(var members) = state,
+      case .object(var project) = members["project"] ?? JSONValue.null
+    else {
+      return state
+    }
+    project.removeValue(forKey: "savedAt")
+    members["project"] = .object(project)
+    return .object(members)
   }
 
   /// Why a step of one kind cannot be run again.
