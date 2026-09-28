@@ -285,7 +285,8 @@ public enum SessionReplay {
       }
       ran += 1
       let recorded = try recordedState(ofCommit: step.commit, in: source)
-      let differences = StateDiff.between(compared(recorded), compared(after.json))
+      let differences = StateDiff.between(
+        compared(recorded, after: step.command), compared(after.json, after: step.command))
       if !differences.isEmpty {
         found.append(StepDifferences(seq: step.seq, differences: differences))
       }
@@ -346,22 +347,36 @@ public enum SessionReplay {
     return try replayed.write(record, state: after)
   }
 
-  /// The fields of one state that replay compares: every field except the time of the last save.
+  /// The command that makes a project, whose name Logic chooses and the work does not.
+  static let newProject = "new-project"
+
+  /// The fields of one state that replay compares, after a step that ran the named command.
   ///
-  /// A replay builds a second project and saves that one while it runs, so the time it reads is the
-  /// moment of the replay, while the record carries the moment of the work. The two are never the
-  /// same. A comparison that read the field would answer a difference at every step of every
-  /// session, about the one field nobody changed.
+  /// The time of the last save is out of every comparison. A replay builds a second project and
+  /// saves that one while it runs, so the time it reads is the moment of the replay, while the
+  /// record carries the moment of the work. The two are never the same. A comparison that read the
+  /// field would answer a difference at every step of every session, about one field nobody
+  /// changed.
   ///
-  /// The state itself keeps the time, and so does its hash, because a person who compares the two
-  /// histories afterwards needs to know when each project was saved.
-  static func compared(_ state: JSONValue) -> JSONValue {
+  /// The name of the project is out of the comparison after a new project, and after nothing else.
+  /// Logic names a new project "Untitled" and the first number the music folder has not taken, so
+  /// the name depends on what that folder holds at the moment the project is made: the record of
+  /// the phase 2 session read "Untitled 2" and a replay of it read "Untitled 4". After a save the
+  /// name is the name of the file, so a name that differs there is work that differs, and it is
+  /// compared as every other field is.
+  ///
+  /// The state itself keeps both fields, and so does its hash, because a person who compares the
+  /// two histories afterwards needs to know when each project was saved and what it was called.
+  static func compared(_ state: JSONValue, after command: String?) -> JSONValue {
     guard case .object(var members) = state,
       case .object(var project) = members["project"] ?? JSONValue.null
     else {
       return state
     }
     project.removeValue(forKey: "savedAt")
+    if command == SessionReplay.newProject {
+      project.removeValue(forKey: "name")
+    }
     members["project"] = .object(project)
     return .object(members)
   }
