@@ -106,6 +106,21 @@ private func theProjectAReplayStartsIn() -> State {
     tracks: [Track(index: 1, name: "Inst 1", type: .softwareInstrument)])
 }
 
+/// The track `new-project` leaves in the project it makes.
+private let theFirstTrack = Track(index: 1, name: "Inst 1", type: .softwareInstrument)
+
+/// The track that `tracks add --type software-instrument` makes beside it.
+private let theSecondTrack = Track(index: 2, name: "Inst 2", type: .softwareInstrument)
+
+/// The project that holds these tracks, open in Logic.
+private func aProject(with tracks: [Track]) -> State {
+  State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: "Untitled"),
+    transport: Transport(tempo: 120),
+    tracks: tracks)
+}
+
 /// The project Logic has open before the sheet is answered, which holds no track at all.
 private func anEmptyProject() -> State {
   State(
@@ -162,6 +177,24 @@ private final class Mac {
   /// The process this Logic runs as.
   let processID: Int32 = 981
 
+  /// True while Logic shows the panel that asks where the project goes.
+  var showsThePanel = false
+
+  /// The folders the save route opened, from the root of the start up disk down.
+  var walked: [String] = []
+
+  /// What the save route wrote into each field of the panel.
+  var written: [String: String] = [:]
+
+  /// Every path this Logic wrote a project to.
+  var savedTo: [String] = []
+
+  /// The track whose header was pressed last, counted from 0.
+  ///
+  /// Logic removes the track that is selected, and nothing in the state of a project says which
+  /// track that is, so the press on the header is the only record of it.
+  var selected: Int?
+
   /// The chooser the command drives. Choosing the template opens the project and Logic asks for the
   /// first track of it, and Create answers that sheet, as Logic does.
   func chooser() -> ProjectChooser {
@@ -180,6 +213,146 @@ private final class Mac {
         self.driver.state = theProjectAReplayStartsIn()
         self.showing = .project
       })
+  }
+
+  /// What makes, renames, mutes, solos and removes a track in this Logic.
+  ///
+  /// The mute and the solo buttons of a track header are check boxes, so a click turns the state
+  /// over rather than setting it, which is what Logic 12.3.1 does with them.
+  func actions() -> TrackActions {
+    TrackActions(
+      press: { locator in
+        let made = NewTrackType.allCases.first {
+          locator.name == TrackActions.menuItem(for: $0).name
+        }
+        if let made {
+          self.addATrack(of: made)
+          return
+        }
+        guard locator.name == TrackActions.deleteTrack.name else {
+          return
+        }
+        self.removeTheSelectedTrack()
+      },
+      pressInWindow: { locator in
+        self.selected = self.theTrack(withHeader: locator)
+      },
+      click: { locator in
+        self.turnOver(locator)
+      },
+      write: { locator, text in
+        self.write(text, into: locator)
+      })
+  }
+
+  /// The Save panel this Logic shows.
+  ///
+  /// Pressing Save is what puts a file on disk, as it is in Logic, and it lands where the walk of
+  /// the columns points with the name the field holds. So a test that reads the path afterwards
+  /// reads what the press did, and a Logic that took the name alone would write every project to
+  /// one folder.
+  func panel() -> SaveDialog {
+    SaveDialog(
+      openTheMenuItem: { self.showsThePanel = true },
+      showsThePanel: { self.showsThePanel },
+      write: { locator, text in self.written[locator.name] = text },
+      press: { locator in
+        guard locator.name == Locators.saveButton.name else {
+          return
+        }
+        let to = self.pathOfTheWalk(named: self.written[Locators.saveNameField.name] ?? "")
+        try Data("the project of logicctl".utf8).write(
+          to: URL(fileURLWithPath: to), options: .atomic)
+        self.savedTo.append(to)
+        self.showsThePanel = false
+        self.driver.path = to
+      },
+      resolve: { $0 },
+      namesInColumn: { number in
+        try FileManager.default.contentsOfDirectory(atPath: self.folderOfTheWalk(cutTo: number))
+      },
+      openFolder: { number, name in
+        self.walked = Array(self.walked.prefix(number)) + [name]
+      },
+      folderShown: { self.walked.last ?? "" },
+      pressItem: { _ in self.walked = [] },
+      startUpDisk: { "A Disk Of Its Own" },
+      scroll: { _, _ in })
+  }
+
+  /// Adds one track under the tracks the project holds, as Logic does when the item is pressed.
+  private func addATrack(of type: NewTrackType) {
+    guard var state = driver.state else {
+      return
+    }
+    let number = state.tracks.count + 1
+    state.tracks.append(Track(index: number, name: "Inst \(number)", type: type.kind))
+    driver.state = state
+  }
+
+  /// Removes the track whose header was pressed, and numbers what is left again, the way Logic
+  /// numbers the tracks from the top of the window.
+  private func removeTheSelectedTrack() {
+    guard var state = driver.state, let number = selected,
+      state.tracks.indices.contains(number)
+    else {
+      return
+    }
+    state.tracks.remove(at: number)
+    for place in state.tracks.indices {
+      state.tracks[place].index = place + 1
+    }
+    driver.state = state
+    selected = nil
+  }
+
+  /// Turns the mute or the solo of one track over, whichever check box the click reached.
+  private func turnOver(_ locator: Locator) {
+    guard var state = driver.state else {
+      return
+    }
+    for number in state.tracks.indices {
+      if locator.name == Locators.trackMuteButton(number: number).name {
+        state.tracks[number].mute.toggle()
+      } else if locator.name == Locators.trackSoloButton(number: number).name {
+        state.tracks[number].solo.toggle()
+      } else {
+        continue
+      }
+      driver.state = state
+      return
+    }
+  }
+
+  /// Gives one track the name the rename wrote into the field of its header.
+  private func write(_ text: String, into locator: Locator) {
+    guard var state = driver.state,
+      let number = state.tracks.indices.first(where: {
+        locator.name == Locators.trackNameField(number: $0).name
+      })
+    else {
+      return
+    }
+    state.tracks[number].name = text
+    driver.state = state
+  }
+
+  /// The track one header belongs to, counted from 0.
+  private func theTrack(withHeader locator: Locator) -> Int? {
+    guard let state = driver.state else {
+      return nil
+    }
+    return state.tracks.indices.first { locator.name == Locators.trackHeader(number: $0).name }
+  }
+
+  /// The folder the walk reached, cut to the first folders of it.
+  private func folderOfTheWalk(cutTo number: Int) -> String {
+    "/" + walked.prefix(number).joined(separator: "/")
+  }
+
+  /// Where the panel writes the project: the folder the walk reached, and the name in the field.
+  private func pathOfTheWalk(named name: String) -> String {
+    folderOfTheWalk(cutTo: walked.count) + (walked.isEmpty ? "" : "/") + name
   }
 }
 
@@ -568,8 +741,8 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   try recorded.wrote(
     .command, command: "new-project", leaving: theProjectAReplayStartsIn())
   try recorded.wrote(
-    .command, command: "tracks add", argv: ["--type", "software-instrument"],
-    leaving: aProject(withTrackNamed: "Inst 1"))
+    .command, command: "midi notes", argv: ["--track", "1", "--region", "1"],
+    leaving: theProjectAReplayStartsIn())
 
   let logic = Mac()
   let time = Time()
@@ -729,4 +902,193 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   #expect(fields.first?["path"] as? String == "/tracks/0/name", "which field, as a pointer")
   #expect(fields.first?["before"] as? String == "Bass", "what the session recorded")
   #expect(fields.first?["after"] as? String == "Lead", "and what the replay left")
+}
+
+/// A replay repeats the work of a session, and the work of a session is its commands.
+///
+/// This is the promise of a replay, and a runner that repeated one command of the tool never kept
+/// it. The phase 2 session holds five steps: the new project, a save, two readings of the tracks
+/// and the track it added. Four of those came back as `no_such_command`, so the replay exited 15
+/// and said that a session of ordinary work could not be repeated. Nothing was wrong with the
+/// work.
+///
+/// So every command the record can carry runs again, with the arguments the record carries, on the
+/// project the replay made. A person replays a morning of work and reads one answer about the
+/// whole of it.
+///
+/// A recorded save is the one command that is not repeated as it was typed. The path in the record
+/// is the project of a person, and hours of work sit in it that nothing brings back, so the replay
+/// saves into a folder of its own under the temporary folder and keeps the file name alone. The
+/// project of the record is never opened, never written to, and never removed.
+@Test func replayRunsTheTrackCommandsAndSave() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let saves = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: saves) }
+  let git = try gitThatSigns(inside: root)
+
+  let recorded = try Recording(root: root, git: git)
+  try recorded.wrote(.command, command: "new-project", leaving: theProjectAReplayStartsIn())
+  try recorded.wrote(
+    .command, command: "save", argv: ["--path", "/some/where/Phase2.logicx"],
+    leaving: theProjectAReplayStartsIn())
+  try recorded.wrote(.command, command: "tracks list", leaving: theProjectAReplayStartsIn())
+  try recorded.wrote(
+    .command, command: "tracks add", argv: ["--type", "software-instrument"],
+    leaving: aProject(with: [theFirstTrack, theSecondTrack]))
+  try recorded.wrote(
+    .command, command: "tracks list", leaving: aProject(with: [theFirstTrack, theSecondTrack]))
+
+  let logic = Mac()
+  let time = Time()
+  let answer = Answer()
+
+  let exited = Replay.answer(
+    session: recorded.id,
+    chooser: logic.chooser(),
+    driver: logic.driver,
+    actions: logic.actions(),
+    dialog: logic.panel(),
+    savesUnder: saves,
+    root: root,
+    limitMs: 500,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: git,
+    standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exited == 0, "every step of the phase 2 session ran again and repeated the work")
+  #expect(answer.err.isEmpty, "so nobody is told that a step was passed over")
+  let report = try answer.report()
+  #expect((report["skipped"] as? [[String: Any]])?.isEmpty == true, "nothing was passed over")
+  #expect((report["differences"] as? [[String: Any]])?.isEmpty == true, "and nothing differed")
+  #expect(report["stepsRun"] as? Int == 5, "the five steps of the session ran")
+  let built = try logic.driver.readState()
+  #expect(
+    built.tracks == [theFirstTrack, theSecondTrack],
+    "and the track the session added is in the project the replay built")
+
+  let saved = try #require(logic.savedTo.first, "the recorded save ran")
+  #expect(logic.savedTo.count == 1, "once, because the session holds one save")
+  #expect(saved.hasPrefix(saves.path + "/"), "the replay saved under a folder of its own")
+  #expect(
+    URL(fileURLWithPath: saved).lastPathComponent == "Phase2.logicx",
+    "under the file name the record carries")
+  #expect(FileManager.default.fileExists(atPath: saved), "and the project is on disk there")
+  #expect(
+    !FileManager.default.fileExists(atPath: "/some/where/Phase2.logicx"),
+    "and nothing was written where the record points")
+
+  let renamed = Track(index: 2, name: "Bass", type: .softwareInstrument)
+  let muted = Track(index: 2, name: "Bass", type: .softwareInstrument, mute: true)
+  let soloed = Track(index: 1, name: "Inst 1", type: .softwareInstrument, solo: true)
+
+  let more = try Recording(root: root, git: git)
+  try more.wrote(.command, command: "new-project", leaving: theProjectAReplayStartsIn())
+  try more.wrote(
+    .command, command: "tracks add", argv: ["--type", "software-instrument"],
+    leaving: aProject(with: [theFirstTrack, theSecondTrack]))
+  try more.wrote(
+    .command, command: "tracks rename", argv: ["--index", "2", "--name", "Bass"],
+    leaving: aProject(with: [theFirstTrack, renamed]))
+  try more.wrote(
+    .command, command: "tracks mute", argv: ["--index", "2", "--on"],
+    leaving: aProject(with: [theFirstTrack, muted]))
+  try more.wrote(
+    .command, command: "tracks solo", argv: ["--index", "1", "--on"],
+    leaving: aProject(with: [soloed, muted]))
+  try more.wrote(
+    .command, command: "tracks delete", argv: ["--index", "2"],
+    leaving: aProject(with: [soloed]))
+
+  let secondMac = Mac()
+  let secondClock = Time()
+  let secondAnswer = Answer()
+
+  let ranTheRest = Replay.answer(
+    session: more.id,
+    chooser: secondMac.chooser(),
+    driver: secondMac.driver,
+    actions: secondMac.actions(),
+    dialog: secondMac.panel(),
+    savesUnder: saves,
+    root: root,
+    limitMs: 500,
+    clock: secondClock.read,
+    sleeper: secondClock.sleep,
+    git: git,
+    standardOutput: secondAnswer.write,
+    standardError: secondAnswer.writeError)
+
+  #expect(ranTheRest == 0, "the rename, the mute, the solo and the delete run again too")
+  let rest = try secondAnswer.report()
+  #expect((rest["skipped"] as? [[String: Any]])?.isEmpty == true, "none of them was passed over")
+  #expect((rest["differences"] as? [[String: Any]])?.isEmpty == true)
+  #expect(rest["stepsRun"] as? Int == 6, "the six steps of that session ran")
+  let left = try secondMac.driver.readState()
+  #expect(left.tracks == [soloed], "and the project the replay built holds what the work left")
+
+  let later = try Recording(root: root, git: git)
+  try later.wrote(.command, command: "new-project", leaving: theProjectAReplayStartsIn())
+  try later.wrote(
+    .command, command: "midi notes", argv: ["--track", "1", "--region", "1"],
+    leaving: theProjectAReplayStartsIn())
+
+  let thirdMac = Mac()
+  let thirdClock = Time()
+  let thirdAnswer = Answer()
+
+  let skippedOne = Replay.answer(
+    session: later.id,
+    chooser: thirdMac.chooser(),
+    driver: thirdMac.driver,
+    actions: thirdMac.actions(),
+    dialog: thirdMac.panel(),
+    savesUnder: saves,
+    root: root,
+    limitMs: 500,
+    clock: thirdClock.read,
+    sleeper: thirdClock.sleep,
+    git: git,
+    standardOutput: thirdAnswer.write,
+    standardError: thirdAnswer.writeError)
+
+  #expect(skippedOne == 15, "a command this build does not have still fails the replay")
+  let held = try thirdAnswer.report()
+  let passedOver = try #require(held["skipped"] as? [[String: Any]])
+  #expect(passedOver.count == 1, "and it is the one step of that session")
+  #expect(passedOver.first?["seq"] as? Int == 2)
+  #expect(passedOver.first?["reason"] as? String == "no_such_command")
+  #expect(held["stepsRun"] as? Int == 1, "the new project is what this build repeated")
+
+  let odd = try Recording(root: root, git: git)
+  try odd.wrote(.command, command: "new-project", leaving: theProjectAReplayStartsIn())
+  try odd.wrote(
+    .command, command: "tracks add", argv: ["--type", "drummer"],
+    leaving: theProjectAReplayStartsIn())
+
+  let fourthMac = Mac()
+  let fourthClock = Time()
+  let fourthAnswer = Answer()
+
+  let stopped = Replay.answer(
+    session: odd.id,
+    chooser: fourthMac.chooser(),
+    driver: fourthMac.driver,
+    actions: fourthMac.actions(),
+    dialog: fourthMac.panel(),
+    savesUnder: saves,
+    root: root,
+    limitMs: 500,
+    clock: fourthClock.read,
+    sleeper: fourthClock.sleep,
+    git: git,
+    standardOutput: fourthAnswer.write,
+    standardError: fourthAnswer.writeError)
+
+  #expect(stopped == 70, "a recorded argument this build cannot read stops the replay")
+  #expect(
+    try fourthAnswer.failure()["code"] as? String == "internal",
+    "and it is named as a failure of logicctl, never as a clean run")
 }
