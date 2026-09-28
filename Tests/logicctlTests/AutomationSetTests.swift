@@ -553,8 +553,7 @@ private func automationSet(_ arguments: [String], against logic: AFakeLogic) thr
     "the regions Logic held are back, because the edit gives the selection back when it ends")
   #expect(
     logic.did == ["select the region", "read the Event List", "select the region"],
-    "the named region is selected before a row is read, so the point belongs to it, and the "
-      + "regions the person had go back afterwards")
+    "the region is selected before a row is read, and the regions go back when the edit ends")
   #expect(
     try answer.points().map { $0["value"] as? Int } == [100, 90, 110],
     "point 1 of the named region carries 100, and the other two are as Logic recorded them")

@@ -394,8 +394,7 @@ private func midiNotes(
     "the region Logic held is back, because a command gives the selection back when it ends")
   #expect(
     logic.did == ["select the region", "read the Event List", "select the region"],
-    "the named region is selected before the read, so the list shows it, and the region the "
-      + "person had goes back afterwards"
+    "the selection lands before the read, and the region goes back when the command ends"
   )
   #expect(
     logic.readsOfTheEventListTable > 0, "the notes were read from the table of the Event List")

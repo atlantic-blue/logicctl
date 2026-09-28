@@ -406,8 +406,7 @@ private func automationList(
     "the regions Logic held are back, because the read gives the selection back when it ends")
   #expect(
     logic.did == ["select the region", "read the Event List", "select the region"],
-    "the named region is selected before the read, so the list shows it, and the regions the "
-      + "person had go back afterwards"
+    "the selection lands before the read, and the regions go back when the command ends"
   )
   #expect(try answer.points().count == 3, "the three points of the named region")
   #expect(answer.status == 0, "the command exits 0")

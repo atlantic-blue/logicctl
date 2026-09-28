@@ -530,8 +530,8 @@ private func midiQuantize(
   #expect(logic.slider == [], "the Strength slider already reads 100, so nothing is written at it")
   #expect(logic.pressed == ["Time Quantize"], "the button that quantizes is the one pressed")
   #expect(
-    logic.did == ["select the region", "select", "choose", "press"],
-    "the press comes last, because Logic quantizes what the popup holds when it is pressed")
+    logic.did == ["select the region", "select", "choose", "press", "select the region"],
+    "the press comes after the popup, and the region goes back when the command ends")
   #expect(status == 0, "the command exits 0")
   #expect(err == "", "standard error stays empty when a command worked")
 }
@@ -647,8 +647,7 @@ private func midiQuantize(
     "the region Logic held is back, because the quantize gives the selection back when it ends")
   #expect(
     logic.did == ["select the region", "select", "choose", "press", "select the region"],
-    "the named region is selected before the Piano Roll is touched, so the notes belong to it, "
-      + "and the region the person had goes back afterwards")
+    "the region is selected before the Piano Roll, and it goes back when the quantize ends")
   let printed = try JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any] ?? [:]
   let rows = (printed["data"] as? [String: Any] ?? [:])["notes"] as? [[String: Any]] ?? []
   #expect(

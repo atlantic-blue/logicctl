@@ -640,8 +640,7 @@ private func aProjectOfSevenImportedTracks() -> [Track] {
     "the regions Logic held are back, and the named region is let go, when the command ends")
   #expect(
     shown.regions[3]?.writes == 4,
-    "the named region is written once to select it, twice more to make Logic draw it again, and "
-      + "once at the end to let it go")
+    "the named region is written to select it, twice to draw it again, and once to let it go")
   #expect(
     shown.regions[6]?.writes == 2 && shown.regions[7]?.writes == 2,
     "each region Logic held is written once to let it go, and once more to take it again")
@@ -943,8 +942,7 @@ private func aProjectOfFourRegions() -> [Track] {
     "each point carries the value the Event List shows on its row")
   #expect(
     named.writes == 4,
-    "the region is written once to select it, twice more to let it go and take it again, and once "
-      + "at the end to let it go")
+    "the region is written to select it, twice to draw it again, and once to let it go")
   #expect(
     shown.regions.filter({ $0.value.held }).keys.sorted() == [6, 7],
     "and the regions the person had are the ones Logic holds at the end")

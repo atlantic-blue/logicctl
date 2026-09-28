@@ -681,8 +681,7 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
     "the region Logic held is back, because the edit gives the selection back when it ends")
   #expect(
     logic.did == ["select the region", "read the Event List", "select the region"],
-    "the named region is selected before a row is read, so the row belongs to it, and the region "
-      + "the person had goes back afterwards")
+    "the region is selected before a row is read, and it goes back when the edit ends")
   #expect(try answer.data()["velocity"] as? Int == 90, "the velocity the slider reads afterwards")
   #expect(answer.status == 0, "the command exits 0")
 }
