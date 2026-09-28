@@ -49,7 +49,7 @@ enum JournalLive {
   /// that change as its own step, so the journal then holds no external change step at all. A wait
   /// made of `tracks list` cost a live run exactly that: five `tracks list` steps, the mute
   /// inside the fourth of them, and no `external_change` anywhere.
-  static let readsWhileWaiting = [["inspect"], ["log"], ["tracks", "list"]]
+  static let readsWhileWaiting = [["inspect"], ["log"]]
 
   /// What the phase refuses to do, and what the operator does about it.
   enum Refusal: Error, CustomStringConvertible {
@@ -347,10 +347,16 @@ struct Phase7LiveScenarios {
   /// A mute the operator makes in Logic is a step of the journal before the next command runs
   /// (story J2, `CMD-J1`).
   ///
-  /// The mute is made by mouse, by a person, because the suite posts no event of its own. The
-  /// scenario then reads `tracks list` until the mute is there. The command that first reads it is
-  /// the command that writes the external change step, so the journal carries the change with the
-  /// command after it, and `log` and `show` both read it back.
+  /// The mute is made by mouse, by a person, because the suite posts no event of its own. So the
+  /// scenario cannot know when it lands, and it must not read `tracks list` to find out: that
+  /// command records a step, and a mute that lands while one of them runs is read by that command
+  /// as the state after its own work. A live run showed it: five `tracks list` steps, the mute
+  /// inside the fourth, and no `external_change` step written at all.
+  ///
+  /// So the wait reads the tree through `inspect`, which records nothing, and the scenario then
+  /// runs `tracks list` once. That one command finds the state of Logic already different from
+  /// `state.json`, writes the external change step in front of its own, and `log` and `show` read
+  /// both back.
   @Test func aMuteByHandBecomesAnExternalChangeStep() throws {
     LiveHarness.liveScenario("aMuteByHandBecomesAnExternalChangeStep")
 
@@ -377,10 +383,11 @@ struct Phase7LiveScenarios {
 
     JournalLive.byHand("mute track \(track.index) of \(name) in the Tracks window of Logic")
 
-    _ = try JournalLive.waitForTheJournal(naming: "the mute of track \(track.index)") {
-      let now = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
-      return now.tracks.first { $0.index == track.index && $0.mute }
-    }
+    try JournalLive.waitForTheMute(ofTrackNumbered: track.index)
+
+    // The one command this scenario means to record. Every read before it walked the tree, so the
+    // mute is still a change that logicctl has not seen.
+    _ = try LiveHarness.read(JournalLive.Tracks.self, from: ["tracks", "list"])
 
     let steps = try JournalLive.journal().steps
     #expect(
