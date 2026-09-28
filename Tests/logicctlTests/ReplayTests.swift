@@ -15,6 +15,17 @@ private func temporaryFolder() throws -> URL {
   return url
 }
 
+/// A folder that stands in for the home folder of the person who runs a replay.
+///
+/// The suite never writes into the home folder of this Mac, and the fake Save panel walks the
+/// folders of the disk, so the stand in is a folder of the test that is really there.
+private func aHomeFolder() throws -> URL {
+  let url = FileManager.default.temporaryDirectory
+    .appendingPathComponent("logicctl-home-\(UUID().uuidString)")
+  try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+  return url
+}
+
 /// A git whose configuration signs every commit, with a signing program that always fails.
 ///
 /// A session repository turns signing off for itself, so a commit of logicctl never waits for a
@@ -918,13 +929,13 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
 ///
 /// A recorded save is the one command that is not repeated as it was typed. The path in the record
 /// is the project of a person, and hours of work sit in it that nothing brings back, so the replay
-/// saves into a folder of its own under the temporary folder and keeps the file name alone. The
-/// project of the record is never opened, never written to, and never removed.
+/// saves into a folder of its own and keeps the file name alone. The project of the record is
+/// never opened, never written to, and never removed.
 @Test func replayRunsTheTrackCommandsAndSave() throws {
   let root = try temporaryFolder()
   defer { try? FileManager.default.removeItem(at: root) }
-  let saves = try temporaryFolder()
-  defer { try? FileManager.default.removeItem(at: saves) }
+  let home = try aHomeFolder()
+  defer { try? FileManager.default.removeItem(at: home) }
   let git = try gitThatSigns(inside: root)
 
   let recorded = try Recording(root: root, git: git)
@@ -949,7 +960,7 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
     driver: logic.driver,
     actions: logic.actions(),
     dialog: logic.panel(),
-    savesUnder: saves,
+    home: home,
     root: root,
     limitMs: 500,
     clock: time.read,
@@ -971,7 +982,7 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
 
   let saved = try #require(logic.savedTo.first, "the recorded save ran")
   #expect(logic.savedTo.count == 1, "once, because the session holds one save")
-  #expect(saved.hasPrefix(saves.path + "/"), "the replay saved under a folder of its own")
+  #expect(saved.hasPrefix(home.path + "/"), "the replay saved under a folder of its own")
   #expect(
     URL(fileURLWithPath: saved).lastPathComponent == "Phase2.logicx",
     "under the file name the record carries")
@@ -1012,7 +1023,7 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
     driver: secondMac.driver,
     actions: secondMac.actions(),
     dialog: secondMac.panel(),
-    savesUnder: saves,
+    home: home,
     root: root,
     limitMs: 500,
     clock: secondClock.read,
@@ -1045,7 +1056,7 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
     driver: thirdMac.driver,
     actions: thirdMac.actions(),
     dialog: thirdMac.panel(),
-    savesUnder: saves,
+    home: home,
     root: root,
     limitMs: 500,
     clock: thirdClock.read,
@@ -1078,7 +1089,7 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
     driver: fourthMac.driver,
     actions: fourthMac.actions(),
     dialog: fourthMac.panel(),
-    savesUnder: saves,
+    home: home,
     root: root,
     limitMs: 500,
     clock: fourthClock.read,
@@ -1091,4 +1102,73 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   #expect(
     try fourthAnswer.failure()["code"] as? String == "internal",
     "and it is named as a failure of logicctl, never as a clean run")
+}
+
+/// A replay of a session that holds a save can finish.
+///
+/// The Save panel of Logic walks the folders of the path one column at a time, and it lists no
+/// column for `/var`. The temporary folder of macOS is under `/var`, so a save that points there
+/// stops with `timeout` and writes nothing. The live run of the journal read exactly that: the
+/// replay made its project, then the recorded save waited for a column that names `var` and never
+/// got one.
+///
+/// So a replay saves under the home folder, which the first column of the panel lists, in a folder
+/// named for the replay. Two replays still never write to one path, because the name of that
+/// folder is the id of the session the replay records its own work in. Nothing else of the save
+/// changes: the path of the record is never written to, and the file name of the record is kept.
+@Test func replaySavesIntoAFolderTheSavePanelLists() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let home = try aHomeFolder()
+  defer { try? FileManager.default.removeItem(at: home) }
+  let git = try gitThatSigns(inside: root)
+
+  let recorded = try Recording(root: root, git: git)
+  try recorded.wrote(.command, command: "new-project", leaving: theProjectAReplayStartsIn())
+  try recorded.wrote(
+    .command, command: "save", argv: ["--path", "/some/where/Phase2.logicx"],
+    leaving: theProjectAReplayStartsIn())
+
+  let logic = Mac()
+  let time = Time()
+  let answer = Answer()
+
+  let exited = Replay.answer(
+    session: recorded.id,
+    chooser: logic.chooser(),
+    driver: logic.driver,
+    actions: logic.actions(),
+    dialog: logic.panel(),
+    home: home,
+    root: root,
+    limitMs: 500,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: git,
+    standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exited == 0, "the recorded save ran again and the replay repeated the work")
+  let meta = try answer.meta()
+  let replaySession = try #require(
+    meta["session"] as? String, "the answer names the session the replay wrote")
+  let saved = try #require(logic.savedTo.first, "and Logic wrote a project")
+  #expect(logic.savedTo.count == 1, "once, because the session holds one save")
+
+  let folder = home
+    .appendingPathComponent("logicctl-replays")
+    .appendingPathComponent(replaySession)
+  #expect(
+    saved == folder.appendingPathComponent("Phase2.logicx").path,
+    "under the home folder, which the Save panel lists, in a folder named for the replay")
+  #expect(FileManager.default.fileExists(atPath: saved), "and the project is on disk there")
+
+  let temporary = FileManager.default.temporaryDirectory
+    .appendingPathComponent("logicctl-replay-" + replaySession)
+  #expect(
+    !FileManager.default.fileExists(atPath: temporary.path),
+    "nothing went under the temporary folder, where the panel cannot walk: \(temporary.path)")
+  #expect(
+    !FileManager.default.fileExists(atPath: "/some/where/Phase2.logicx"),
+    "and nothing was written where the record points")
 }

@@ -86,8 +86,8 @@ extension Replay {
   ///
   /// The chooser, the driver, the actions, the panel and the runner are given rather than reached
   /// for, so the pipeline drives the whole command against a Logic and a session of its own.
-  /// `savesUnder` is the folder the saves of a replay go under, which is the temporary folder of
-  /// this Mac and, in the pipeline, a folder of the test.
+  /// `home` is the folder the saves of a replay go under, and in the pipeline it is a folder of
+  /// the test.
   static func answer(
     session id: String,
     from: Int? = nil,
@@ -96,7 +96,7 @@ extension Replay {
     driver: any LogicDriver,
     actions: TrackActions = TrackActions.live(),
     dialog: SaveDialog = SaveDialog.live(),
-    savesUnder: URL = FileManager.default.temporaryDirectory,
+    home: URL = FileManager.default.temporaryDirectory,
     runner: SessionReplay.Runner? = nil,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
@@ -141,7 +141,7 @@ extension Replay {
           readingThrough: driver,
           acting: actions,
           saving: dialog,
-          into: Replay.saveFolder(ofSession: fresh.id, under: savesUnder),
+          into: Replay.saveFolder(ofSession: fresh.id, under: home),
           limitMs: limitMs,
           clock: clock,
           sleeper: sleeper)
