@@ -60,6 +60,7 @@ extension Automation.Set {
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
     events: EventList.Actions = EventList.Actions.live(),
+    selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
     format: OutputFormat = .compact,
@@ -86,6 +87,7 @@ extension Automation.Set {
       point: target,
       value: value,
       events: events,
+      selection: selection,
       source: source,
       argv: argv)
     return printer.write(run.run(change: command, confirmed: confirmed))
@@ -113,11 +115,23 @@ struct AutomationSetCommand: LogicCommand {
   /// What Logic is asked to do to the rows of the Event List.
   let events: EventList.Actions
 
+  /// How the named region is made the only region Logic holds selected.
+  let selection: AutomationMenus.RegionSelection
+
   /// The tree of Logic, as the command reads it. It is read again after the step, because a tree
   /// read before a change describes the Logic of a moment ago.
   let source: () throws -> LogicTree
 
   let argv: [String]
+
+  /// The rows of the Event List the person had selected before this edit, and whether they went
+  /// back when it ended.
+  let kept = SelectionGuard.Kept()
+
+  /// The rows and the regions the person had selected, when the edit did not give them back.
+  var detailsBesideTheAnswer: JSONValue? {
+    SelectionGuard.Kept.details(of: [kept, selection.kept])
+  }
 
   /// Logic is showing no Event List, so there is no point to change.
   ///
@@ -141,7 +155,7 @@ struct AutomationSetCommand: LogicCommand {
             + "for, and Logic shows no Event List, so the points cannot be read. Open the Event "
             + "List and read them with automation list."
           : "Logic shows no Event List, so the automation points of region \(region) on track "
-            + "\(track) cannot be changed. Select the region and open the Event List.",
+            + "\(track) cannot be changed. Open the Event List.",
         details: .object([
           "track": .number(Double(track)),
           "region": .number(Double(region)),
@@ -244,6 +258,12 @@ struct AutomationSetCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    // The edit takes the selection down to one region as well as one row, so the regions go back
+    // however it ends. The rows go back before them, because the Event List shows the rows of the
+    // region it holds, and a defer runs last in first out.
+    defer { selection.putTheSelectionBack(under: { try source().root }) }
+    try RegionTarget.selectOnly(
+      target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
       throw NoEventList(track: track, region: region.index, changed: false)
     }
@@ -265,7 +285,11 @@ struct AutomationSetCommand: LogicCommand {
     let row = faders[asked - 1]
 
     let names = AutomationSetCommand.names(of: rows, whoseFaderRowsAre: faders)
-    try guarded(over: rows, called: names).selectOnly(names[row.place] ?? "point \(asked)")
+    // The edit takes the selection down to one row, so it gives it back however it ends: after
+    // the slider moved, after a later failure, and after the guard refused.
+    let holding = guarded(over: rows, called: names)
+    defer { holding.putTheSelectionBack() }
+    try holding.selectOnly(names[row.place] ?? "point \(asked)")
     // A note row carries its velocity in this column and a fader row carries the value of its
     // point, so the slider of the row is the one the reader of the points takes a value from.
     guard let slider = EventList.velocitySlider(of: row.row) else {
@@ -298,7 +322,8 @@ struct AutomationSetCommand: LogicCommand {
       selection: {
         try rows.filter { try self.events.selected($0.row) }
           .compactMap { names[$0.place] }
-      })
+      },
+      kept: kept)
   }
 
   /// The name each row of the table is known by, against the place it sits at.

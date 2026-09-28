@@ -48,6 +48,11 @@ private struct Answer {
   func meta() throws -> [String: Any] {
     try printed()["meta"] as? [String: Any] ?? [:]
   }
+
+  /// What `meta` carries under `details`, or an empty object when it carries none.
+  func details() throws -> [String: Any] {
+    try meta()["details"] as? [String: Any] ?? [:]
+  }
 }
 
 /// One element of the tree a test drives, which keeps what is written to it and answers it again.
@@ -65,11 +70,25 @@ private final class Element: AXNode {
   var description: String? = nil
   var help: String? = nil
   var actions: [String] = []
-  var children: [any AXNode] = []
 
-  /// True while Logic holds this row selected. No tree carries a selection, so a command reads this
-  /// through the closures of `EventList.Actions` and never through `AXNode`.
+  var children: [any AXNode] {
+    reads += 1
+    read?()
+    return kept
+  }
+
+  /// How many times anything read the elements under this one.
+  private(set) var reads = 0
+
+  /// What a test is told each time the elements under this one are read.
+  var read: (() -> Void)? = nil
+
+  /// True while Logic holds this row or this region item selected. No tree carries a selection,
+  /// command reads this through the closures of `EventList.Actions` or of `RegionSelection`, and
+  /// never through `AXNode`.
   var held = false
+
+  private let kept: [any AXNode]
 
   init(of node: any AXNode) {
     role = node.role
@@ -80,47 +99,220 @@ private final class Element: AXNode {
     description = node.description
     help = node.help
     actions = node.actions
-    children = node.children.map { Element(of: $0) }
+    kept = node.children.map { Element(of: $0) }
   }
 
   init(role: String, children: [any AXNode]) {
     self.role = role
-    self.children = children
+    kept = children
+  }
+
+  /// Forgets the reads made while the fake was built.
+  func forget() {
+    reads = 0
   }
 }
 
-/// A Logic that shows the Event List of one region, and moves what it is asked to move.
+/// The Tracks window of a project whose tracks 3, 4 and 5 each carry a region.
 ///
-/// The window is the tree `inspect` recorded from Logic 12.3.1, read once. A write at a row holds
-/// that row. A step of a slider changes the number Logic shows on it, which is where the reader of
-/// the notes takes a velocity from, and leaves the scaled number under it, which no reader turns
-/// back into a velocity.
+/// `mixer-and-event-list-in-front.json` is a whole application, and its Tracks window is the one
+/// recorded tree that holds a region item on more than one track. Only that window is taken, so the
+/// Event List of this test is the one its notes were read from.
+private func theTracksWindowOfThreeRegions() throws -> any AXNode {
+  let application = try recorded("mixer-and-event-list-in-front.json")
+  guard
+    let window = application.children.first(where: { ($0.title ?? "").hasSuffix(" - Tracks") })
+  else {
+    throw AFakeLogic.ShowsNoTracksWindow()
+  }
+  return window
+}
+
+/// A Logic that shows the Tracks window of a project and the Event List of one region, and moves
+/// what it is asked to move.
+///
+/// The windows are the trees `inspect` recorded from Logic 12.3.1, read once. A write at a row
+/// that row, and a write at a region item toggles that region, the way Logic answers one. A step of
+/// a slider changes the number Logic shows on it, which is where the reader of the notes takes a
+/// velocity from, and leaves the scaled number under it, which no reader turns back into one.
 private final class AFakeLogic {
-  /// The window Logic is showing.
+  /// None of the windows this fake was given is a Tracks window, so it holds no region to select.
+  struct ShowsNoTracksWindow: Error {}
+
+  /// The window this fake was given holds no table of events, so it holds no row to drive.
+  struct ShowsNoEventList: Error {}
+
+  /// The Event List window Logic is showing.
   let window: Element
+
+  /// The Tracks window Logic is showing.
+  let tracks: Element
 
   /// The rows of the table of events, in the order the table answers them.
   let rows: [Element]
 
+  /// Every region item of the Tracks window, in the order Accessibility answers them.
+  let regions: [Element]
+
   /// How far each step moved a slider, in the order the steps went out.
   private(set) var steps: [Int] = []
 
-  init(showing window: any AXNode) throws {
+  /// What Logic was asked to do, in order, with a repeat of the same thing read as one.
+  private(set) var did: [String] = []
+
+  /// The table of events. A read of it is a read of the Event List.
+  private let table: Element
+
+  /// The region item each track carries, against the number of that track.
+  private let ofTrack: [Int: Element]
+
+  /// True while a write that lets a row go reaches Logic. A Logic that keeps a row takes the
+  /// write, holds the row, and answers a selection nobody asked for.
+  private let letsARowGo: Bool
+
+  /// True while Logic takes no selection write once a slider has moved, which is the Logic that
+  /// keeps the row of the edit after the write back.
+  private let takesNoSelectionAfterTheEdit: Bool
+
+  init(
+    showing window: any AXNode,
+    tracks: any AXNode,
+    theWriteLetsARowGo: Bool = true,
+    theWriteBackTakesNoSelection: Bool = false
+  ) throws {
+    letsARowGo = theWriteLetsARowGo
+    takesNoSelectionAfterTheEdit = theWriteBackTakesNoSelection
     self.window = Element(of: window)
-    let table = try LocatorResolver.element(of: Locators.eventListTable, in: self.window)
-    rows = table.children.compactMap { $0 as? Element }.filter { $0.role == "AXRow" }
+    self.tracks = Element(of: tracks)
+    guard
+      let found = try LocatorResolver.element(of: Locators.eventListTable, in: self.window)
+        as? Element
+    else {
+      throw ShowsNoEventList()
+    }
+    table = found
+    rows = found.children.compactMap { $0 as? Element }.filter { $0.role == "AXRow" }
+    guard let group = AFakeLogic.contents(of: self.tracks) else {
+      throw ShowsNoTracksWindow()
+    }
+    regions = AFakeLogic.regionItems(under: group)
+    ofTrack = AFakeLogic.regionsOfTheTracks(under: group)
+    table.forget()
+    table.read = { [weak self] in self?.record("read the Event List") }
   }
 
   /// The windows Logic is showing.
+  ///
+  /// The Tracks window comes first. A walk looking for the region items stops at the first group it
+  /// finds, so it never reaches the Event List, and a read of that table is a read a command made.
   var tree: LogicTree {
     LogicTree(
       logicVersion: recordedVersion,
-      root: Element(role: "AXApplication", children: [window]))
+      root: Element(role: "AXApplication", children: [tracks, window]))
+  }
+
+  /// How many times anything read the table of the Event List.
+  var readsOfTheEventListTable: Int {
+    table.reads
+  }
+
+  /// How Logic selects a region: a write of `AXSelected` toggles the item it lands on.
+  var selection: AutomationMenus.RegionSelection {
+    AutomationMenus.RegionSelection(
+      holds: { ($0 as? Element)?.held ?? false },
+      write: { item in
+        guard let region = item as? Element else {
+          return
+        }
+        region.held = !region.held
+        self.record("select the region")
+      },
+      same: { one, other in
+        guard let left = one as? Element, let right = other as? Element else {
+          return false
+        }
+        return left === right
+      })
+  }
+
+  /// Says Logic holds the regions of these tracks selected, and no other region.
+  func hold(theRegionsOfTracks tracks: [Int]) {
+    for region in regions {
+      region.held = false
+    }
+    for track in tracks {
+      ofTrack[track]?.held = true
+    }
+  }
+
+  /// The regions Logic holds selected, named by the track each one sits on.
+  var heldRegions: [String] {
+    regions.filter { $0.held }.map { region in
+      guard let track = ofTrack.first(where: { $0.value === region })?.key else {
+        return "a region on no track of its own"
+      }
+      return "the region of track \(track)"
+    }
+  }
+
+  /// Keeps what Logic was asked to do. A repeat of the same thing is read as one, because a walk
+  /// of a window reads what it holds more than once and the order is what a test asks about.
+  private func record(_ what: String) {
+    guard did.last != what else {
+      return
+    }
+    did.append(what)
+  }
+
+  /// The group the Tracks window holds the tracks and their regions in.
+  private static func contents(of node: Element) -> Element? {
+    if node.description == RegionReader.contentsGroup {
+      return node
+    }
+    for child in node.children.compactMap({ $0 as? Element }) {
+      if let found = contents(of: child) {
+        return found
+      }
+    }
+    return nil
+  }
+
+  /// Every region item under one element, at any depth. A region holds no region, so the walk stops
+  /// at the first one it finds on a branch.
+  private static func regionItems(under node: Element) -> [Element] {
+    node.children.compactMap { $0 as? Element }.flatMap { child -> [Element] in
+      child.role == RegionReader.regionRole ? [child] : regionItems(under: child)
+    }
+  }
+
+  /// The region item each track carries, against the number of that track.
+  ///
+  /// A track is the area at its own place under the group, with or without a description, which is
+  /// how the Tracks window of Logic 12.3.1 answers the tracks of a project.
+  private static func regionsOfTheTracks(under group: Element) -> [Int: Element] {
+    let areas = group.children.compactMap { $0 as? Element }
+      .filter { $0.role == RegionReader.trackRole }
+    var found: [Int: Element] = [:]
+    for (place, area) in areas.enumerated() {
+      let items = area.children.compactMap { $0 as? Element }
+        .filter { $0.role == RegionReader.regionRole }
+      if let first = items.first {
+        found[place + 1] = first
+      }
+    }
+    return found
   }
 
   /// Where the rows Logic holds selected sit in the table, from 1.
   var heldRows: [Int] {
     rows.enumerated().filter { $0.element.held }.map { $0.offset + 1 }
+  }
+
+  /// Says Logic holds the rows at these places in the table selected, and no other row.
+  func hold(theRowsAt places: [Int]) {
+    for (place, row) in rows.enumerated() {
+      row.held = places.contains(place + 1)
+    }
   }
 
   /// The number on the velocity slider of every row of the table, in the order of the table. A
@@ -138,7 +330,16 @@ private final class AFakeLogic {
   var actions: EventList.Actions {
     EventList.Actions(
       select: { row, holding in
-        (row as? Element)?.held = holding
+        guard let element = row as? Element else {
+          return
+        }
+        if !holding, !self.letsARowGo {
+          return
+        }
+        if holding, self.takesNoSelectionAfterTheEdit, !self.steps.isEmpty {
+          return
+        }
+        element.held = holding
       },
       selected: { row in
         (row as? Element)?.held ?? false
@@ -170,6 +371,18 @@ private final class AFakeLogic {
     element.valueDescription = String(number(of: element) + step)
     steps.append(step)
   }
+}
+
+/// A Logic showing the Tracks window of three regions and the Event List of a region of four notes.
+private func aLogicShowingTheTracksAndTheEventList(
+  theWriteLetsARowGo: Bool = true,
+  theWriteBackTakesNoSelection: Bool = false
+) throws -> AFakeLogic {
+  try AFakeLogic(
+    showing: try recorded("event-list-automation.json"),
+    tracks: try theTracksWindowOfThreeRegions(),
+    theWriteLetsARowGo: theWriteLetsARowGo,
+    theWriteBackTakesNoSelection: theWriteBackTakesNoSelection)
 }
 
 /// A project of one track that carries one region, which is what `--track 4 --region 1` names.
@@ -205,6 +418,7 @@ private func midiVelocity(
     of: { logic.tree },
     confirmed: velocity.guarded.confirm,
     events: logic.actions,
+    selection: logic.selection,
     root: root ?? URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
     git: git,
     capturer: NoPictureOfTheWindow(),
@@ -232,7 +446,7 @@ private func midiVelocity(
 /// command with `note_not_found`, and the count of the notes goes out with it, so a person asks
 /// again without opening Logic to look. Nothing is selected and no slider moves.
 @Test func velocityChangesOnlyItsNote() throws {
-  let logic = try AFakeLogic(showing: try recorded("event-list-automation.json"))
+  let logic = try aLogicShowingTheTracksAndTheEventList()
   let before = try EventList.notes(in: try #require(EventList.window(of: logic.tree)))
   try #require(
     before.map(\.velocity) == [100, 70, 100, 64], "the four velocities Logic recorded")
@@ -266,13 +480,13 @@ private func midiVelocity(
     logic.velocities == [60, 100, 90, 100, 64, 90, 110],
     "the three volume points read 60, 90 and 110, as Logic recorded them")
   #expect(
-    logic.heldRows == [3],
-    "Logic holds the row of note 2, which is the third row of the table, and holds no other row")
+    logic.heldRows == [],
+    "nothing was selected before, so the empty selection goes back and note 2 is let go")
   #expect(
     logic.steps == [10, 10],
     "70 reaches 90 in two steps of the slider, which moves 10 at a time")
 
-  let untouched = try AFakeLogic(showing: try recorded("event-list-automation.json"))
+  let untouched = try aLogicShowingTheTracksAndTheEventList()
   let refused = try midiVelocity(
     ["midi", "velocity", "--track", "4", "--region", "1", "--note", "9", "--value", "90"],
     against: untouched)
@@ -379,7 +593,7 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
   defer { try? FileManager.default.removeItem(at: root) }
   let git = try gitThatSigns(inside: root)
   let session = try aSessionTheyMade(inside: root, with: git)
-  let logic = try AFakeLogic(showing: try recorded("event-list-automation.json"))
+  let logic = try aLogicShowingTheTracksAndTheEventList()
   let theirs = try EventList.notes(in: try #require(EventList.window(of: logic.tree)))
   try #require(
     theirs.map(\.velocity) == [100, 70, 100, 64], "the four velocities the person left")
@@ -417,7 +631,7 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
     try subjects(of: session.folder, with: git) == ["session \(session.session.shortId)"],
     "the session of the person gained nothing")
 
-  let allowed = try AFakeLogic(showing: try recorded("event-list-automation.json"))
+  let allowed = try aLogicShowingTheTracksAndTheEventList()
   let said = try midiVelocity(
     [
       "midi", "velocity", "--track", "4", "--region", "1", "--note", "2", "--value", "90",
@@ -439,4 +653,143 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
   #expect(
     try subjects(of: session.folder, with: git).first == "1 midi velocity",
     "the session holds the change the person allowed, and only that one")
+}
+
+/// An agent changes the velocity of a note of one region, and the note it moves is in that region.
+///
+/// The Event List shows the region Logic holds selected. Measured on Logic 12.3.1 on 2026-09-27:
+/// after a take, Logic held the regions of two tracks selected, and a read of a third region
+/// answered the events of one of those two. This command goes further than a read: it finds the row
+/// of `--note 2` in the list, holds that row and moves its slider. So a list of the wrong region
+/// means the velocity of a note of another part of the song changes, while the answer names the
+/// region a person asked for and the note they asked for.
+///
+/// So the region the command names is the only region Logic holds before any row is read.
+@Test func velocityChangesTheNoteOfTheNamedRegion() throws {
+  let logic = try aLogicShowingTheTracksAndTheEventList()
+  logic.hold(theRegionsOfTracks: [5])
+  try #require(
+    logic.heldRegions == ["the region of track 5"],
+    "Logic holds the region of another track, as it does after a take")
+
+  let answer = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "2", "--value", "90"],
+    against: logic)
+
+  #expect(
+    logic.heldRegions == ["the region of track 5"],
+    "the region Logic held is back, because the edit gives the selection back when it ends")
+  #expect(
+    logic.did == ["select the region", "read the Event List", "select the region"],
+    "the region is selected before a row is read, and it goes back when the edit ends")
+  #expect(try answer.data()["velocity"] as? Int == 90, "the velocity the slider reads afterwards")
+  #expect(answer.status == 0, "the command exits 0")
+}
+
+/// The edit gives the regions back as well as the rows, and it gives the rows back first.
+///
+/// A person is working on the regions of tracks 3 and 5 and asks for a note of a region of track 4.
+/// The Event List shows whichever region Logic holds, so the edit takes the selection down to that
+/// one region, and it hands both selections back when it ends: the rows of the list first, while
+/// their region is still selected, and the regions after them.
+@Test func velocityPutsBackTheSelectedRegions() throws {
+  let logic = try aLogicShowingTheTracksAndTheEventList()
+  logic.hold(theRegionsOfTracks: [3, 5])
+
+  let answer = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "2", "--value", "90"],
+    against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.data()["velocity"] as? Int == 90, "note 2 carries the velocity asked for")
+  #expect(
+    logic.heldRegions == ["the region of track 3", "the region of track 5"],
+    "the regions of tracks 3 and 5 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other edit")
+}
+
+/// An edit gives the selection back, because the selection is the work of the person at the
+/// keyboard.
+///
+/// A person selects the rows they are working on, in this table the rows of note 1 and note 2, and
+/// that selection is where they are in the piece. Logic applies an edit to every selected row, so
+/// this command takes the selection down to the one row it edits. That is the right thing to do and
+/// it costs the person their place: the two rows they had are gone, the answer says nothing about
+/// it, and the next thing they press in Logic lands on the row logicctl left behind.
+///
+/// So the edit gives it back. The rows of note 1 and note 2 are selected again when the command
+/// ends, the velocity of note 1 is the only number that moved, and the answer does not change,
+/// because a selection that went back is not news.
+///
+/// The second run is the Logic that does not take the rows back. The edit is already done by then,
+/// so the command still answers success, and it carries `selectionRestored` false and the names of
+/// the rows, which is what a person needs to select them again without opening Logic to look.
+///
+/// The third run is the Logic that keeps a row, which is the refusal the guard exists for. The
+/// command changes nothing and answers `selection_mismatch`, and the rows of the person still go
+/// back, because a command that refused took their selection away just the same.
+@Test func anEditPutsBackTheSelectedRows() throws {
+  let logic = try aLogicShowingTheTracksAndTheEventList()
+  logic.hold(theRowsAt: [2, 3])
+  try #require(
+    logic.heldRows == [2, 3],
+    "Logic holds the rows of note 1 and note 2, which is where the person was working")
+
+  let answer = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.data()["velocity"] as? Int == 90, "note 1 carries the velocity asked for")
+  #expect(
+    logic.velocities == [60, 90, 70, 100, 64, 90, 110],
+    "one number of the column moved, and the other six are the ones Logic recorded")
+  #expect(logic.steps == [-10], "100 reaches 90 in one step of the slider")
+  #expect(
+    logic.heldRows == [2, 3],
+    "the rows of note 1 and note 2 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other edit")
+
+  let keeping = try aLogicShowingTheTracksAndTheEventList(theWriteBackTakesNoSelection: true)
+  keeping.hold(theRowsAt: [2, 3])
+
+  let said = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: keeping)
+
+  #expect(said.status == 0, "the edit went through, so a selection that stayed put fails nothing")
+  #expect(try said.data()["velocity"] as? Int == 90, "note 1 carries the velocity asked for")
+  #expect(keeping.heldRows == [2], "Logic kept the row of the edit and took no selection back")
+  let details = try said.details()
+  #expect(
+    details["selectionRestored"] as? Bool == false, "the answer says the rows did not go back")
+  #expect(
+    details["selectionBefore"] as? [String] == ["note 1", "note 2"],
+    "the rows the person had selected, so they select them again without looking")
+
+  let kept = try aLogicShowingTheTracksAndTheEventList(theWriteLetsARowGo: false)
+  kept.hold(theRowsAt: [2, 3])
+
+  let refused = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: kept)
+
+  #expect(refused.status == 20, "the number the design system gives selection_mismatch")
+  #expect(
+    try refused.failure()["code"] as? String == "selection_mismatch",
+    "Logic holds a row nobody named, so no edit goes out")
+  #expect(kept.steps == [], "no slider moved")
+  #expect(
+    kept.velocities == [60, 100, 70, 100, 64, 90, 110],
+    "every velocity and every volume point is the one Logic recorded")
+  #expect(
+    kept.heldRows == [2, 3],
+    "a command that refused took the selection away too, so it goes back as well")
+  #expect(
+    (try refused.failure()["details"] as? [String: Any] ?? [:]).keys.sorted() == ["selected"],
+    "the rows went back, so the refusal says what it always said")
 }

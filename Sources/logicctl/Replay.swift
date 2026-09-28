@@ -26,6 +26,10 @@ struct Replay: ParsableCommand {
       step. A replay that skipped a step, or found a difference, fails with replay_differences and \
       carries the whole report.
 
+      A recorded save is not written to the path it was recorded with. replay saves into a folder \
+      of its own under logicctl-replays in the home folder, under the file name of that path, so a \
+      replay never writes over the project of a person.
+
       --from and --to are step numbers, counted from 1, as `show` counts them, and a step at \
       either end is inside the range. A range that starts after step 1 runs on a new project, \
       and logicctl gives no warning, so the project misses the work of every step before the \
@@ -80,14 +84,19 @@ struct Replay: ParsableCommand {
 extension Replay {
   /// Runs one session again, prints the envelope, and answers the number the process exits with.
   ///
-  /// The chooser, the driver and the runner are given rather than reached for, so the pipeline
-  /// drives the whole command against a Logic and a session of its own.
+  /// The chooser, the driver, the actions, the panel and the runner are given rather than reached
+  /// for, so the pipeline drives the whole command against a Logic and a session of its own.
+  /// `home` is the home folder the saves of a replay go under, and in the pipeline it is a folder
+  /// of the test.
   static func answer(
     session id: String,
     from: Int? = nil,
     to: Int? = nil,
     chooser: ProjectChooser,
     driver: any LogicDriver,
+    actions: TrackActions = TrackActions.live(),
+    dialog: SaveDialog = SaveDialog.live(),
+    home: URL = FileManager.default.homeDirectoryForCurrentUser,
     runner: SessionReplay.Runner? = nil,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
@@ -126,13 +135,23 @@ extension Replay {
       let repository = try SessionRepository.start(
         session: fresh, root: root, state: made, git: git, lock: lock)
 
+      let runs =
+        runner
+        ?? Replay.liveRunner(
+          readingThrough: driver,
+          acting: actions,
+          saving: dialog,
+          into: Replay.saveFolder(ofSession: fresh.id, under: home),
+          limitMs: limitMs,
+          clock: clock,
+          sleeper: sleeper)
       let outcome = try SessionReplay.compare(
         steps: steps,
         of: source,
         into: repository,
         startingFrom: made,
         now: now,
-        through: runner ?? Replay.liveRunner(readingThrough: driver))
+        through: runs)
       let meta = AnswerMeta.run(
         version: version, session: fresh.id, step: outcome.lastStep, externalChange: nil,
         from: started, to: now())
@@ -142,8 +161,9 @@ extension Replay {
       }
       return printer.write(Envelope.success(data: outcome.report.json, meta: meta))
     } catch {
-      // Nothing of the replay was recorded, so there is no session and no step to name. A replay
-      // that could not start its new project has nowhere to replay into, and it stops here.
+      // The answer names no session and no step, because most of what stops a replay stops it
+      // before there is a project to replay into. A recorded command this build cannot read stops
+      // one that did start, and that session is on disk with the checks it wrote before the stop.
       return printer.write(
         Envelope.failure(
           Replay.failure(of: error),
@@ -252,16 +272,139 @@ extension Replay {
 
   /// What this build of logicctl can run again, by the name the record carries.
   ///
-  /// replay opens a new project itself, so a `new-project` step is repeated by that. No other
-  /// command reaches the project yet, so a record of one is skipped with `no_such_command` and the
-  /// replay fails saying so. Each part of the tool that adds a command adds it here.
-  static func liveRunner(readingThrough driver: any LogicDriver) -> SessionReplay.Runner {
+  /// replay opens a new project itself, so a `new-project` step is repeated by that. Every other
+  /// step is the command the record names, built again from the arguments the record carries and
+  /// acted on the project the replay made. A record of a command this build does not have is
+  /// skipped with `no_such_command` and the replay fails saying so. Each part of the tool that adds
+  /// a command adds it here.
+  ///
+  /// The command acts, and it does not go through `Run`. A run writes a step into the session of
+  /// the project it worked on, and a replay writes a check of its own for every step it ran, so a
+  /// step there would record the work of the session twice.
+  ///
+  /// The project of a replay is made by logicctl, so no command of a replay is guarded and none of
+  /// them needs `--confirm`.
+  static func liveRunner(
+    readingThrough driver: any LogicDriver,
+    acting actions: TrackActions,
+    saving dialog: SaveDialog,
+    into folder: URL,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper,
+    files: FileManager = .default
+  ) -> SessionReplay.Runner {
     { (step: RecordedStep) -> ReplayRun in
-      guard step.command == "new-project" else {
+      guard step.command != "new-project" else {
+        return ReplayRun.ran(try driver.readState())
+      }
+      guard
+        let command = try Replay.work(
+          of: step, acting: actions, saving: dialog, into: folder, limitMs: limitMs, clock: clock,
+          sleeper: sleeper, files: files)
+      else {
         return ReplayRun.noSuchCommand
       }
+      _ = try command.act(through: driver)
       return ReplayRun.ran(try driver.readState())
     }
+  }
+
+  /// The command one recorded step runs again, or nothing when this build has no command of that
+  /// name.
+  ///
+  /// The arguments are read by the parser of the subcommand itself, so a record is read the way the
+  /// line a person typed is read, and one place says what each flag means. A record this build
+  /// cannot read stops the replay with the reason, because `no_such_command` says that the name is
+  /// unknown and the name is known here.
+  static func work(
+    of step: RecordedStep,
+    acting actions: TrackActions,
+    saving dialog: SaveDialog,
+    into folder: URL,
+    limitMs: Int,
+    clock: @escaping Wait.Clock,
+    sleeper: @escaping Wait.Sleeper,
+    files: FileManager
+  ) throws -> (any LogicCommand)? {
+    guard let command = step.command else {
+      return nil
+    }
+    switch command {
+    case "tracks list":
+      return TracksListCommand(argv: step.argv)
+    case "tracks add":
+      let typed = try Tracks.Add.parse(step.argv)
+      return TracksAddCommand(
+        argv: step.argv, type: typed.type, actions: actions, limitMs: limitMs, clock: clock,
+        sleeper: sleeper)
+    case "tracks rename":
+      let typed = try Tracks.Rename.parse(step.argv)
+      return TracksRenameCommand(
+        argv: step.argv, index: typed.track.index.value, newName: typed.name, actions: actions,
+        limitMs: limitMs, clock: clock, sleeper: sleeper)
+    case "tracks mute":
+      let typed = try Tracks.Mute.parse(step.argv)
+      return TracksMuteCommand(
+        argv: step.argv, index: typed.track.index.value, muted: try typed.muting.state(),
+        actions: actions, limitMs: limitMs, clock: clock, sleeper: sleeper)
+    case "tracks solo":
+      let typed = try Tracks.Solo.parse(step.argv)
+      return TracksSoloCommand(
+        argv: step.argv, index: typed.track.index.value, soloed: try typed.soloing.state(),
+        actions: actions, limitMs: limitMs, clock: clock, sleeper: sleeper)
+    case "tracks delete":
+      let typed = try Tracks.Delete.parse(step.argv)
+      return TracksDeleteCommand(
+        argv: step.argv, index: typed.track.index.value, actions: actions, limitMs: limitMs,
+        clock: clock, sleeper: sleeper)
+    case "save":
+      let typed = try Save.parse(step.argv)
+      let path = try Replay.savePath(ofRecorded: typed.path, into: folder, files: files)
+      return SaveCommand(
+        argv: step.argv, path: path, dialog: dialog, limitMs: limitMs, clock: clock,
+        sleeper: sleeper)
+    default:
+      return nil
+    }
+  }
+
+  /// The folder one replay saves into: `logicctl-replays` under the home folder, and the id of the
+  /// replay under that.
+  ///
+  /// The id is the one of the session the replay records its own work in, so two replays never
+  /// write to one path, and a person reads which replay left a file behind. One folder holds every
+  /// replay, so a person removes the work of all of them together.
+  ///
+  /// The home folder is what the Save panel of Logic can reach. The panel walks the path one
+  /// column at a time, and the first column lists no `var`, so a save under the temporary folder of
+  /// macOS, which is under `/var`, waits for a column that never comes and stops with `timeout`.
+  static func saveFolder(ofSession id: String, under home: URL) -> URL {
+    home.appendingPathComponent("logicctl-replays").appendingPathComponent(id)
+  }
+
+  /// Where a recorded `save` writes in a replay: the folder of the replay under the home folder,
+  /// under the file name the record carries.
+  ///
+  /// The path of the record is where a person keeps their work, and a `.logicx` holds hours of it
+  /// that nothing brings back, so a replay writes nowhere near it. The folder of the replay is made
+  /// here, because a replay of a session that holds no save needs no folder at all.
+  ///
+  /// Anything already at that name goes first. macOS asks whether to replace a file that is in the
+  /// way, logicctl presses no button in a dialog, and a session that saves the same name twice
+  /// would reach that question on its second save. The folder belongs to this replay alone, so the
+  /// file that goes is one this replay wrote a moment ago.
+  static func savePath(
+    ofRecorded recorded: String, into folder: URL, files: FileManager = .default
+  ) throws -> String {
+    let name = URL(fileURLWithPath: recorded).lastPathComponent
+    try files.createDirectory(at: folder, withIntermediateDirectories: true)
+    let path = folder.appendingPathComponent(name).path
+    guard files.fileExists(atPath: path) else {
+      return path
+    }
+    try files.removeItem(atPath: path)
+    return path
   }
 
   /// The failure of a replay that did not repeat the work.

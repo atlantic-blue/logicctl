@@ -110,6 +110,48 @@ private let somewhere = CGPoint(x: 120, y: 340)
   #expect(recorder.events == [.mouseDown(somewhere), .mouseUp(somewhere)])
 }
 
+/// Logic opens the name editor of a track header on a double click, so a double click is something
+/// the gate can send, and it says which of the two clicks each event belongs to.
+///
+/// The window server tells one click from two by the click state an event carries. Two presses that
+/// both said 1 are two single clicks, and Logic answers those by selecting the track and no more.
+/// So the second press and release say 2, and the editor opens.
+@Test func theGateSendsTheDoubleClickWhenEveryCheckHolds() throws {
+  let recorder = Recorder()
+  let target = AXUIElementCreateApplication(501)
+  let proven = gate(atPoint: target, sendingTo: recorder)
+
+  try proven.post(.doubleClick(somewhere, target: target))
+
+  #expect(
+    recorder.events == [
+      .mouseDown(somewhere), .mouseUp(somewhere),
+      .secondMouseDown(somewhere), .secondMouseUp(somewhere),
+    ],
+    "two clicks at the one point, each a press and a release")
+  #expect(
+    recorder.events.map(\.clickState) == [1, 1, 2, 2],
+    "and the second click says it is the second, which is what makes it a double click")
+}
+
+/// A double click is aimed the way a click is, so the gate refuses one whose point carries another
+/// element.
+///
+/// A double click that landed on the header of another track would open the editor of that track,
+/// and the name would go into it. The rename then reads the old name back and reports a timeout,
+/// while another track of the project carries a name nobody asked for.
+@Test func theGateRefusesADoubleClickWhenTheTargetIsNotAtThePoint() {
+  let recorder = Recorder()
+  let target = AXUIElementCreateApplication(501)
+  let anotherElement = AXUIElementCreateApplication(502)
+  let proven = gate(atPoint: anotherElement, sendingTo: recorder)
+
+  #expect(throws: InputGate.Refusal.theElementAtThePointIsNotTheTarget) {
+    try proven.post(.doubleClick(somewhere, target: target))
+  }
+  #expect(recorder.events.isEmpty, "no editor opens anywhere when the aim is wrong")
+}
+
 /// A key on the element that holds the focus reaches Logic, as a press and a release.
 @Test func theGateSendsTheKeyWhenEveryCheckHolds() throws {
   let recorder = Recorder()
@@ -151,4 +193,36 @@ private let somewhere = CGPoint(x: 120, y: 340)
     #expect(!text.contains("CGEvent("), "\(file.lastPathComponent) makes an event of its own")
     #expect(!text.contains("CGEventPost"), "\(file.lastPathComponent) posts an event of its own")
   }
+}
+
+/// Logic says whether Logic is in front, and nothing else is asked.
+///
+/// The gate sends an event to the window server, and the window server hands it to whichever
+/// application is in front. So the gate reads that before it sends, and the read has to be a read
+/// Logic answers. Measured on Logic 12.3.1 on 2026-09-27, with Logic in front and `status`
+/// answering frontmost true: `kAXFocusedApplicationAttribute` on the system wide element answered
+/// error -25204 five times out of five, and `kAXFrontmostAttribute` on the application element of
+/// Logic answered success and true five times out of five. `tracks mute --index 1 --on` refused
+/// with `logicIsNotFrontmost` while Logic was in front.
+///
+/// Only a successful read of a true says Logic is in front. An error says nothing. A missing value
+/// says nothing. A value of another kind says nothing. The gate reads all three as not frontmost,
+/// because an event sent on a value nobody answered reaches whatever application is there, and no
+/// later read of Logic can tell that it happened.
+@Test func theGateReadsFrontmostFromTheLogicApplicationElement() {
+  let answered = AXError.success.rawValue
+  let refused = AXError.cannotComplete.rawValue
+
+  #expect(
+    InputGate.isFrontmost(read: answered, value: true as CFTypeRef),
+    "Logic answers that it is in front, so the gate may send the event")
+  #expect(
+    InputGate.isFrontmost(read: answered, value: false as CFTypeRef) == false,
+    "Logic answers that another application is in front")
+  #expect(
+    InputGate.isFrontmost(read: answered, value: "true" as CFTypeRef) == false,
+    "a value that is not a boolean is not an answer about the front application")
+  #expect(
+    InputGate.isFrontmost(read: refused, value: nil) == false,
+    "the read that answered -25204 on this Mac says nothing about the front application")
 }

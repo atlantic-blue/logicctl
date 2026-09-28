@@ -68,11 +68,15 @@ extension Automation.Add {
   /// The driver, the tree and the menus are given rather than reached for, so the pipeline drives
   /// the same command against a Logic of its own: the driver says what the project holds, the tree
   /// is the windows Logic is showing, and the menus are what Logic is asked to do.
+  ///
+  /// A caller that names no menus gets the menus of this Mac selecting through the selection below.
+  /// The command gives the selection of the person back when it ends, and what it read before it
+  /// wrote lives in that one value, so the first selection and the write back cannot sit on two.
   func answer(
     driver: any LogicDriver,
     of source: @escaping () throws -> LogicTree,
     confirmed: Bool,
-    menus: AutomationMenus = AutomationMenus.live(),
+    menus: AutomationMenus? = nil,
     selection: AutomationMenus.RegionSelection = AutomationMenus.RegionSelection.live(),
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
@@ -99,8 +103,14 @@ extension Automation.Add {
       lock: lock,
       capturer: capturer)
     let command = AutomationAddCommand(
-      target: region, menus: menus, selection: selection, source: source, argv: argv,
-      limitMs: limitMs, clock: clock, sleeper: sleeper)
+      target: region,
+      menus: menus ?? AutomationMenus.live(selecting: selection),
+      selection: selection,
+      source: source,
+      argv: argv,
+      limitMs: limitMs,
+      clock: clock,
+      sleeper: sleeper)
     return printer.write(run.run(change: command, confirmed: confirmed))
   }
 }
@@ -139,6 +149,12 @@ struct AutomationAddCommand: LogicCommand {
 
   /// How the wait sleeps between two reads.
   let sleeper: Wait.Sleeper
+
+  /// The regions Logic held before this command selected the one it was asked about, when they did
+  /// not go back.
+  var detailsBesideTheAnswer: JSONValue? {
+    selection.kept.details
+  }
 
   /// Logic is not showing the region anywhere, so there is nothing to select and nothing to make
   /// points at the borders of.
@@ -268,6 +284,10 @@ struct AutomationAddCommand: LogicCommand {
     else {
       throw NoRegionItem(track: track, region: region.index)
     }
+    // The points are made at the borders of the selected region, so the command takes the selection
+    // down to one region and gives it back however it ends: after the points were made, after a
+    // later failure, and after the selection was refused.
+    defer { selection.putTheSelectionBack(under: { try source().root }) }
     try menus.addPoints(atTheBordersOf: item)
     guard EventList.window(of: try source()) != nil else {
       throw NoEventListAfter(track: track, region: region.index)

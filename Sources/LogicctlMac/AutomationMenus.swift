@@ -511,14 +511,35 @@ extension AutomationMenus {
     /// Answers whether two nodes are the one element of the tree.
     public typealias Same = (any AXNode, any AXNode) -> Bool
 
+    /// The selection Logic held when this value first wrote, as one answer per region item, in the
+    /// order the walk reads them.
+    ///
+    /// A command selects a region more than once: `automation add` lets it go and takes it again so
+    /// Logic draws it in the Event List. The second read is already the region that command named,
+    /// so only the first read is kept, and that is the one the person made.
+    final class FirstRead {
+      var held: [Bool]?
+    }
+
     public let holds: Holds
     public let write: Write
     public let same: Same
 
-    public init(holds: @escaping Holds, write: @escaping Write, same: @escaping Same) {
+    /// The regions Logic held before this value wrote, and whether they went back.
+    public let kept: SelectionGuard.Kept
+
+    private let first = FirstRead()
+
+    public init(
+      holds: @escaping Holds,
+      write: @escaping Write,
+      same: @escaping Same,
+      kept: SelectionGuard.Kept = SelectionGuard.Kept()
+    ) {
       self.holds = holds
       self.write = write
       self.same = same
+      self.kept = kept
     }
 
     /// Makes one region the only region Logic holds selected, under the element given.
@@ -533,6 +554,7 @@ extension AutomationMenus {
       let items = AutomationMenus.regionItems(under: root)
       let wanted = items.map { same($0, region) }
       let held = try items.map(holds)
+      keep(held, of: items)
       for place in items.indices where held[place] != wanted[place] {
         try write(items[place])
       }
@@ -543,15 +565,61 @@ extension AutomationMenus {
           selected: zip(items, now).filter { $0.1 }.map { $0.0.description ?? "" })
       }
     }
+
+    /// Selects the regions Logic held before this value wrote, and reads them back.
+    ///
+    /// A selection says which part of the song the person is working on, so a command gives it back
+    /// when it ends. This never fails a command: the work is done by then, and a selection that did
+    /// not go back is something the answer says rather than something a caller acts on.
+    ///
+    /// The tree is walked again, because an element of an earlier walk answers the Logic of that
+    /// walk. A walk that answers another number of regions is written nothing at all, because the
+    /// places of the first read name no item of this one.
+    public func putTheSelectionBack(under root: () throws -> any AXNode) {
+      guard let wanted = first.held else {
+        return
+      }
+      do {
+        let items = AutomationMenus.regionItems(under: try root())
+        guard items.count == wanted.count else {
+          kept.wentBack(false)
+          return
+        }
+        let held = try items.map(holds)
+        for place in items.indices where held[place] != wanted[place] {
+          try write(items[place])
+        }
+        let now = try items.map(holds)
+        kept.wentBack(now == wanted)
+      } catch {
+        kept.wentBack(false)
+      }
+    }
+
+    /// Keeps the selection Logic held when this value first wrote.
+    private func keep(_ held: [Bool], of items: [any AXNode]) {
+      guard first.held == nil else {
+        return
+      }
+      first.held = held
+      kept.read(zip(items, held).filter { $0.1 }.map { $0.0.description ?? "" })
+    }
   }
 }
 
 extension AutomationMenus {
   /// The Logic of this Mac, raised and selected in its window, and pressed through its menu bar.
-  public static func live() -> AutomationMenus {
+  ///
+  /// The selection is given rather than made here, because a command gives the selection of the
+  /// person back when it ends, and what it read before it wrote lives in that one value.
+  public static func live(selecting selection: RegionSelection = RegionSelection.live())
+    -> AutomationMenus
+  {
     AutomationMenus(
       press: AutomationMenus.pressInTheMenuBarOfThisMac,
-      select: AutomationMenus.selectInTheLogicOfThisMac,
+      select: { region in
+        try AutomationMenus.selectInTheLogicOfThisMac(region, through: selection)
+      },
       raiseTheTracksWindow: AutomationMenus.raiseTheTracksWindowOfThisMac)
   }
 
@@ -652,13 +720,23 @@ extension AutomationMenus {
   /// one region is found in the new tree by its element, the way the input gate finds the element
   /// under the pointer.
   public static func selectInTheLogicOfThisMac(_ region: any AXNode) throws {
+    try selectInTheLogicOfThisMac(region, through: RegionSelection.live())
+  }
+
+  /// The same selection, through the value the caller holds.
+  ///
+  /// A command that gives the selection back holds one `RegionSelection` from end to end, because
+  /// the regions Logic held before the command wrote live in that value.
+  public static func selectInTheLogicOfThisMac(
+    _ region: any AXNode, through selection: RegionSelection
+  ) throws {
     guard region is LiveAXNode else {
       throw Refusal(
         reason: "the region was found in a recorded tree, which nothing can select.",
         code: .internalFailure)
     }
     let tree = try LogicTree.ofRunningLogic()
-    try RegionSelection.live().makeTheOnlySelection(region, under: tree.root)
+    try selection.makeTheOnlySelection(region, under: tree.root)
   }
 
   /// Reads whether the running Logic holds one region item selected.

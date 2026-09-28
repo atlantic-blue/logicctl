@@ -112,7 +112,7 @@ private func tracksSolo(
   let time = SoloTime()
   do {
     let command = try Tracks.Solo.parse(line)
-    let actions = TrackActions(pressInWindow: { locator in
+    let actions = TrackActions(click: { locator in
       buttons.pressed.append(locator)
       press(driver)
     })
