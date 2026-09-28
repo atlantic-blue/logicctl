@@ -58,12 +58,23 @@ public struct SelectionGuard {
     /// What the answer of a command says about the selection, or nothing when there is nothing to
     /// say. Rows that went back change no answer.
     public var details: JSONValue? {
-      guard restored == false, let before else {
+      Kept.details(of: [self])
+    }
+
+    /// What the answer of a command says about every selection it took away, or nothing when each
+    /// of them went back.
+    ///
+    /// A command of a region holds two selections: the rows of the Event List, and the regions of
+    /// the Tracks window. One JSON object carries one field of each name, so the names of
+    /// everything that stayed put go into one list, in the order the caller gives them.
+    public static func details(of kept: [Kept]) -> JSONValue? {
+      let stayed = kept.filter { $0.restored == false }
+      guard !stayed.isEmpty else {
         return nil
       }
       return .object([
         "selectionRestored": .bool(false),
-        "selectionBefore": .array(before.map(JSONValue.string)),
+        "selectionBefore": .array(stayed.flatMap { $0.before ?? [] }.map(JSONValue.string)),
       ])
     }
 

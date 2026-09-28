@@ -128,9 +128,9 @@ struct AutomationSetCommand: LogicCommand {
   /// back when it ended.
   let kept = SelectionGuard.Kept()
 
-  /// The rows the person had selected, when the edit did not give them back.
+  /// The rows and the regions the person had selected, when the edit did not give them back.
   var detailsBesideTheAnswer: JSONValue? {
-    kept.details
+    SelectionGuard.Kept.details(of: [kept, selection.kept])
   }
 
   /// Logic is showing no Event List, so there is no point to change.
@@ -258,6 +258,10 @@ struct AutomationSetCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    // The edit takes the selection down to one region as well as one row, so the regions go back
+    // however it ends. The rows go back before them, because the Event List shows the rows of the
+    // region it holds, and a defer runs last in first out.
+    defer { selection.putTheSelectionBack(under: { try source().root }) }
     try RegionTarget.selectOnly(
       target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {
