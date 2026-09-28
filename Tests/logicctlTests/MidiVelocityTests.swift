@@ -481,8 +481,7 @@ private func midiVelocity(
     "the three volume points read 60, 90 and 110, as Logic recorded them")
   #expect(
     logic.heldRows == [],
-    "nothing was selected before the command, so the empty selection goes back as empty and the "
-      + "row of note 2 is let go")
+    "nothing was selected before, so the empty selection goes back and note 2 is let go")
   #expect(
     logic.steps == [10, 10],
     "70 reaches 90 in two steps of the slider, which moves 10 at a time")

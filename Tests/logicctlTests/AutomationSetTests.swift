@@ -490,8 +490,7 @@ private func automationSet(_ arguments: [String], against logic: AFakeLogic) thr
     "one number of the column changed, and it is the one the command was given")
   #expect(
     logic.heldRows == [],
-    "nothing was selected before the command, so the empty selection goes back as empty and the "
-      + "row of point 1 is let go")
+    "nothing was selected before, so the empty selection goes back and point 1 is let go")
   #expect(
     logic.steps == [10, 10, 10, 10],
     "60 reaches 100 in four steps of the slider, which moves 10 at a time")
