@@ -166,6 +166,23 @@ private func aProject(withTrackNamed name: String, savedAt moment: Date) -> Stat
     tracks: [Track(index: 1, name: name, type: .softwareInstrument)])
 }
 
+/// What Logic called the new project when the work was recorded, and when it was replayed.
+///
+/// Logic names a new project "Untitled" and the first number the music folder has not taken, so
+/// two runs on one Mac read two names for the same command. These are the two names the live run
+/// of phase 7 read: the record of the phase 2 session against a replay of it.
+private let theNameTheRecordRead = "Untitled 2"
+private let theNameTheReplayRead = "Untitled 4"
+
+/// The project a new project leaves, under one name.
+private func aProject(named name: String) -> State {
+  State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: name),
+    transport: Transport(tempo: 120),
+    tracks: [theFirstTrack])
+}
+
 /// The session of the work that is replayed.
 private func aRecordedSession() -> Session {
   Session(
@@ -1170,4 +1187,102 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   #expect(
     !FileManager.default.fileExists(atPath: "/some/where/Phase2.logicx"),
     "and nothing was written where the record points")
+}
+
+/// A replay answers on the work a person did, and never on the name Logic picked for a new project.
+///
+/// Logic names a new project "Untitled" and the first number the music folder has not taken. The
+/// number depends on what that folder holds at the moment the project is made, so the record of a
+/// morning reads "Untitled 2" and a replay of it reads "Untitled 4". Nobody did anything
+/// different. A comparison that read the name after a new project would answer a difference at
+/// the first step of every session, and a person who replays a session to learn whether the work
+/// repeats would be told no every time, about a number the music folder chose.
+///
+/// So the name is out of the comparison after a new project, on both sides, and after nothing
+/// else. After a save the name is the name of the file, which is work: a project that came back
+/// under another name there means the save did not put it where the record says, and that still
+/// fails the replay with the field named. The journal keeps the name: every state records it and
+/// every hash reads it.
+@Test func replayLeavesTheNameOfANewProjectOutOfTheComparison() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+
+  let recorded = try Recording(root: root, git: git)
+  try recorded.wrote(
+    .command, command: "new-project", leaving: aProject(named: theNameTheRecordRead))
+  try recorded.wrote(
+    .command, command: "save", argv: ["--path", "/some/where/Phase2.logicx"],
+    leaving: aProject(named: "Phase2"))
+
+  let logic = Mac()
+  let time = Time()
+  let answer = Answer()
+
+  let exited = Replay.answer(
+    session: recorded.id,
+    chooser: logic.chooser(),
+    driver: logic.driver,
+    runner: recorded.aRunnerThatLeaves(aProject(named: theNameTheReplayRead), atStep: 1),
+    root: root,
+    limitMs: 500,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: git,
+    standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exited == 0, "the work repeated, so the replay exits 0 whatever the music folder holds")
+  #expect(answer.err.isEmpty, "and nobody is told about a difference")
+  let report = try answer.data()
+  #expect(
+    (report["differences"] as? [[String: Any]])?.isEmpty == true,
+    "the number Logic put after Untitled is not a field of the work")
+  #expect((report["skipped"] as? [[String: Any]])?.isEmpty == true, "nothing was passed over")
+  #expect(report["stepsRun"] as? Int == 2, "both steps of the session ran again")
+
+  let session = try #require(report["session"] as? String)
+  let written = try #require(folder(ofSessionWithId: session, underRoot: root))
+  let recordedState = try readJSON(at: written.appending(path: "state.json"))
+  let held = try #require(State(json: recordedState))
+  #expect(
+    held.project.name == "Phase2",
+    "and the state the replay recorded still carries the name it read")
+  let wrote = try readJSON(at: written.appending(path: "steps/000001/step.json"))
+  let check = try #require(members(of: wrote))
+  #expect(
+    check["differences"] == JSONValue.array([]),
+    "so the check of the new project records the nothing the comparison found")
+
+  let anotherMac = Mac()
+  let laterClock = Time()
+  let drifted = Answer()
+
+  let failed = Replay.answer(
+    session: recorded.id,
+    chooser: anotherMac.chooser(),
+    driver: anotherMac.driver,
+    runner: recorded.aRunnerThatLeaves(aProject(named: theNameTheReplayRead), atStep: 2),
+    root: root,
+    limitMs: 500,
+    clock: laterClock.read,
+    sleeper: laterClock.sleep,
+    git: git,
+    standardOutput: drifted.write,
+    standardError: drifted.writeError)
+
+  #expect(failed == 15, "a project that came back under another name after a save fails the replay")
+  #expect(
+    try drifted.failure()["message"] as? String
+      == "Replay skipped 0 steps and found 1 differences",
+    "and the count is of the work that differs, not of the new project")
+  let secondReport = try drifted.report()
+  let found = try #require(secondReport["differences"] as? [[String: Any]])
+  #expect(found.count == 1, "one step of the session left another project")
+  #expect(found.first?["seq"] as? Int == 2, "the step that saved it")
+  let fields = try #require(found.first?["differences"] as? [[String: Any]])
+  #expect(fields.count == 1, "and one field of it, the name after the save")
+  #expect(fields.first?["path"] as? String == "/project/name", "which field, as a pointer")
+  #expect(fields.first?["before"] as? String == "Phase2", "what the session recorded")
+  #expect(fields.first?["after"] as? String == theNameTheReplayRead, "and what the replay left")
 }
