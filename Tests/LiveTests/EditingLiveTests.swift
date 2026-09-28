@@ -1,5 +1,6 @@
 import Foundation
 import LogicctlCore
+import LogicctlMac
 import Testing
 
 /// Phase 4 of the stories, against the Logic that runs on this Mac.
@@ -135,9 +136,9 @@ private enum PhaseFour {
       keeps: "the slot and the name of every plugin the strip already held"),
     Edit(
       command: "midi velocity",
-      contract: "RUN-8",
-      scenario: "anEditMeetingTwoSelectedRowsChangesNothing",
-      keeps: "every note, because the edit stops before it writes"),
+      contract: "RUN-11",
+      scenario: "anEditPutsBackTheTwoSelectedRows",
+      keeps: "every other note, and the selection the person made"),
   ]
 }
 
@@ -218,24 +219,35 @@ extension PhaseFour {
     var velocity: Int
   }
 
-  /// The failure of one command, with the rows a `selection_mismatch` names.
-  ///
-  /// The harness reads a code and a message. `RUN-8` is about the rows underneath them, so this
-  /// phase reads the envelope again for the one field it needs.
+  /// The failure of one command, as the three refusals of this phase read it.
   struct Refused: Decodable {
     /// What the envelope carries under `error`.
     struct Body: Decodable {
       var code: String
       var message: String
-      var details: Details?
-    }
-
-    /// The one field of `error.details` this phase reads.
-    struct Details: Decodable {
-      var selected: [String]?
     }
 
     var error: Body?
+  }
+
+  /// What `meta` carries beside the answer of a command that worked.
+  ///
+  /// An edit takes the selection of the person away while it writes and gives it back when it
+  /// ends. `selectionRestored` is there only when the rows did not go back, so an edit that put
+  /// them back is an answer with no such field, and that absence is what `RUN-11` promises.
+  struct AnswerWithMeta: Decodable {
+    /// The fields of `meta.details` this phase reads.
+    struct Details: Decodable {
+      var selectionRestored: Bool?
+      var selectionBefore: [String]?
+    }
+
+    /// What `meta` carries.
+    struct Meta: Decodable {
+      var details: Details?
+    }
+
+    var meta: Meta?
   }
 }
 
@@ -251,6 +263,9 @@ extension PhaseFour {
     /// A command printed text that is no envelope.
     case theCommandPrintedNoEnvelope(command: String, printed: String)
 
+    /// Logic shows no Event List, so there are no rows to read a selection from.
+    case theEventListIsNotOpen
+
     var description: String {
       switch self {
       case .theFileHoldsOtherNotes(let wrote, let wanted):
@@ -262,6 +277,8 @@ extension PhaseFour {
         return "the Mac never showed this in \(waitedMs)ms. It asked for: \(asking)"
       case .theCommandPrintedNoEnvelope(let command, let printed):
         return "logicctl \(command) printed no envelope this phase reads back: \(printed)"
+      case .theEventListIsNotOpen:
+        return "Logic shows no Event List, so nothing here can read which rows are selected"
       }
     }
   }
@@ -534,6 +551,55 @@ extension PhaseFour {
     let folder = home.appending(path: "logicctl-live-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     return folder
+  }
+
+  /// The rows of the Event List Logic holds selected, named as an edit names them.
+  ///
+  /// This is an Accessibility read of the running Logic and not a command, for the reason the
+  /// journal scenarios read `inspect` while they wait: a command of this phase writes a step, and
+  /// an edit run to find out what is selected would take the selection away to find out what it
+  /// was. So the rows come from the same `AXSelected` read the guard of an edit makes.
+  ///
+  /// A row that carries no note is named by its Status cell and its place, as `midi velocity`
+  /// names it, so a fader row that is selected reads here the way it would read in a refusal.
+  static func selectedRowsOfTheEventList() throws -> [String] {
+    guard let window = EventList.window(of: try LogicTree.ofRunningLogic()) else {
+      throw Trouble.theEventListIsNotOpen
+    }
+    let rows = try EventList.rows(in: window)
+    var held: [String] = []
+    for row in rows {
+      if try EventList.selectedInTheLogicOfThisMac(row.row) {
+        held.append(nameOf(row))
+      }
+    }
+    return held
+  }
+
+  /// The name a row of the Event List goes by.
+  static func nameOf(_ row: EventList.Row) -> String {
+    guard let note = row.note else {
+      return "\(row.status ?? "the") row \(row.place)"
+    }
+    return "note \(note)"
+  }
+
+  /// What the answer of one command said about the selection it took away.
+  ///
+  /// It answers nothing when the rows went back, because the field is only there when they stayed
+  /// where the command put them.
+  static func selectionRestored(
+    of answer: LiveHarness.Answer, from command: String
+  ) throws -> Bool? {
+    guard let bytes = answer.printed.data(using: .utf8) else {
+      throw Trouble.theCommandPrintedNoEnvelope(command: command, printed: answer.printed)
+    }
+    do {
+      let read = try JSONDecoder().decode(AnswerWithMeta.self, from: bytes)
+      return read.meta?.details?.selectionRestored
+    } catch {
+      throw Trouble.theCommandPrintedNoEnvelope(command: command, printed: answer.printed)
+    }
   }
 
   /// Asks a person at the Mac for something, and waits until it is there.
@@ -856,45 +922,59 @@ struct Phase4LiveScenarios {
     #expect(refused.error?.code == "plugin_not_found", "with that code: \(missing.printed)")
   }
 
-  /// An edit that meets a selection of two rows writes nothing (rule 9, RUN-8).
+  /// An edit gives the person back the rows they had selected (RUN-11).
   ///
-  /// A person makes the selection, because no command can: the guard of every edit writes the
-  /// whole selection itself, row by row, before it reads it back, so anything selected first is
-  /// let go by the command that was going to be stopped by it. The wait runs an edit that would
-  /// change nothing even if it went through, so polling for the refusal is safe.
-  @Test func anEditMeetingTwoSelectedRowsChangesNothing() throws {
-    LiveHarness.liveScenario("anEditMeetingTwoSelectedRowsChangesNothing")
+  /// A selection is how the person at the keyboard says which events they are looking at. An edit
+  /// has to take it away, because Logic applies an edit to everything that is selected, so the
+  /// edit holds its own row alone while it writes and puts the rows back when it ends.
+  ///
+  /// The person makes the selection, because no command can: the guard of every edit writes the
+  /// whole selection itself before it reads it back. The wait reads `AXSelected` of the rows of
+  /// the Event List and never runs an edit, because an edit run to find out what is selected takes
+  /// the selection away to find out what it was.
+  ///
+  /// Two rows go in and two rows come out, and the note that was not named keeps its velocity. An
+  /// edit that wrote the selection and walked away would leave one row selected here, and the next
+  /// thing the person typed in Logic would land on that row alone.
+  @Test func anEditPutsBackTheTwoSelectedRows() throws {
+    LiveHarness.liveScenario("anEditPutsBackTheTwoSelectedRows")
 
     let run = try theRun.ready()
     let before = try LiveHarness.read(
       PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
-    let first = before.notes.first
-    let held = first?.velocity ?? PhaseFour.velocityGiven
+    let held = before.notes.first { $0.note == 1 }?.velocity ?? PhaseFour.velocityGiven
+    let wanted = held > 64 ? 30 : 100
     let rows = ["note 1", "note \(PhaseFour.notePicked)"]
 
-    var named: [String] = []
-    var status: Int32 = 0
+    var selected: [String] = []
     try PhaseFour.byHand(
       "select \(rows.joined(separator: " and ")) in the Event List of the region, and leave "
-        + "both selected. If Logic lets the second row go when the command writes the "
-        + "selection, no edit ever meets two rows and this scenario cannot pass.",
+        + "both selected. Nothing is read here but the selection itself, so Logic is left alone "
+        + "until both rows are held.",
       pollMs: PhaseFour.selectionPollMs,
       until: {
-        let answer = try LiveHarness.logicctl(
-          PhaseFour.velocityOf(track: run.track, note: 1, value: held))
-        status = answer.status
-        let refused = try PhaseFour.refusal(of: answer, from: "midi velocity")
-        named = refused.error?.details?.selected ?? []
-        return named.count > 1
+        selected = try PhaseFour.selectedRowsOfTheEventList()
+        return selected.sorted() == rows.sorted()
       })
 
+    let answer = try LiveHarness.logicctl(
+      PhaseFour.velocityOf(track: run.track, note: 1, value: wanted))
+    let putBack = try PhaseFour.selectionRestored(of: answer, from: "midi velocity")
     let after = try LiveHarness.read(
       PhaseFour.NotesAnswer.self, from: PhaseFour.notesOf(track: run.track))
     let moved = PhaseFour.notesThatChanged(from: before.notes, to: after.notes)
+    let heldNow = try PhaseFour.selectedRowsOfTheEventList()
 
-    #expect(status == 20, "an edit that meets two rows exits 20")
-    #expect(named.sorted() == rows.sorted(), "and it names both rows: \(named)")
-    #expect(moved.isEmpty, "and it wrote nothing: \(moved)")
+    #expect(answer.status == 0, "the edit worked: \(answer.printed) \(answer.complained)")
+    #expect(
+      moved == ["note 1 velocity \(held) to \(wanted)"],
+      "note 1 took the velocity it was given, and no other note moved: \(moved)")
+    #expect(
+      putBack == nil,
+      "the answer says nothing about the selection, which is how it says the rows went back")
+    #expect(
+      heldNow.sorted() == rows.sorted(),
+      "and Logic holds the two rows the person selected: \(heldNow)")
 
     // This is the last edit of the flow, so the home folder of this Mac is left as it was found.
     // A run that stopped earlier leaves its folder, and the line it printed says where.
@@ -943,7 +1023,7 @@ extension PhaseFour {
   #expect(
     PhaseFour.flow.map(\.contract) == [
       "CMD-S4.1", "CMD-S4.2", "CMD-S4.3", "CMD-S4.4", "CMD-S4.5", "CMD-S4.6", "CMD-S4.7",
-      "CMD-S4.8", "RUN-8",
+      "CMD-S4.8", "RUN-11",
     ],
     "the run answers every contract of phase 4: \(PhaseFour.flow.map(\.contract))")
   #expect(
