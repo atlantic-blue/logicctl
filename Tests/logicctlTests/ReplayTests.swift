@@ -124,6 +124,22 @@ private func aProject(withTrackNamed name: String, muted: Bool = false) -> State
     tracks: [Track(index: 1, name: name, type: .softwareInstrument, mute: muted)])
 }
 
+/// When the record of the work was saved, and when the replay of it saved a project of its own.
+///
+/// Two moments, because the project of a replay is saved while the replay runs. These are the two
+/// the live run of phase 7 read: the record of the phase 2 session against a replay of it.
+private let whenTheRecordWasSaved = Date(timeIntervalSince1970: 1_790_551_390)
+private let whenTheReplaySaved = Date(timeIntervalSince1970: 1_790_552_640)
+
+/// The project with one track in it, saved at one moment.
+private func aProject(withTrackNamed name: String, savedAt moment: Date) -> State {
+  State(
+    logic: LogicVersion(version: "12.3.1"),
+    project: Project(name: "Untitled", savedAt: moment),
+    transport: Transport(tempo: 120),
+    tracks: [Track(index: 1, name: name, type: .softwareInstrument)])
+}
+
 /// The session of the work that is replayed.
 private func aRecordedSession() -> Session {
   Session(
@@ -239,6 +255,26 @@ private final class Recording {
       }
       guard let state = self.left[step.seq] else {
         return ReplayRun.noSuchCommand
+      }
+      return ReplayRun.ran(state)
+    }
+  }
+
+  /// A runner that repeats the work on a project of its own, which it saves at another moment.
+  ///
+  /// The project of a replay is made while the replay runs, so the time of its save is the moment
+  /// of the replay and never the moment the record carries. `leaving` names one step that also
+  /// leaves another track name, which is work that differs and not a clock.
+  func aRunnerThatSaves(
+    at moment: Date, leaving name: String? = nil, atStep drifting: Int = 0
+  ) -> SessionReplay.Runner {
+    { (step: RecordedStep) -> ReplayRun in
+      guard var state = self.left[step.seq] else {
+        return ReplayRun.noSuchCommand
+      }
+      state.project.savedAt = moment
+      if let name, step.seq == drifting {
+        state.tracks[0].name = name
       }
       return ReplayRun.ran(state)
     }
@@ -594,4 +630,103 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   #expect(meta["session"] is NSNull, "nothing was replayed, so no session was written")
   #expect(meta["step"] is NSNull)
   #expect(logic.showing == ProjectWindow.chooser, "and Logic was left as it was")
+}
+
+/// A replay answers on the work a person did, and never on the clock.
+///
+/// `project.savedAt` is the time Logic last wrote the project file. A replay builds a second
+/// project and saves that one while it runs, so the time it reads is the moment of the replay,
+/// while the record carries the moment of the work. The two are never the same. A comparison that
+/// read the field would answer a difference at every step of every session, so a person who
+/// replays a session to learn whether the work repeats would be told no every time, about the one
+/// field nobody changed.
+///
+/// So the save time is out of the comparison, on both sides, and nothing else is. A track that
+/// came back with another name is the answer a replay exists to give, and it still fails the
+/// replay with the field named. The journal keeps the time: every state records it and every hash
+/// reads it, because a person who compares the two histories afterwards needs to know when each
+/// project was saved.
+@Test func replayLeavesTheSaveTimeOutOfTheComparison() throws {
+  let root = try temporaryFolder()
+  defer { try? FileManager.default.removeItem(at: root) }
+  let git = try gitThatSigns(inside: root)
+
+  let recorded = try Recording(root: root, git: git)
+  try recorded.wrote(
+    .command, command: "tracks add", argv: ["--type", "software-instrument"],
+    leaving: aProject(withTrackNamed: "Inst 1", savedAt: whenTheRecordWasSaved))
+  try recorded.wrote(
+    .command, command: "tracks rename", argv: ["--index", "1", "--name", "Bass"],
+    leaving: aProject(withTrackNamed: "Bass", savedAt: whenTheRecordWasSaved))
+
+  let logic = Mac()
+  let time = Time()
+  let answer = Answer()
+
+  let exited = Replay.answer(
+    session: recorded.id,
+    chooser: logic.chooser(),
+    driver: logic.driver,
+    runner: recorded.aRunnerThatSaves(at: whenTheReplaySaved),
+    root: root,
+    limitMs: 500,
+    clock: time.read,
+    sleeper: time.sleep,
+    git: git,
+    standardOutput: answer.write,
+    standardError: answer.writeError)
+
+  #expect(exited == 0, "the work repeated, so the replay exits 0 whatever the clock says")
+  #expect(answer.err.isEmpty, "and nobody is told about a difference")
+  let report = try answer.data()
+  #expect(
+    (report["differences"] as? [[String: Any]])?.isEmpty == true,
+    "the time of a save is not a field of the work")
+  #expect((report["skipped"] as? [[String: Any]])?.isEmpty == true, "nothing was passed over")
+  #expect(report["stepsRun"] as? Int == 2, "both steps of the session ran again")
+
+  let session = try #require(report["session"] as? String)
+  let written = try #require(folder(ofSessionWithId: session, underRoot: root))
+  let recordedState = try readJSON(at: written.appending(path: "state.json"))
+  let held = try #require(State(json: recordedState))
+  #expect(
+    held.project.savedAt == whenTheReplaySaved,
+    "and the state the replay recorded still carries the time it read")
+  let wrote = try readJSON(at: written.appending(path: "steps/000001/step.json"))
+  let check = try #require(members(of: wrote))
+  #expect(
+    check["differences"] == JSONValue.array([]),
+    "so the check of that step records the nothing the comparison found")
+
+  let anotherMac = Mac()
+  let laterClock = Time()
+  let drifted = Answer()
+
+  let failed = Replay.answer(
+    session: recorded.id,
+    chooser: anotherMac.chooser(),
+    driver: anotherMac.driver,
+    runner: recorded.aRunnerThatSaves(at: whenTheReplaySaved, leaving: "Lead", atStep: 2),
+    root: root,
+    limitMs: 500,
+    clock: laterClock.read,
+    sleeper: laterClock.sleep,
+    git: git,
+    standardOutput: drifted.write,
+    standardError: drifted.writeError)
+
+  #expect(failed == 15, "a track that came back with another name still fails the replay")
+  #expect(
+    try drifted.failure()["message"] as? String
+      == "Replay skipped 0 steps and found 1 differences",
+    "and the count is of the work that differs, not of the saves")
+  let secondReport = try drifted.report()
+  let found = try #require(secondReport["differences"] as? [[String: Any]])
+  #expect(found.count == 1, "one step of the session left another project")
+  #expect(found.first?["seq"] as? Int == 2, "the step that renamed the track")
+  let fields = try #require(found.first?["differences"] as? [[String: Any]])
+  #expect(fields.count == 1, "and one field of it, the name and not the save")
+  #expect(fields.first?["path"] as? String == "/tracks/0/name", "which field, as a pointer")
+  #expect(fields.first?["before"] as? String == "Bass", "what the session recorded")
+  #expect(fields.first?["after"] as? String == "Lead", "and what the replay left")
 }
