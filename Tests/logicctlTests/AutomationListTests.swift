@@ -42,6 +42,11 @@ private struct Answer {
   func error() throws -> [String: Any] {
     try printed()["error"] as? [String: Any] ?? [:]
   }
+
+  /// What `meta` carries, or an empty object when it carried none.
+  func meta() throws -> [String: Any] {
+    try printed()["meta"] as? [String: Any] ?? [:]
+  }
 }
 
 /// One element of a tree a test drives, which keeps what is written to it and answers it again.
@@ -397,14 +402,38 @@ private func automationList(
   let answer = try automationList(["--track", "3", "--region", "1"], against: logic)
 
   #expect(
-    logic.heldRegions == ["the region of track 3"],
-    "the region the command named is the only region Logic holds")
+    logic.heldRegions == ["the region of track 4", "the region of track 5"],
+    "the regions Logic held are back, because the read gives the selection back when it ends")
   #expect(
-    logic.did == ["select the region", "read the Event List"],
-    "the selection lands before the read: a list read first shows the region of a moment ago"
+    logic.did == ["select the region", "read the Event List", "select the region"],
+    "the named region is selected before the read, so the list shows it, and the regions the "
+      + "person had go back afterwards"
   )
   #expect(try answer.points().count == 3, "the three points of the named region")
   #expect(answer.status == 0, "the command exits 0")
+}
+
+/// The read gives the regions back, because the selection is where the person is working.
+///
+/// A person is working on the regions of tracks 4 and 5. Then they read the points of a region of
+/// track 3. The Event List shows whichever region Logic holds, so the read takes the selection down
+/// to that one region, and it gives the two regions back when it ends.
+@Test func listPutsBackTheSelectedRegions() throws {
+  let logic = try AFakeLogic(
+    tracks: try theTracksWindowOfThreeRegions(),
+    events: try recorded("event-list-automation.json"))
+  logic.hold(theRegionsOfTracks: [4, 5])
+
+  let answer = try automationList(["--track", "3", "--region", "1"], against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.points().count == 3, "the three points of the named region")
+  #expect(
+    logic.heldRegions == ["the region of track 4", "the region of track 5"],
+    "the regions of tracks 4 and 5 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other read")
 }
 
 /// Logic is showing the Tracks window and no Event List, so there is nothing to read the points

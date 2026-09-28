@@ -390,11 +390,12 @@ private func midiNotes(
   let answer = try midiNotes(["--track", "4", "--region", "1"], against: logic)
 
   #expect(
-    logic.heldRegions == ["the region of track 4"],
-    "the region the command named is the only region Logic holds, so the list shows that region")
+    logic.heldRegions == ["the region of track 5"],
+    "the region Logic held is back, because a command gives the selection back when it ends")
   #expect(
-    logic.did == ["select the region", "read the Event List"],
-    "the selection lands before the read: a list read first shows the region of a moment ago"
+    logic.did == ["select the region", "read the Event List", "select the region"],
+    "the named region is selected before the read, so the list shows it, and the region the "
+      + "person had goes back afterwards"
   )
   #expect(
     logic.readsOfTheEventListTable > 0, "the notes were read from the table of the Event List")
