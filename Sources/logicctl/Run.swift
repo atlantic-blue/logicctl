@@ -18,6 +18,13 @@ protocol LogicCommand {
   /// What the command does to Logic, and what its answer carries when it worked.
   func act(through driver: any LogicDriver) throws -> JSONValue?
 
+  /// What went beside the command without changing what it did, for example the rows of the
+  /// Event List that did not go back after an edit. Nothing for a command with nothing to add.
+  ///
+  /// The run reads this after the action and joins it to the one answer it prints, so the envelope
+  /// a caller reads and the envelope the session records say the same thing.
+  var detailsBesideTheAnswer: JSONValue? { get }
+
   /// Where the project sits once this command has worked, when this command is what puts it
   /// there. Nothing for every command that leaves the project where it was.
   ///
@@ -28,6 +35,11 @@ protocol LogicCommand {
 }
 
 extension LogicCommand {
+  /// Most commands have nothing to say beside their answer.
+  var detailsBesideTheAnswer: JSONValue? {
+    nil
+  }
+
   /// Most commands leave the project where it was.
   var projectPathAfterActing: String? {
     nil
@@ -102,7 +114,7 @@ struct Run {
       return try record(command, from: started)
     } catch {
       return Envelope.failure(
-        Run.failure(for: error),
+        Run.joined(Run.failure(for: error), with: command.detailsBesideTheAnswer),
         meta: AnswerMeta.refusal(version: version, from: started, to: now()))
     }
   }
@@ -113,11 +125,12 @@ struct Run {
       // There is no session to write into, so the answer says so with a session of null.
       let running = try? driver.processID()
       let done = outcome(of: command, whileLogicRunsAs: running, in: nil)
+      let beside = command.detailsBesideTheAnswer
       return envelope(
-        of: done,
+        of: Run.joined(done, with: beside),
         meta: AnswerMeta.run(
           version: version, session: nil, step: nil, externalChange: nil, from: started,
-          to: now()))
+          to: now(), details: done.failure == nil ? beside : nil))
     }
 
     return try repository.lock.holding(repository.folder) { () throws -> Envelope in
@@ -131,16 +144,19 @@ struct Run {
       let crashed = done.failure?.code == .logicCrashed
       let after = crashed ? nil : try? driver.readState()
       let taken = picture(ofLogicRunningAs: running, afterACrash: crashed)
+      let beside = command.detailsBesideTheAnswer
+      let said = Run.joined(done, with: beside)
+      let details = Run.details(taken.details, and: done.failure == nil ? beside : nil)
       let finished = now()
 
       // The record holds the envelope that was printed, so both carry one duration, measured
       // when the command ended. Only the commit of the step is added afterwards, because a
       // commit cannot name itself.
       let answer = envelope(
-        of: done,
+        of: said,
         meta: AnswerMeta.run(
           version: version, session: repository.session.id, step: nil, externalChange: change,
-          from: started, to: finished, details: taken.details))
+          from: started, to: finished, details: details))
       let step = Step(
         seq: repository.nextSequence(),
         kind: .command,
@@ -157,10 +173,10 @@ struct Run {
         step, state: after, screenshot: taken.bytes, session: moved)
 
       return envelope(
-        of: done,
+        of: said,
         meta: AnswerMeta.run(
           version: version, session: repository.session.id, step: commit, externalChange: change,
-          from: started, to: finished, details: taken.details))
+          from: started, to: finished, details: details))
     }
   }
 
@@ -359,6 +375,40 @@ struct Run {
   static func macosVersion() -> String {
     let running = ProcessInfo.processInfo.operatingSystemVersion
     return "\(running.majorVersion).\(running.minorVersion).\(running.patchVersion)"
+  }
+
+  /// What the command answered, with what went beside it joined into its failure.
+  static func joined(
+    _ done: (data: JSONValue?, failure: Failure?), with beside: JSONValue?
+  ) -> (data: JSONValue?, failure: Failure?) {
+    guard let failure = done.failure else {
+      return done
+    }
+    return (data: nil, failure: joined(failure, with: beside))
+  }
+
+  /// One failure with what went beside the command joined into its details.
+  ///
+  /// A caller reads one place for it, never two: a command that failed carries it in
+  /// `error.details`, and a command that worked carries it in `meta.details`.
+  static func joined(_ failure: Failure, with beside: JSONValue?) -> Failure {
+    guard let beside else {
+      return failure
+    }
+    return Failure(
+      code: failure.code, message: failure.message,
+      details: details(failure.details, and: beside))
+  }
+
+  /// Two objects as one, or whichever of the two there is. A field of the second wins.
+  static func details(_ carried: JSONValue?, and added: JSONValue?) -> JSONValue? {
+    guard let added else {
+      return carried
+    }
+    guard case .object(let fields) = carried ?? .null, case .object(let more) = added else {
+      return added
+    }
+    return .object(fields.merging(more) { _, later in later })
   }
 
   /// The failure that an error stopped the command with.

@@ -48,6 +48,11 @@ private struct Answer {
   func meta() throws -> [String: Any] {
     try printed()["meta"] as? [String: Any] ?? [:]
   }
+
+  /// What `meta` carries under `details`, or an empty object when it carries none.
+  func details() throws -> [String: Any] {
+    try meta()["details"] as? [String: Any] ?? [:]
+  }
 }
 
 /// One element of the tree a test drives, which keeps what is written to it and answers it again.
@@ -161,7 +166,22 @@ private final class AFakeLogic {
   /// The region item each track carries, against the number of that track.
   private let ofTrack: [Int: Element]
 
-  init(showing window: any AXNode, tracks: any AXNode) throws {
+  /// True while a write that lets a row go reaches Logic. A Logic that keeps a row takes the
+  /// write, holds the row, and answers a selection nobody asked for.
+  private let letsARowGo: Bool
+
+  /// True while Logic takes no selection write once a slider has moved, which is the Logic that
+  /// keeps the row of the edit after the write back.
+  private let takesNoSelectionAfterTheEdit: Bool
+
+  init(
+    showing window: any AXNode,
+    tracks: any AXNode,
+    theWriteLetsARowGo: Bool = true,
+    theWriteBackTakesNoSelection: Bool = false
+  ) throws {
+    letsARowGo = theWriteLetsARowGo
+    takesNoSelectionAfterTheEdit = theWriteBackTakesNoSelection
     self.window = Element(of: window)
     self.tracks = Element(of: tracks)
     guard
@@ -288,6 +308,13 @@ private final class AFakeLogic {
     rows.enumerated().filter { $0.element.held }.map { $0.offset + 1 }
   }
 
+  /// Says Logic holds the rows at these places in the table selected, and no other row.
+  func hold(theRowsAt places: [Int]) {
+    for (place, row) in rows.enumerated() {
+      row.held = places.contains(place + 1)
+    }
+  }
+
   /// The number on the velocity slider of every row of the table, in the order of the table. A
   /// fader row carries the value of its volume point in that column.
   var velocities: [Int] {
@@ -303,7 +330,16 @@ private final class AFakeLogic {
   var actions: EventList.Actions {
     EventList.Actions(
       select: { row, holding in
-        (row as? Element)?.held = holding
+        guard let element = row as? Element else {
+          return
+        }
+        if !holding, !self.letsARowGo {
+          return
+        }
+        if holding, self.takesNoSelectionAfterTheEdit, !self.steps.isEmpty {
+          return
+        }
+        element.held = holding
       },
       selected: { row in
         (row as? Element)?.held ?? false
@@ -338,10 +374,15 @@ private final class AFakeLogic {
 }
 
 /// A Logic showing the Tracks window of three regions and the Event List of a region of four notes.
-private func aLogicShowingTheTracksAndTheEventList() throws -> AFakeLogic {
+private func aLogicShowingTheTracksAndTheEventList(
+  theWriteLetsARowGo: Bool = true,
+  theWriteBackTakesNoSelection: Bool = false
+) throws -> AFakeLogic {
   try AFakeLogic(
     showing: try recorded("event-list-automation.json"),
-    tracks: try theTracksWindowOfThreeRegions())
+    tracks: try theTracksWindowOfThreeRegions(),
+    theWriteLetsARowGo: theWriteLetsARowGo,
+    theWriteBackTakesNoSelection: theWriteBackTakesNoSelection)
 }
 
 /// A project of one track that carries one region, which is what `--track 4 --region 1` names.
@@ -439,8 +480,8 @@ private func midiVelocity(
     logic.velocities == [60, 100, 90, 100, 64, 90, 110],
     "the three volume points read 60, 90 and 110, as Logic recorded them")
   #expect(
-    logic.heldRows == [3],
-    "Logic holds the row of note 2, which is the third row of the table, and holds no other row")
+    logic.heldRows == [],
+    "nothing was selected before, so the empty selection goes back and note 2 is let go")
   #expect(
     logic.steps == [10, 10],
     "70 reaches 90 in two steps of the slider, which moves 10 at a time")
@@ -643,4 +684,88 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
     "the region is selected before a row is read, so the row belongs to the named region")
   #expect(try answer.data()["velocity"] as? Int == 90, "the velocity the slider reads afterwards")
   #expect(answer.status == 0, "the command exits 0")
+}
+
+/// An edit gives the selection back, because the selection is the work of the person at the
+/// keyboard.
+///
+/// A person selects the rows they are working on, in this table the rows of note 1 and note 2, and
+/// that selection is where they are in the piece. Logic applies an edit to every selected row, so
+/// this command takes the selection down to the one row it edits. That is the right thing to do and
+/// it costs the person their place: the two rows they had are gone, the answer says nothing about
+/// it, and the next thing they press in Logic lands on the row logicctl left behind.
+///
+/// So the edit gives it back. The rows of note 1 and note 2 are selected again when the command
+/// ends, the velocity of note 1 is the only number that moved, and the answer does not change,
+/// because a selection that went back is not news.
+///
+/// The second run is the Logic that does not take the rows back. The edit is already done by then,
+/// so the command still answers success, and it carries `selectionRestored` false and the names of
+/// the rows, which is what a person needs to select them again without opening Logic to look.
+///
+/// The third run is the Logic that keeps a row, which is the refusal the guard exists for. The
+/// command changes nothing and answers `selection_mismatch`, and the rows of the person still go
+/// back, because a command that refused took their selection away just the same.
+@Test func anEditPutsBackTheSelectedRows() throws {
+  let logic = try aLogicShowingTheTracksAndTheEventList()
+  logic.hold(theRowsAt: [2, 3])
+  try #require(
+    logic.heldRows == [2, 3],
+    "Logic holds the rows of note 1 and note 2, which is where the person was working")
+
+  let answer = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.data()["velocity"] as? Int == 90, "note 1 carries the velocity asked for")
+  #expect(
+    logic.velocities == [60, 90, 70, 100, 64, 90, 110],
+    "one number of the column moved, and the other six are the ones Logic recorded")
+  #expect(logic.steps == [-10], "100 reaches 90 in one step of the slider")
+  #expect(
+    logic.heldRows == [2, 3],
+    "the rows of note 1 and note 2 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other edit")
+
+  let keeping = try aLogicShowingTheTracksAndTheEventList(theWriteBackTakesNoSelection: true)
+  keeping.hold(theRowsAt: [2, 3])
+
+  let said = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: keeping)
+
+  #expect(said.status == 0, "the edit went through, so a selection that stayed put fails nothing")
+  #expect(try said.data()["velocity"] as? Int == 90, "note 1 carries the velocity asked for")
+  #expect(keeping.heldRows == [2], "Logic kept the row of the edit and took no selection back")
+  let details = try said.details()
+  #expect(
+    details["selectionRestored"] as? Bool == false, "the answer says the rows did not go back")
+  #expect(
+    details["selectionBefore"] as? [String] == ["note 1", "note 2"],
+    "the rows the person had selected, so they select them again without looking")
+
+  let kept = try aLogicShowingTheTracksAndTheEventList(theWriteLetsARowGo: false)
+  kept.hold(theRowsAt: [2, 3])
+
+  let refused = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "1", "--value", "90"],
+    against: kept)
+
+  #expect(refused.status == 20, "the number the design system gives selection_mismatch")
+  #expect(
+    try refused.failure()["code"] as? String == "selection_mismatch",
+    "Logic holds a row nobody named, so no edit goes out")
+  #expect(kept.steps == [], "no slider moved")
+  #expect(
+    kept.velocities == [60, 100, 70, 100, 64, 90, 110],
+    "every velocity and every volume point is the one Logic recorded")
+  #expect(
+    kept.heldRows == [2, 3],
+    "a command that refused took the selection away too, so it goes back as well")
+  #expect(
+    (try refused.failure()["details"] as? [String: Any] ?? [:]).keys.sorted() == ["selected"],
+    "the rows went back, so the refusal says what it always said")
 }

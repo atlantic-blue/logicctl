@@ -124,6 +124,15 @@ struct AutomationSetCommand: LogicCommand {
 
   let argv: [String]
 
+  /// The rows of the Event List the person had selected before this edit, and whether they went
+  /// back when it ended.
+  let kept = SelectionGuard.Kept()
+
+  /// The rows the person had selected, when the edit did not give them back.
+  var detailsBesideTheAnswer: JSONValue? {
+    kept.details
+  }
+
   /// Logic is showing no Event List, so there is no point to change.
   ///
   /// logicctl opens no window itself, so the sentence says what to do rather than naming an
@@ -272,7 +281,11 @@ struct AutomationSetCommand: LogicCommand {
     let row = faders[asked - 1]
 
     let names = AutomationSetCommand.names(of: rows, whoseFaderRowsAre: faders)
-    try guarded(over: rows, called: names).selectOnly(names[row.place] ?? "point \(asked)")
+    // The edit takes the selection down to one row, so it gives it back however it ends: after
+    // the slider moved, after a later failure, and after the guard refused.
+    let holding = guarded(over: rows, called: names)
+    defer { holding.putTheSelectionBack() }
+    try holding.selectOnly(names[row.place] ?? "point \(asked)")
     // A note row carries its velocity in this column and a fader row carries the value of its
     // point, so the slider of the row is the one the reader of the points takes a value from.
     guard let slider = EventList.velocitySlider(of: row.row) else {
@@ -305,7 +318,8 @@ struct AutomationSetCommand: LogicCommand {
       selection: {
         try rows.filter { try self.events.selected($0.row) }
           .compactMap { names[$0.place] }
-      })
+      },
+      kept: kept)
   }
 
   /// The name each row of the table is known by, against the place it sits at.
