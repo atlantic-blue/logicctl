@@ -198,7 +198,11 @@ struct PluginsInsertCommand: LogicCommand {
     let before = try ChannelStrip.plugins(
       ofTrackNumber: number, named: track.name, in: try mixer(ofTrack: number))
     let slot = before.count + 1
-    try menu.insert(plugin, intoTheStripOfTrackNumber: number) {
+    // The menu takes a moment to come up, and the plugin takes a moment to be drawn, so both
+    // waits read the clock this command was given rather than one of them reading the wall.
+    try menu.insert(
+      plugin, intoTheStripOfTrackNumber: number, limitMs: limitMs, clock: clock, sleeper: sleeper
+    ) {
       try mixer(ofTrack: number)
     }
     let plugins = try thePlugins(onceSlot: slot, ofTrackNumber: number, named: track.name)
