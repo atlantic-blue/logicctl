@@ -1155,9 +1155,8 @@ private func folder(ofSessionWithId id: String, underRoot root: URL) -> URL? {
   let saved = try #require(logic.savedTo.first, "and Logic wrote a project")
   #expect(logic.savedTo.count == 1, "once, because the session holds one save")
 
-  let folder = home
-    .appendingPathComponent("logicctl-replays")
-    .appendingPathComponent(replaySession)
+  let replays = home.appendingPathComponent("logicctl-replays")
+  let folder = replays.appendingPathComponent(replaySession)
   #expect(
     saved == folder.appendingPathComponent("Phase2.logicx").path,
     "under the home folder, which the Save panel lists, in a folder named for the replay")
