@@ -1,5 +1,6 @@
 import Foundation
 import LogicctlCore
+import LogicctlMac
 import Testing
 
 /// The root of the repository, found from this file.
@@ -33,6 +34,23 @@ enum JournalLive {
   /// How long a scenario leaves between two reads of the journal, in milliseconds.
   static let pollMs = 2000
 
+  /// How deep `inspect` walks the application of Logic while a scenario waits for a mute.
+  ///
+  /// The walk to the mute check box of a track is the application, the window under it, and then
+  /// the seven steps of `Locators.tracksHeader` down to the layout item of the track and the check
+  /// box in it. That is ten levels. The wait asks for two more, so a tree that gains a level still
+  /// carries the check box.
+  static let treeDepth = 12
+
+  /// The commands a scenario may run while it waits for the operator to change something by hand.
+  ///
+  /// Each one answers with no session and no step, so it records nothing. A command that records a
+  /// step reads the state of Logic after whatever the operator did while it ran, and it carries
+  /// that change as its own step, so the journal then holds no external change step at all. A wait
+  /// made of `tracks list` cost a live run exactly that: five `tracks list` steps, the mute
+  /// inside the fourth of them, and no `external_change` anywhere.
+  static let readsWhileWaiting = [["inspect"], ["log"], ["tracks", "list"]]
+
   /// What the phase refuses to do, and what the operator does about it.
   enum Refusal: Error, CustomStringConvertible {
     /// Nothing named the session of phase 2, so the replay check has no session to run again.
@@ -40,6 +58,12 @@ enum JournalLive {
 
     /// The journal never carried the change the operator was asked for.
     case theJournalNeverShowedTheChange(change: String, waitedMs: Int)
+
+    /// Logic never showed the change the operator was asked for.
+    case logicNeverShowedTheChange(change: String, waitedMs: Int)
+
+    /// A wait asked for a command that records a step of the journal.
+    case theWaitWouldRecordAStep(String)
 
     /// The launch agent of the watcher is still on this Mac after the run.
     case theWatcherWouldNotUnload(String)
@@ -54,6 +78,16 @@ enum JournalLive {
         return """
           the journal did not carry \(change) within \(waitedMs)ms. Make the change in Logic \
           while the scenario waits, and run this again
+          """
+      case .logicNeverShowedTheChange(let change, let waitedMs):
+        return """
+          Logic did not show \(change) within \(waitedMs)ms. Make the change in Logic while the \
+          scenario waits, and run this again
+          """
+      case .theWaitWouldRecordAStep(let command):
+        return """
+          a wait may not run \(command), because a command that records a step reads the state \
+          after the change of the operator and carries that change as its own step
           """
       case .theWatcherWouldNotUnload(let reason):
         return "the watcher is still on this Mac after the run: \(reason)"
@@ -207,12 +241,57 @@ enum JournalLive {
     return try LiveHarness.copy(source, into: folder)
   }
 
+  /// Runs one read while a wait is on, and refuses a command that would record a step.
+  ///
+  /// The refusal comes before the binary runs, so a wait built on the wrong command fails at once
+  /// and names it, rather than reporting a journal that is missing the step the story asks for.
+  static func readWhileWaiting<Answered: Decodable>(
+    _ shape: Answered.Type,
+    from arguments: [String]
+  ) throws -> Answered {
+    guard readsWhileWaiting.contains(where: { arguments.starts(with: $0) }) else {
+      throw Refusal.theWaitWouldRecordAStep(arguments.joined(separator: " "))
+    }
+    return try LiveHarness.read(shape, from: arguments)
+  }
+
   /// Everything `log` answers now.
   ///
   /// `log` reads the journal and never Logic, so a scenario reads the history as often as it likes
   /// and the history it is reading gains no step from the reading.
   static func journal() throws -> Journal {
-    try LiveHarness.read(Journal.self, from: ["log"])
+    try readWhileWaiting(Journal.self, from: ["log"])
+  }
+
+  /// Whether the header of one track shows it muted, read without recording a step.
+  ///
+  /// The tree comes from `inspect`, which records nothing, and the tracks come out of it through
+  /// the reader the driver uses, so the answer is the one `tracks list` would give without the
+  /// step that command writes. It answers nothing when Logic shows no project window.
+  static func muteOfTheTrackHeader(numbered index: Int) throws -> Bool? {
+    let read = try readWhileWaiting(
+      RecordedTree.self, from: ["inspect", "--depth", String(treeDepth)])
+    let tree = LogicTree(logicVersion: read.logicVersion, root: read.root)
+    guard let project = tree.atTheProjectWindow() else {
+      return nil
+    }
+    return try TrackReader.tracks(in: project.root).first { $0.index == index }?.mute
+  }
+
+  /// Reads the tree of Logic until the header of one track shows it muted.
+  static func waitForTheMute(
+    ofTrackNumbered index: Int,
+    limitMs: Int = JournalLive.byHandLimitMs,
+    pollMs: Int = JournalLive.pollMs
+  ) throws {
+    do {
+      try Wait.until(limitMs: limitMs, pollMs: pollMs) {
+        try JournalLive.muteOfTheTrackHeader(numbered: index) == true
+      }
+    } catch let ranOut as Wait.RanOut {
+      throw Refusal.logicNeverShowedTheChange(
+        change: "the mute of track \(index)", waitedMs: ranOut.waitedMs)
+    }
   }
 
   /// Reads the journal until it carries what the operator changed by hand.
@@ -460,6 +539,32 @@ struct Phase7LiveScenarios {
       copy of one scenario stops the scenario after it before it reads anything
       """)
   }
+
+  #expect(
+    JournalLive.readsWhileWaiting == [["inspect"], ["log"]],
+    """
+    the only reads a wait may run are the two that record no step: \
+    \(JournalLive.readsWhileWaiting)
+    """)
+  let recorded = whatStopped {
+    _ = try JournalLive.readWhileWaiting(JournalLive.Tracks.self, from: ["tracks", "list"])
+  }
+  #expect(
+    words(of: recorded).contains("tracks list"),
+    """
+    and a wait that asked for tracks list is refused by name, because that command reads the state \
+    after the change of the operator and carries the change as its own step
+    """)
+
+  let mute = try #require(
+    scenarioBody(named: "aMuteByHandBecomesAnExternalChangeStep", in: source),
+    "the mute check is a scenario of this phase")
+  #expect(
+    mute.contains("JournalLive.waitForTheMute("),
+    """
+    the mute check waits through a read of the tree, because a wait made of tracks list absorbs \
+    the mute into a step of its own and the journal then holds no external change step
+    """)
 
   let replay = try #require(
     scenarioBody(named: "replayOfThePhaseTwoSessionFindsNoDifference", in: source),
