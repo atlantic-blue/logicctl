@@ -27,8 +27,8 @@ struct Replay: ParsableCommand {
       carries the whole report.
 
       A recorded save is not written to the path it was recorded with. replay saves into a folder \
-      of its own under the temporary folder, under the file name of that path, so a replay never \
-      writes over the project of a person.
+      of its own under logicctl-replays in the home folder, under the file name of that path, so a \
+      replay never writes over the project of a person.
 
       --from and --to are step numbers, counted from 1, as `show` counts them, and a step at \
       either end is inside the range. A range that starts after step 1 runs on a new project, \
@@ -86,8 +86,8 @@ extension Replay {
   ///
   /// The chooser, the driver, the actions, the panel and the runner are given rather than reached
   /// for, so the pipeline drives the whole command against a Logic and a session of its own.
-  /// `home` is the folder the saves of a replay go under, and in the pipeline it is a folder of
-  /// the test.
+  /// `home` is the home folder the saves of a replay go under, and in the pipeline it is a folder
+  /// of the test.
   static func answer(
     session id: String,
     from: Int? = nil,
@@ -96,7 +96,7 @@ extension Replay {
     driver: any LogicDriver,
     actions: TrackActions = TrackActions.live(),
     dialog: SaveDialog = SaveDialog.live(),
-    home: URL = FileManager.default.temporaryDirectory,
+    home: URL = FileManager.default.homeDirectoryForCurrentUser,
     runner: SessionReplay.Runner? = nil,
     root: URL = SessionRepository.defaultRoot,
     version: String = Logicctl.version,
@@ -369,16 +369,22 @@ extension Replay {
     }
   }
 
-  /// The folder one replay saves into.
+  /// The folder one replay saves into: `logicctl-replays` under the home folder, and the id of the
+  /// replay under that.
   ///
-  /// The name of it carries the id of the session the replay records its own work in, so two
-  /// replays never write to one path, and a person reads which replay left a file behind.
-  static func saveFolder(ofSession id: String, under folder: URL) -> URL {
-    folder.appendingPathComponent("logicctl-replay-" + id)
+  /// The id is the one of the session the replay records its own work in, so two replays never
+  /// write to one path, and a person reads which replay left a file behind. One folder holds every
+  /// replay, so a person removes the work of all of them together.
+  ///
+  /// The home folder is what the Save panel of Logic can reach. The panel walks the path one
+  /// column at a time, and the first column lists no `var`, so a save under the temporary folder of
+  /// macOS, which is under `/var`, waits for a column that never comes and stops with `timeout`.
+  static func saveFolder(ofSession id: String, under home: URL) -> URL {
+    home.appendingPathComponent("logicctl-replays").appendingPathComponent(id)
   }
 
-  /// Where a recorded `save` writes in a replay: the folder of the replay, under the file name the
-  /// record carries.
+  /// Where a recorded `save` writes in a replay: the folder of the replay under the home folder,
+  /// under the file name the record carries.
   ///
   /// The path of the record is where a person keeps their work, and a `.logicx` holds hours of it
   /// that nothing brings back, so a replay writes nowhere near it. The folder of the replay is made
