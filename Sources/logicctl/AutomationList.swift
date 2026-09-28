@@ -94,6 +94,12 @@ struct AutomationListCommand: LogicCommand {
 
   let argv: [String]
 
+  /// The regions Logic held before this command selected the one it was asked about, when they did
+  /// not go back.
+  var detailsBesideTheAnswer: JSONValue? {
+    selection.kept.details
+  }
+
   /// Logic is not showing the events of any region, so there is nothing to read.
   ///
   /// logicctl does not open the Event List itself, so the sentence says what to do rather than
@@ -121,6 +127,9 @@ struct AutomationListCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     let track = target.track.value
+    // The read takes the selection down to one region, so it gives it back however it ends: after
+    // the points were read, after a later failure, and after the selection was refused.
+    defer { selection.putTheSelectionBack(under: { try source().root }) }
     try RegionTarget.selectOnly(
       target, numbered: region.index, under: try source().root, through: selection)
     guard let window = EventList.window(of: try source()) else {

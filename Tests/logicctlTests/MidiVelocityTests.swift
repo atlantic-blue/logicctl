@@ -677,13 +677,37 @@ private func aSessionTheyMade(inside root: URL, with git: Git) throws -> Session
     against: logic)
 
   #expect(
-    logic.heldRegions == ["the region of track 4"],
-    "the region the command named is the only region Logic holds")
+    logic.heldRegions == ["the region of track 5"],
+    "the region Logic held is back, because the edit gives the selection back when it ends")
   #expect(
-    logic.did == ["select the region", "read the Event List"],
-    "the region is selected before a row is read, so the row belongs to the named region")
+    logic.did == ["select the region", "read the Event List", "select the region"],
+    "the region is selected before a row is read, and it goes back when the edit ends")
   #expect(try answer.data()["velocity"] as? Int == 90, "the velocity the slider reads afterwards")
   #expect(answer.status == 0, "the command exits 0")
+}
+
+/// The edit gives the regions back as well as the rows, and it gives the rows back first.
+///
+/// A person is working on the regions of tracks 3 and 5 and asks for a note of a region of track 4.
+/// The Event List shows whichever region Logic holds, so the edit takes the selection down to that
+/// one region, and it hands both selections back when it ends: the rows of the list first, while
+/// their region is still selected, and the regions after them.
+@Test func velocityPutsBackTheSelectedRegions() throws {
+  let logic = try aLogicShowingTheTracksAndTheEventList()
+  logic.hold(theRegionsOfTracks: [3, 5])
+
+  let answer = try midiVelocity(
+    ["midi", "velocity", "--track", "4", "--region", "1", "--note", "2", "--value", "90"],
+    against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.data()["velocity"] as? Int == 90, "note 2 carries the velocity asked for")
+  #expect(
+    logic.heldRegions == ["the region of track 3", "the region of track 5"],
+    "the regions of tracks 3 and 5 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other edit")
 }
 
 /// An edit gives the selection back, because the selection is the work of the person at the

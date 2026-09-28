@@ -530,8 +530,8 @@ private func midiQuantize(
   #expect(logic.slider == [], "the Strength slider already reads 100, so nothing is written at it")
   #expect(logic.pressed == ["Time Quantize"], "the button that quantizes is the one pressed")
   #expect(
-    logic.did == ["select the region", "select", "choose", "press"],
-    "the press comes last, because Logic quantizes what the popup holds when it is pressed")
+    logic.did == ["select the region", "select", "choose", "press", "select the region"],
+    "the press comes after the popup, and the region goes back when the command ends")
   #expect(status == 0, "the command exits 0")
   #expect(err == "", "standard error stays empty when a command worked")
 }
@@ -643,11 +643,11 @@ private func midiQuantize(
     standardError: { err += $0 })
 
   #expect(
-    logic.heldRegions == ["the region of track 4"],
-    "the region the command named is the only region Logic holds")
+    logic.heldRegions == ["the region of track 5"],
+    "the region Logic held is back, because the quantize gives the selection back when it ends")
   #expect(
-    logic.did == ["select the region", "select", "choose", "press"],
-    "the region is selected before the Piano Roll is touched, so the notes belong to that region")
+    logic.did == ["select the region", "select", "choose", "press", "select the region"],
+    "the region is selected before the Piano Roll, and it goes back when the quantize ends")
   let printed = try JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any] ?? [:]
   let rows = (printed["data"] as? [String: Any] ?? [:])["notes"] as? [[String: Any]] ?? []
   #expect(
@@ -655,4 +655,46 @@ private func midiQuantize(
     "the four notes of the named region moved onto the grid")
   #expect(status == 0, "the command exits 0")
   #expect(err == "", "standard error stays empty when a command worked")
+}
+
+/// The quantize gives the regions back, because the selection is where the person is working.
+///
+/// A person is working on the regions of tracks 3 and 5 and quantizes a region of track 4. Logic
+/// quantizes what is selected, so the command takes the selection down to that one region, and it
+/// gives the two regions back when it ends.
+@Test func quantizePutsBackTheSelectedRegions() throws {
+  let events = try recorded("event-list-automation.json")
+  let logic = try AFakeLogic(
+    pianoRoll: try recorded("piano-roll.json"),
+    before: events,
+    after: events,
+    tracks: try theTracksWindowOfThreeRegions())
+  logic.hold(theRegionsOfTracks: [3, 5])
+
+  var out = ""
+  var err = ""
+  let typed = try Logicctl.parseAsRoot([
+    "midi", "quantize", "--track", "4", "--region", "1", "--value", "1/16", "--strength", "100",
+  ])
+  let quantize = try #require(typed as? Midi.Quantize)
+  let status = quantize.answer(
+    driver: FakeLogicDriver(tracks: aProjectWithARegionOnTrack4()),
+    of: { logic.tree },
+    confirmed: quantize.guarded.confirm,
+    pianoRoll: logic.actions,
+    selection: logic.selection,
+    root: URL(fileURLWithPath: NSTemporaryDirectory()).appending(path: "no-session"),
+    standardOutput: { out += $0 },
+    standardError: { err += $0 })
+
+  #expect(status == 0, "the command exits 0")
+  #expect(err == "", "standard error stays empty when a command worked")
+  #expect(
+    logic.heldRegions == ["the region of track 3", "the region of track 5"],
+    "the regions of tracks 3 and 5 are selected again, as the person left them")
+  let printed = try JSONSerialization.jsonObject(with: Data(out.utf8)) as? [String: Any] ?? [:]
+  let meta = printed["meta"] as? [String: Any] ?? [:]
+  #expect(
+    meta["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other quantize")
 }

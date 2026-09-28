@@ -131,6 +131,12 @@ struct MidiQuantizeCommand: LogicCommand {
 
   let argv: [String]
 
+  /// The regions Logic held before this command selected the one it was asked about, when they did
+  /// not go back.
+  var detailsBesideTheAnswer: JSONValue? {
+    selection.kept.details
+  }
+
   /// Logic is showing no Piano Roll, so there is nothing to select and nothing to quantize.
   ///
   /// logicctl opens no window itself, so the sentence says what to do rather than naming an
@@ -183,7 +189,9 @@ struct MidiQuantizeCommand: LogicCommand {
   func act(through driver: any LogicDriver) throws -> JSONValue? {
     let region = try RegionTarget.region(target, in: try driver.readState())
     // The Piano Roll follows the selection as the Event List does, so the region is made the only
-    // selection before either window is read.
+    // selection before either window is read, and the selection of the person goes back however
+    // this ends: after the quantize, after a later failure, and after the selection was refused.
+    defer { selection.putTheSelectionBack(under: { try source().root }) }
     try RegionTarget.selectOnly(
       target, numbered: region.index, under: try source().root, through: selection)
     guard PianoRoll.window(of: try source()) != nil else {

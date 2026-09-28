@@ -549,15 +549,44 @@ private func automationSet(_ arguments: [String], against logic: AFakeLogic) thr
     against: logic)
 
   #expect(
-    logic.heldRegions == ["the region of track 3"],
-    "the region the command named is the only region Logic holds")
+    logic.heldRegions == ["the region of track 4", "the region of track 5"],
+    "the regions Logic held are back, because the edit gives the selection back when it ends")
   #expect(
-    logic.did == ["select the region", "read the Event List"],
-    "the region is selected before a row is read, so the point belongs to the named region")
+    logic.did == ["select the region", "read the Event List", "select the region"],
+    "the region is selected before a row is read, and the regions go back when the edit ends")
   #expect(
     try answer.points().map { $0["value"] as? Int } == [100, 90, 110],
     "point 1 of the named region carries 100, and the other two are as Logic recorded them")
   #expect(answer.status == 0, "the command exits 0")
+}
+
+/// The edit gives the regions back as well as the rows, and it gives the rows back first.
+///
+/// A person is working on the regions of tracks 4 and 5 and changes a point of a region of track 3.
+/// The Event List shows whichever region Logic holds, so the edit takes the selection down to that
+/// one region, and it hands both selections back when it ends: the rows of the list first, while
+/// their region is still selected, and the regions after them.
+@Test func setPutsBackTheSelectedRegions() throws {
+  let logic = try AFakeLogic(showing: [
+    try theTracksWindowOfThreeRegions(),
+    try recorded("event-list-automation.json"),
+  ])
+  logic.hold(theRegionsOfTracks: [4, 5])
+
+  let answer = try automationSet(
+    ["automation", "set", "--track", "3", "--region", "1", "--point", "1", "--value", "100"],
+    against: logic)
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(
+    try answer.points().map { $0["value"] as? Int } == [100, 90, 110],
+    "point 1 of the named region carries the value asked for")
+  #expect(
+    logic.heldRegions == ["the region of track 4", "the region of track 5"],
+    "the regions of tracks 4 and 5 are selected again, as the person left them")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other edit")
 }
 
 /// An edit of a point gives the selection back, the way an edit of a note does.

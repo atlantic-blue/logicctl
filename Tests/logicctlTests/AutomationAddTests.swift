@@ -38,6 +38,10 @@ private struct Answer {
   func error() throws -> [String: Any] {
     try printed()["error"] as? [String: Any] ?? [:]
   }
+
+  func meta() throws -> [String: Any] {
+    try printed()["meta"] as? [String: Any] ?? [:]
+  }
 }
 
 /// One element of the tree this test holds two recorded windows under.
@@ -632,14 +636,14 @@ private func aProjectOfSevenImportedTracks() -> [Track] {
 
   #expect(answer.status == 0, "the command goes through")
   #expect(
-    shown.regions.filter({ $0.value.held }).keys.sorted() == [3],
-    "Logic holds the region of track 3, and it holds no other region")
+    shown.regions.filter({ $0.value.held }).keys.sorted() == [6, 7],
+    "the regions Logic held are back, and the named region is let go, when the command ends")
   #expect(
-    shown.regions[3]?.writes == 3,
-    "the named region is written once to select it, and twice more to make Logic draw it again")
+    shown.regions[3]?.writes == 4,
+    "the named region is written to select it, twice to draw it again, and once to let it go")
   #expect(
-    shown.regions[6]?.writes == 1 && shown.regions[7]?.writes == 1,
-    "each region Logic held is written once, which lets it go")
+    shown.regions[6]?.writes == 2 && shown.regions[7]?.writes == 2,
+    "each region Logic held is written once to let it go, and once more to take it again")
   #expect(
     shown.regions[5]?.writes == 0,
     "a region that is already as it should be is not written, because a write would select it")
@@ -937,11 +941,11 @@ private func aProjectOfFourRegions() -> [Track] {
     try answer.points().map { $0["value"] as? Int } == [60, 90, 110],
     "each point carries the value the Event List shows on its row")
   #expect(
-    named.writes == 3,
-    "the region is written once to select it, and twice more to let it go and take it again")
+    named.writes == 4,
+    "the region is written to select it, twice to draw it again, and once to let it go")
   #expect(
-    shown.regions.filter({ $0.value.held }).keys.sorted() == [3],
-    "and the region the person named is the only region Logic holds at the end")
+    shown.regions.filter({ $0.value.held }).keys.sorted() == [6, 7],
+    "and the regions the person had are the ones Logic holds at the end")
 
   // The same Logic, driven through the two presses and no second selection. Its Event List holds
   // no automation row, so the points above reached the answer through that selection and through
@@ -983,4 +987,31 @@ private func aProjectOfFourRegions() -> [Track] {
     gave["waitedMs"] as? Int == 5000,
     "with the time it gave Logic, which is the limit of a wait that names none")
   #expect(try waited.printed()["data"] is NSNull, "a failure carries no data")
+}
+
+/// Making the points gives the regions back, because the selection is where the person is working.
+///
+/// A person is working on the regions of tracks 6 and 7 and adds automation to a region of track 3.
+/// Logic makes the points at the borders of every region that is selected, so the command takes the
+/// selection down to that one region, and it gives the two regions back when it ends.
+@Test func automationAddPutsBackTheSelectedRegions() throws {
+  let shown = aTracksWindowOfFourRegions(holding: [6, 7])
+  let logic = AFakeLogic(
+    tracks: shown.window,
+    before: try recorded("event-list-notes.json"),
+    after: try recorded("event-list-automation.json"),
+    selection: aSelectionThatAnswersLikeLogic())
+
+  let answer = try automationAdd(
+    ["--track", "3", "--region", "1"], logic: logic, tracks: aProjectOfFourRegions())
+
+  #expect(answer.status == 0, "the command exits 0")
+  #expect(try answer.points().count == 3, "the points Logic made in the region the person named")
+  #expect(
+    shown.regions.filter({ $0.value.held }).keys.sorted() == [6, 7],
+    "the regions of tracks 6 and 7 are selected again, as the person left them")
+  #expect(shown.regions[3]?.held == false, "and the region the command named is let go")
+  #expect(
+    try answer.meta()["details"] is NSNull,
+    "a selection that went back is not news, so the answer is the answer of any other run")
 }
