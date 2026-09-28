@@ -134,6 +134,15 @@ struct MidiVelocityCommand: LogicCommand {
 
   let argv: [String]
 
+  /// The rows of the Event List the person had selected before this edit, and whether they went
+  /// back when it ended.
+  let kept = SelectionGuard.Kept()
+
+  /// The rows the person had selected, when the edit did not give them back.
+  var detailsBesideTheAnswer: JSONValue? {
+    kept.details
+  }
+
   /// Logic is showing no Event List, so there is no note to change.
   ///
   /// logicctl opens no window itself, so the sentence says what to do rather than naming an
@@ -233,7 +242,11 @@ struct MidiVelocityCommand: LogicCommand {
         notes: rows.compactMap(\.note).count)
     }
 
-    try guarded(over: rows).selectOnly(MidiVelocityCommand.named(row))
+    // The edit takes the selection down to one row, so it gives it back however it ends: after
+    // the slider moved, after a later failure, and after the guard refused.
+    let holding = guarded(over: rows)
+    defer { holding.putTheSelectionBack() }
+    try holding.selectOnly(MidiVelocityCommand.named(row))
     guard let slider = EventList.velocitySlider(of: row.row) else {
       throw NoVelocitySlider(
         track: target.track.value, region: region.index, note: asked)
@@ -262,7 +275,8 @@ struct MidiVelocityCommand: LogicCommand {
       },
       selection: {
         try rows.filter { try self.events.selected($0.row) }.map(MidiVelocityCommand.named)
-      })
+      },
+      kept: kept)
   }
 
   /// The name a row is known by, in the words a person typed or the words Logic shows.

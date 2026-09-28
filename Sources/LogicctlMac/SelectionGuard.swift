@@ -7,6 +7,10 @@ import LogicctlCore
 /// later read shows that the other one changed. The guard writes the selection, reads it back, and
 /// stops the command when the readback holds anything besides the target.
 ///
+/// A selection is also the work of the person at the keyboard: it is how they say which events
+/// they are looking at. So the guard reads what the table held before it writes, and
+/// `putTheSelectionBack` gives those rows back when the edit ends.
+///
 /// The write and the read are closures the caller gives, as they are for `InputGate` and
 /// `SaveDialog`. A recorded tree carries no selection, so a test drives the guard with a table of
 /// its own and the pipeline needs no Logic.
@@ -100,9 +104,12 @@ public struct SelectionGuard {
 
   /// Selects one row alone, and throws when the selection holds anything else.
   ///
-  /// The guard writes once. A table that answered another selection is a Logic that is doing
-  /// something else, so a second write would aim an edit at a state nobody read.
+  /// The selection is read first, because nothing else knows what the person had selected once the
+  /// write has landed. The guard then writes once. A table that answered another selection is a
+  /// Logic that is doing something else, so a second write would aim an edit at a state nobody
+  /// read.
   public func selectOnly(_ target: String) throws {
+    kept.read(try selection())
     try select([target])
     let held = try selection()
     guard held == [target] else {
@@ -115,5 +122,15 @@ public struct SelectionGuard {
   /// A selection is the progress of the person at the keyboard, so an edit gives it back when it
   /// ends. This never fails the command: the edit is done, and a selection that did not go back is
   /// something the answer says rather than something a caller acts on.
-  public func putTheSelectionBack() {}
+  public func putTheSelectionBack() {
+    guard let before = kept.before else {
+      return
+    }
+    do {
+      try select(before)
+      kept.wentBack(try selection() == before)
+    } catch {
+      kept.wentBack(false)
+    }
+  }
 }
